@@ -1,0 +1,58 @@
+[
+  {
+    "header": {
+      "name": "四向1",
+      "boundingBox": { "minX": 0, "minY": 0, "maxX": 60, "maxY": 60, "w": 60, "h": 60 }
+    },
+    "data": {
+      "nodes": [
+        {
+          "id": 1,
+          "x": 30,
+          "y": 30,
+          "modelId": 0,
+          "slots": [
+            { "dir": -1, "priority": 1 },
+            { "dir": -1 },
+            { "dir": 1 },
+            { "dir": 1, "priority": 1, "filterId": 6001 }
+          ]
+        }
+      ],
+      "lines": []
+    }
+  },
+  {
+    "header": {
+      "name": "非门",
+      "boundingBox": { "minX": 0, "minY": 0, "maxX": 60, "maxY": 150, "w": 60, "h": 150 }
+    },
+    "data": {
+      "nodes": [
+        {
+          "id": 1,
+          "x": 30,
+          "y": 120,
+          "modelId": 0,
+          "slots": [
+            { "dir": -1, "priority": 1 },
+            { "dir": -1 },
+            { "dir": 1 },
+            { "dir": 1, "priority": 1, "filterId": 6001 }
+          ]
+        },
+        {
+          "id": 2,
+          "x": 30,
+          "y": 30,
+          "modelId": 0,
+          "slots": [{ "dir": -1 }, { "dir": -1 }, { "dir": 1 }, { "dir": 1 }]
+        }
+      ],
+      "lines": [
+        { "startId": 2, "startSlot": 2, "endId": 1, "endSlot": 0 },
+        { "startId": 2, "startSlot": 2, "endId": 1, "endSlot": 0 }
+      ]
+    }
+  }
+]
