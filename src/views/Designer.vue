@@ -107,7 +107,11 @@ export default {
   name: "test",
   data() {
     return {
-      dspGraph: null, // 图谱实例
+      /**
+       * 图谱实例
+       * @type {DspGraph}
+       */
+      dspGraph: null,
       fileName: "新蓝图1",
       gridAlignment: true, // 是否网格对齐
       dbcCreate: true, // 是否双击创建
@@ -223,6 +227,28 @@ export default {
           style: `color:${Cfg.color.danger}`,
           handler: () => {
             this.dspGraph.handleDelete();
+          },
+        },
+        {
+          title: "置于顶层",
+          icon: "el-icon-top",
+          handler: () => {
+            // 所有选中节点置于顶层
+            const selectionNodeMap = this.dspGraph._selection.nodeMap;
+            if (selectionNodeMap.size > 0) {
+              this.dspGraph.nodesBringToFront(Array.from(selectionNodeMap.values()));
+            }
+          },
+        },
+        {
+          title: "置于底层",
+          icon: "el-icon-bottom",
+          handler: () => {
+            // 所有选中节点置于底层
+            const selectionNodeMap = this.dspGraph._selection.nodeMap;
+            if (selectionNodeMap.size > 0) {
+              this.dspGraph.nodesSendToBack(Array.from(selectionNodeMap.values()));
+            }
           },
         },
       ];

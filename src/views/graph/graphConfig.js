@@ -16,7 +16,7 @@ export const nodeSize = 60; // 节点默认宽高
 export const pointSize = 7; // 节点插槽圆点大小
 export const fontSize = 15; // 字体大小
 export const lineHeight = 15; // 行高
-export const lineWordsNum = 6; // 一行文本的字数
+export const lineWordNum = 6; // 一行文本的字数(非中文算0.5个字符)
 export const selectionMargin = 5; // 节点选中框与元素间距
 export const nodeCornerWidth = 5; // 节点选中角框长度
 export const gridStep = nodeSize / 4; // 网格对齐间距
@@ -68,7 +68,7 @@ export const nodeModels = [
     name: "普通文本", // 节点名称
     modelId: -1, // 模型Id
     build: function (nodeId, offset = [0, 0], text = "双击修改文本") {
-      let w = lineWordsNum * fontSize;
+      let w = lineWordNum * fontSize;
       let h = Util.getLineNum(text) * lineHeight; // 根据实际文本行数修改高度
       const data = {
         id: nodeId,

@@ -50,15 +50,60 @@ export function coordToOffset([cx, cy], { x, y, k }) {
 }
 
 /**
- * 获取文本行数(至少一行)
+ * 限制每行字符数，切换字符串
+ * @param text
+ * @param lineWidth 一行容纳多少个字符(非中文算0.5个字符)
+ * @return {Array} 分割字符串数组
  */
-export function getLineNum(text) {
-  if (!(text?.length > 0)) return 1;
-  return text
-    .split("\n") // 解析换行符
-    .reduce((a, b) => {
-      return a + (b.length == 0 ? 1 : Math.ceil(b.length / Cfg.lineWordsNum));
-    }, 0);
+export function splitLines(text = "", lineWidth = Cfg.lineWordNum) {
+  text = text.trim();
+  if (text.length == 0) return [];
+  var totalWidth = 0;
+  var lines = [];
+  var line = "";
+  for (var i = 0; i < text.length; i++) {
+    var char = text[i];
+    if (char === "\n") {
+      // 换行符
+      lines.push(line + "\n");
+      line = "";
+      totalWidth = 0;
+      continue;
+    }
+    var charWidth;
+    if (/[\u4e00-\u9fa5]/.test(char)) {
+      // 中文字符
+      charWidth = 1;
+    } else {
+      // 英文字符
+      charWidth = 0.5;
+    }
+    // 检查是否需要换行
+    if (totalWidth + charWidth > lineWidth) {
+      lines.push(line);
+      line = char;
+      totalWidth = charWidth;
+    } else {
+      totalWidth += charWidth;
+      line += char;
+    }
+  }
+  // 添加最后一行
+  if (line !== "") {
+    lines.push(line);
+  }
+  return lines;
+}
+
+/**
+ * 计算文本行数(至少一行)
+ * @param text 文本
+ * @param lineWidth 一行容纳多少个字符(非中文算0.5个字符)
+ */
+export function getLineNum(text = "", lineWidth = Cfg.lineWordNum) {
+  text = text.trim();
+  if (text.length == 0) return 1;
+  return splitLines(text, lineWidth).length;
 }
 
 /**

@@ -404,16 +404,17 @@ export default class Graph {
    * 删除节点
    * @param node 节点对象
    * @param rebuild 是否触发重绘(默认是)
-   * @return 是否需要重绘
+   * @return 是否需要重绘 {nbLink, nbNode, nbBox}
    */
   deleteNode(node, rebuild = true) {
     if (!node) return;
-    let needRebuild = false;
+    let nbLink = false;
+    let nbNode = false;
+    let nbBox = false;
     // 删除节点插槽连线
     let edges = node.slots.map((s) => s.edge).filter((e) => e);
     if (edges.length > 0) {
-      this.deleteEdges(edges, rebuild);
-      needRebuild = true;
+      nbLink ||= this.deleteEdges(edges, rebuild).nbLink;
     }
     // 删除节点
     this._nodeMap.delete(node.id);
@@ -422,41 +423,93 @@ export default class Graph {
       this._nodes.splice(i, 1);
       // 重绘节点
       if (rebuild) this.buildNode();
-      needRebuild = true;
+      else nbNode = true;
     }
     // 删除选中节点
     if (this._selection.nodeMap.has(node.id)) {
       this._selection.nodeMap.delete(node.id);
       // 重绘选择框
       if (rebuild) this.buildBox();
-      needRebuild = true;
+      else nbBox = true;
     }
-    return needRebuild;
+    return { nbLink, nbNode, nbBox };
   }
 
   /**
    * 删除多个节点
    * @param nodes 节点对象数组
    * @param rebuild 是否触发重绘(默认是)
-   * @return 是否需要重绘
+   * @return 是否需要重绘 {nbLink, nbNode, nbBox}
    */
   deleteNodes(nodes, rebuild = true) {
     if (!(nodes?.length > 0)) return;
-    let needRebuild = false;
+    let nbLink = false;
+    let nbNode = false;
+    let nbBox = false;
     nodes.forEach((node) => {
-      if (this.deleteNode(node, false)) {
-        needRebuild = true;
-      }
+      let needRebuild = this.deleteNode(node, false);
+      nbLink ||= needRebuild.nbLink;
+      nbNode ||= needRebuild.nbNode;
+      nbBox ||= needRebuild.nbBox;
     });
-    if (needRebuild && rebuild) {
-      // 重绘连接线
-      this.buildLink();
-      // 重绘节点
-      this.buildNode();
-      // 重绘选择框
-      this.buildBox();
+    if (rebuild) {
+      if (nbLink) {
+        this.buildLink(); // 重绘连接线
+        nbLink = false;
+      }
+      if (nbNode) {
+        this.buildNode(); // 重绘节点
+        nbNode = false;
+      }
+      if (nbBox) {
+        this.buildBox(); // 重绘选择框
+        nbBox = false;
+      }
     }
-    return needRebuild;
+
+    return { nbLink, nbNode, nbBox };
+  }
+
+  /**
+   * 单个节点-置于顶层
+   * @param node 节点对象
+   */
+  nodeBringToFront(node) {
+    if (!node) return;
+    return this.nodesBringToFront([node]);
+  }
+
+  /**
+   * 多个节点-置于顶层
+   * @param nodes 节点对象数组
+   */
+  nodesBringToFront(nodes) {
+    if (!this.$nodeGroup) throw "节点层Selection不存在！";
+    this.$nodeGroup
+      .selectAll(".node")
+      .data(nodes, (d) => d.id)
+      .raise();
+  }
+
+  /**
+   * 单个节点-置于底层
+   * @param node 节点对象
+   */
+  nodeSendToBack(node) {
+    if (!node) return;
+    return this.nodesSendToBack([node]);
+  }
+
+  /**
+   * 多个节点-置于底层
+   * @param nodes 节点对象数组
+   */
+  nodesSendToBack(nodes = []) {
+    if (!this.$nodeGroup) throw "节点层Selection不存在！";
+    this.$nodeGroup
+      .selectAll(".node")
+      .data(nodes, (d) => d.id)
+      .lower();
   }
 
   /**
@@ -537,9 +590,11 @@ export default class Graph {
    * 删除连接线
    * @param edge 连接线对象
    * @param rebuild 是否触发重绘(默认是)
+   * @return 是否需要重绘 {nbLink}
    */
   deleteEdge(edge, rebuild = true) {
     if (!edge) return;
+    let nbLink = false;
     edge.sourceSlot.edge = null;
     edge.targetSlot.edge = null;
     let i = this._edges.findIndex((e) => e == edge);
@@ -548,20 +603,28 @@ export default class Graph {
     }
     // 重绘连线
     if (rebuild) this.buildLink();
+    else nbLink = true;
+    return { nbLink };
   }
 
   /**
    * 删除多条连接线
    * @param edges 连接线对象数组
    * @param rebuild 是否触发重绘(默认是)
+   * @return 是否需要重绘 {nbLink}
    */
   deleteEdges(edges, rebuild = true) {
     if (!(edges?.length > 0)) return;
+    let nbLink = false;
     edges.forEach((edge) => {
-      this.deleteEdge(edge, false);
+      nbLink ||= this.deleteEdge(edge, false).nbLink;
     });
     // 重绘连线
-    if (rebuild) this.buildLink();
+    if (nbLink && rebuild) {
+      this.buildLink();
+      nbLink = false;
+    }
+    return { nbLink };
   }
 
   // 绘制节点
@@ -623,7 +686,6 @@ export default class Graph {
           .style("font-size", Cfg.fontSize + "px")
           .attr("text-anchor", "middle")
           .on("dblclick.deleteNode", function (d) {
-            console.log(d);
             d3.event.stopPropagation(); // 阻止创建事件传播
             // 双击文本，创建输入框
             // 获取当前的text元素
@@ -655,15 +717,15 @@ export default class Graph {
             // 当输入框失去焦点时，更新text元素的文本并删除输入框
             input.on("blur", () => {
               d.text = input.node().value || "";
-              console.log(input.node());
               textEl.html(null);
-              d.h = Util.getLineNum(d.text) * Cfg.lineHeight; // 根据实际文本行数修改高度
-              _this.createSpan(textEl, d.text);
+              const lines = Util.splitLines(d.text);
+              d.h = lines.length * Cfg.lineHeight; // 根据实际文本行数修改高度
+              _this.createTspan(textEl, lines);
               input.remove();
             });
           });
         // 创建多行文本
-        _this.createSpan(bg, d.text);
+        _this.createTspan(bg, Util.splitLines(d.text));
       } else if (d.modelId === 2 || d.modelId === 3) {
         // 起/终点模型
         bg = d3
@@ -701,33 +763,23 @@ export default class Graph {
   }
 
   // 创建多行文本
-  createSpan(Sel, text) {
+  createTspan(Sel, texts = []) {
     if (!Sel) throw "文本容器Selection不能为空";
-    if (text?.length > 0) {
-      Sel.style("fill", Cfg.color.text);
+    let startY = Cfg.lineHeight / 3 - (Cfg.lineHeight / 2) * (texts.length - 1); // 首行偏移量(居中对齐)
+    if (texts.length > 0) {
+      texts.forEach((text, i) => {
+        Sel.append("tspan")
+          .attr("x", 0)
+          .attr("dy", i == 0 ? startY : Cfg.lineHeight)
+          .style("fill", Cfg.color.text)
+          .text(text.trim().length == 0 ? String.fromCharCode(8203) : text); // 空串使用零宽空格，否则不会占一行
+      });
     } else {
-      text = "(空文本)";
-      Sel.style("fill", Cfg.color.emptyText);
-    }
-    const LN = Cfg.lineWordsNum; // 一行文本的字数
-    let lineNum = Util.getLineNum(text); // 行数
-    console.log(lineNum);
-    let startY = Cfg.fontSize / 3 - (Cfg.fontSize / 2) * (lineNum - 1); // 首行偏移量(居中对齐)
-    let i = 0;
-    while (i < text.length) {
-      let lineText = text.substring(i, i + LN);
-      let nIdx = lineText.indexOf("\n"); // 匹配换行符
-      if (nIdx > -1) {
-        lineText = lineText.substring(0, nIdx + 1);
-      } else if (text.charAt(i + LN) == "\n") {
-        // 下一个字符更换换行，归到这一行
-        lineText += "\n";
-      }
       Sel.append("tspan")
         .attr("x", 0)
-        .attr("dy", i == 0 ? startY : Cfg.lineHeight)
-        .text(lineText.trim() || String.fromCharCode(8203)); // 空串使用零宽空格，否则不会占一行
-      i += lineText.length;
+        .attr("dy", startY)
+        .style("fill", Cfg.color.emptyText)
+        .text("(空文本)");
     }
   }
 
@@ -1144,9 +1196,19 @@ export default class Graph {
     const dragend = () => {
       // 网格对齐
       if (this.gridAlignment && this._selection.boundingBox) {
-        const { minX, minY } = this._selection.boundingBox;
+        let x, y;
+        const { minX, minY, w, h } = this._selection.boundingBox;
+        if (this._selection.nodeMap.size == 1) {
+          // 如果只选中一个节点，则使用包围盒中心对齐
+          x = minX + w / 2;
+          y = minY + h / 2;
+        } else {
+          // 选中多个节点则使用包围盒左上角对齐
+          x = minX;
+          y = minY;
+        }
         // 获取网格对齐坐标偏移量
-        const [dtX, dtY] = Util.getGridAlignmentOffset(minX, minY);
+        const [dtX, dtY] = Util.getGridAlignmentOffset(x, y);
         if (dtX != 0 || dtY != 0) {
           this._selection.nodeMap.forEach((n) => {
             n.x += dtX;
@@ -1349,6 +1411,7 @@ export default class Graph {
     Message({
       message: "复制成功！",
       type: "success",
+      duration: 1000,
     });
   }
 
@@ -1374,6 +1437,7 @@ export default class Graph {
     Message({
       message: "粘贴成功！",
       type: "success",
+      duration: 1000,
     });
   }
 
@@ -1387,6 +1451,7 @@ export default class Graph {
       Message({
         message: "删除成功！",
         type: "success",
+        duration: 1000,
       });
     } else {
       Message({

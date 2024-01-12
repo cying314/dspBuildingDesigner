@@ -114,7 +114,7 @@ export function dataToNode(data, nodeId, offset = [0, 0]) {
     if (modelId == -1) {
       // 普通文本
       node.text = data.text || "";
-      node.w = Cfg.lineWordsNum * Cfg.fontSize;
+      node.w = Cfg.lineWordNum * Cfg.fontSize;
       node.h = Util.getLineNum(node.text) * Cfg.lineHeight; // 根据实际文本行数修改高度
     }
     // 插槽参数
