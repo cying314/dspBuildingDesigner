@@ -4,47 +4,52 @@ import * as Mapper from "./dataMapper.js";
 import * as Util from "./graphUtil.js";
 import * as Watermark from "@/utils/watermark.js";
 export default class Graph {
-  graphName; // 图谱名称
-  transform = { x: 0, y: 0, k: 1 }; // 画布位移、缩放
-  width; // 画布宽度
-  height; // 画布高度
-  _canvasDOM; // 画布容器dom对象
-  gridAlignment; // 网格对齐(默认是)
-  defaultScale; // 初始化缩放(默认1)
-  minScale; // 最小缩放(默认0.1)
-  maxScale; // 最大缩放(默认5)
-  $svg; // 根节点SVGSelection
-  $vis; // 视图层Selection
-  $nodeGroup; // 节点层Selection
-  $linkGroup; // 连接线层Selection
-  $boxGroup; // 选择框层Selection
-  $node; // 节点集Selection
-  $link; // 连线集Selection
-  $box; // 选择框Selection
-  _nodeDrag; // 节点拖拽实例
-  _slotDrag; // 节点插槽拖拽实例
-  _nodes; // 节点数据
-  _edges; // 连接线数据
-  _maxId; // 最大节点id
-  _nodeMap; // 节点id对应实体Map
-  _selection = {
-    // 节点选择框
-    nodeMap: new Map(), // 选中节点id对应实体Map
-    boundingBox: null, // 选中节点包围盒边界信息 {minX, minY, maxX, maxY, w, h}
+  /** 图谱名称 @type {string} */ graphName;
+  /** 画布位移、缩放 @type {{x, y, k}} */ transform = { x: 0, y: 0, k: 1 };
+  /** 画布宽度 @type {number} */ width;
+  /** 画布高度 @type {number} */ height;
+  /** 画布容器dom对象 @type {HTMLElement} */ _canvasDOM;
+  /** 网格对齐(默认是) @type {boolean} */ gridAlignment;
+  /** 初始化缩放(默认1) @type {number} */ defaultScale;
+  /** 最小缩放(默认0.1) @type {number} */ minScale;
+  /** 最大缩放(默认5) @type {number} */ maxScale;
+
+  /** 根节点SVG Sel @type {d3.Selection<SVGSVGElement>} */ $svg;
+  /** 视图层Sel @type {d3.Selection<SVGGElement>} */ $vis;
+  /** 节点层Sel @type {d3.Selection<SVGGElement>} */ $nodeGroup;
+  /** 连接线层Sel @type {d3.Selection<SVGGElement>} */ $linkGroup;
+  /** 选择框层Sel @type {d3.Selection<SVGGElement>} */ $boxGroup;
+
+  /** 节点集Selection @type {d3.Selection<,Mapper.GraphNode>} */ $node;
+  /** 连线集Selection @type {d3.Selection<,Mapper.GraphEdge>} */ $link;
+  /** 选择框Selection @type {d3.Selection<,Mapper.GraphNode>} */ $box;
+
+  /** 节点拖拽实例 @type {d3.DragBehavior} */ _nodeDrag;
+  /** 节点插槽拖拽实例 @type {d3.DragBehavior} */ _slotDrag;
+
+  /** 节点数据 @type {Mapper.GraphNode[]} */ _nodes;
+  /** 连接线数据 @type {Mapper.GraphEdge[]} */ _edges;
+  /** 最大节点id @type {number} */ _maxId;
+  /** 节点id对应实体Map @type {Map<number,Mapper.GraphNode>} */ _nodeMap;
+
+  /** 节点选择框 */ _selection = {
+    /** 选中节点id对应实体Map @type {Map<number,Mapper.GraphNode>} */ nodeMap: new Map(),
+    /** 选中节点包围盒边界信息 @type {{minX, minY, maxX, maxY, w, h}} */ boundingBox: null,
   };
-  _selectionWindow; // 右键选择框窗口
-  _ctrlDown = false; // 按下ctrl
-  _mouseIsEnter = false; // 当前鼠标是否在画布内
-  _mouseOffset = [0, 0]; // 当前鼠标在画布内相对位置
-  handleDblclick; // 画布空白位置双击事件
-  handleRclickNode; // 右键点击节点事件
-  handleRclickSlot; // 右键点击插槽事件
+  /** 右键选择框窗口 start拖拽起点 end拖拽终点 @type {{start:number[], end:number[]}} */ _selectionWindow;
+
+  /** 是否按下ctrl */ _ctrlDown = false;
+  /** 当前鼠标是否在画布内 */ _mouseIsEnter = false;
+  /** 当前鼠标在画布内相对位置 */ _mouseOffset = [0, 0];
+  /** 画布空白位置双击事件 */ handleDblclick;
+  /** 右键点击节点事件 */ handleRclickNode;
+  /** 右键点击插槽事件 */ handleRclickSlot;
 
   /**
    * 图谱实例
    * @param {Object} options
    * @param {HTMLElement} options.canvasDOM 画布容器dom对象
-   * @param {Object} options.graphData 图谱数据
+   * @param {Mapper.GraphData} options.graphData 图谱数据
    * @param {string} options.uniqueTag 画布内元素id唯一标识(默认def)
    * @param {string} options.graphName 图谱名称
    * @param {boolean} options.gridAlignment 网格对齐(默认是)
@@ -206,7 +211,14 @@ export default class Graph {
   // 绑定按钮事件
   bindKeyEvent() {
     d3.select("body").on("keydown." + this.uniqueTag, () => {
-      // 保存、导出事件绑定在整个页面上，避免未聚焦画布时，触发浏览器默认事件
+      // 删除、保存、导出事件绑定在整个页面上，避免未聚焦画布时，触发浏览器默认事件
+      switch (d3.event.keyCode) {
+        case 46: // delete键
+          // 删除
+          d3.event.preventDefault();
+          this.handleDelete();
+          break;
+      }
       if (d3.event.ctrlKey) {
         switch (d3.event.keyCode) {
           case 83: // Ctrl+S键
@@ -220,6 +232,8 @@ export default class Graph {
             this.handleSaveAsJson();
             break;
           case 88: // Ctrl+X键
+            // TODO:导出蓝图
+            d3.event.preventDefault();
             break;
         }
       }
@@ -229,12 +243,6 @@ export default class Graph {
       .on("keydown." + this.uniqueTag, () => {
         // Ctrl键按下
         this._ctrlDown = d3.event.ctrlKey;
-        switch (d3.event.keyCode) {
-          case 46: // delete键
-            d3.event.preventDefault();
-            this.handleDelete();
-            break;
-        }
         if (this._ctrlDown) {
           switch (d3.event.keyCode) {
             case 65: // Ctrl+A键
@@ -263,81 +271,71 @@ export default class Graph {
 
   /**
    * 加载数据，重置图谱
-   * @param graphData 图谱持久化数据
+   * @param {Mapper.GraphData} graphData 图谱持久化数据
    */
   resetGraphData(graphData) {
-    try {
-      const { _header, _nodes, _edges, _maxId, _nodeMap } = Mapper.graphDataParse(graphData, 0);
-      this._nodes = _nodes;
-      this._edges = _edges;
-      this._maxId = _maxId;
-      this._nodeMap = _nodeMap;
-      this._selection.nodeMap.clear();
+    const { _header, _nodes, _edges, _maxId, _nodeMap } = Mapper.graphDataParse(graphData, 0);
+    this._nodes = _nodes;
+    this._edges = _edges;
+    this._maxId = _maxId;
+    this._nodeMap = _nodeMap;
+    this._selection.nodeMap.clear();
 
-      // 图谱名称
-      this.graphName = _header._graphName;
-      // 设置画布位移、缩放
-      this.setTransform(_header._transform);
+    // 图谱名称
+    this.graphName = _header._graphName;
+    // 设置画布位移、缩放
+    this.setTransform(_header._transform);
 
-      // 重绘节点
-      this.buildNode();
-      // 重绘连线
-      this.buildLink();
-      // 重绘选择框
-      this.buildBox();
-    } catch (e) {
-      Util._err("载入数据失败：" + e);
-      throw e;
-    }
+    // 重绘节点
+    this.buildNode();
+    // 重绘连线
+    this.buildLink();
+    // 重绘选择框
+    this.buildBox();
   }
 
   /**
    * 加载数据，并追加到当前图谱
-   * @param graphData 图谱持久化数据
-   * @param offset 相对画布svg坐标 [ox, oy]
+   * @param {Mapper.GraphData} graphData 图谱持久化数据
+   * @param {number[]} offset 相对画布svg坐标 [ox, oy]
    */
   appendGraphData(graphData, [ox = 0, oy = 0] = []) {
-    try {
-      Util.checkGraphData(graphData, true, true); // 校验图谱数据
-      const { minX = 0, minY = 0, w = 0, h = 0 } = graphData.header.boundingBox ?? {};
-      // 将坐标转换为视图内坐标
-      const coord = Util.offsetToCoord([ox, oy], this.transform);
-      let bboxOffset;
-      if (this.gridAlignment) {
-        // 网格对齐
-        const ga = Util.gridAlignment(-w / 2 + coord[0], -h / 2 + coord[1]);
-        bboxOffset = [-minX + ga[0], -minY + ga[1]];
-      } else {
-        bboxOffset = [-minX - w / 2 + coord[0], -minY - h / 2 + coord[1]];
-      }
-      const { _nodes, _edges, _maxId, _nodeMap } = Mapper.graphDataParse(
-        graphData,
-        this._maxId,
-        bboxOffset // 整体偏移
-      );
-      this._nodes.push(..._nodes);
-      this._edges.push(..._edges);
-      this._maxId = _maxId;
-      _nodeMap.forEach((n, nid) => {
-        this._nodeMap.set(nid, n);
-      });
-      this._selection.nodeMap = _nodeMap; // 选中粘贴的节点
-
-      // 重绘节点
-      this.buildNode();
-      // 重绘连线
-      this.buildLink();
-      // 重绘选择框
-      this.buildBox();
-    } catch (e) {
-      Util._err("载入数据失败：" + e);
-      throw e;
+    Util.checkGraphData(graphData, true, true); // 校验图谱数据
+    const { minX = 0, minY = 0, w = 0, h = 0 } = graphData.header.boundingBox ?? {};
+    // 将坐标转换为视图内坐标
+    const coord = Util.offsetToCoord([ox, oy], this.transform);
+    let bboxOffset;
+    if (this.gridAlignment) {
+      // 网格对齐
+      const ga = Util.gridAlignment(-w / 2 + coord[0], -h / 2 + coord[1]);
+      bboxOffset = [-minX + ga[0], -minY + ga[1]];
+    } else {
+      bboxOffset = [-minX - w / 2 + coord[0], -minY - h / 2 + coord[1]];
     }
+    const { _nodes, _edges, _maxId, _nodeMap } = Mapper.graphDataParse(
+      graphData,
+      this._maxId,
+      bboxOffset // 整体偏移
+    );
+    this._nodes.push(..._nodes);
+    this._edges.push(..._edges);
+    this._maxId = _maxId;
+    _nodeMap.forEach((n, nid) => {
+      this._nodeMap.set(nid, n);
+    });
+    this._selection.nodeMap = _nodeMap; // 选中粘贴的节点
+
+    // 重绘节点
+    this.buildNode();
+    // 重绘连线
+    this.buildLink();
+    // 重绘选择框
+    this.buildBox();
   }
 
   /**
    * 重置缩放大小及位置
-   * @param isTransition 是否动画过渡
+   * @param {boolean} isTransition 是否动画过渡
    */
   resetPosition(isTransition) {
     if (!this._zoom) throw "缩放实例不存在！";
@@ -365,8 +363,8 @@ export default class Graph {
 
   /**
    * 设置画布位移、缩放
-   * @param transform 转换参数 {x, y, k}
-   * @param isTransition 是否动画过渡
+   * @param {object} transform 转换参数 {x, y, k}
+   * @param {boolean} isTransition 是否动画过渡
    */
   setTransform({ x, y, k }, isTransition) {
     if (!this.$svg) throw "根节点SVGSelection不存在！";
@@ -381,8 +379,8 @@ export default class Graph {
 
   /**
    * 创建节点
-   * @param modelId 模型ID
-   * @param offset 相对画布坐标 [ox,oy]
+   * @param {number} modelId 模型ID
+   * @param {number[]} offset 相对画布坐标 [ox,oy]
    */
   createNode(modelId, offset = [0, 0]) {
     const coord = Util.offsetToCoord(offset, this.transform);
@@ -406,6 +404,7 @@ export default class Graph {
 
   /**
    * 选中节点
+   * @param {Mapper.GraphNode} node
    */
   handleSelectNode(node) {
     if (this._ctrlDown) {
@@ -419,6 +418,7 @@ export default class Graph {
 
   /**
    * 单选节点
+   * @param {Mapper.GraphNode} node
    */
   singleSelectNode(node) {
     if (!node) return;
@@ -436,6 +436,7 @@ export default class Graph {
   /**
    * 多选节点
    * 未选中则增选，选中则取消选择
+   * @param {Mapper.GraphNode} node
    */
   multipleSelectNode(node) {
     if (!node) return;
@@ -467,23 +468,31 @@ export default class Graph {
   }
 
   /**
+   * @typedef {Object} ToBeRebuild 是否需要重绘
+   * @property {boolean} tbLink 是否待重绘连接线
+   * @property {boolean} tbNode 是否待重绘节点
+   * @property {boolean} tbBox 是否待重绘选择框
+   */
+  /**
    * 删除节点
-   * @param node 节点对象
-   * @param rebuild 是否触发重绘(默认是)
-   * @return 是否需要重绘 {nbLink, nbNode, nbBox}
+   * @param {Mapper.GraphNode} node 节点对象
+   * @param {boolean} rebuild 是否触发重绘(默认是)
+   * @return {ToBeRebuild} 是否需要重绘 {tbLink, tbNode, tbBox}
    */
   deleteNode(node, rebuild = true) {
     if (!node) return;
-    let nbLink = false;
-    let nbNode = false;
-    let nbBox = false;
+    let tbLink = false;
+    let tbNode = false;
+    let tbBox = false;
     // 删除节点插槽连线
     let edgeSet = new Set();
     node.slots.forEach((s) => {
       if (s.edge) edgeSet.add(s.edge);
     });
     if (edgeSet.size > 0) {
-      nbLink ||= this.deleteEdges(Array.from(edgeSet), rebuild).nbLink;
+      if (this.deleteEdges(Array.from(edgeSet), rebuild).tbLink) {
+        tbLink = true;
+      }
     }
     // 删除节点
     this._nodeMap.delete(node.id);
@@ -492,107 +501,132 @@ export default class Graph {
       this._nodes.splice(i, 1);
       // 重绘节点
       if (rebuild) this.buildNode();
-      else nbNode = true;
+      else tbNode = true;
     }
     // 删除选中节点
     if (this._selection.nodeMap.has(node.id)) {
       this._selection.nodeMap.delete(node.id);
       // 重绘选择框
       if (rebuild) this.buildBox();
-      else nbBox = true;
+      else tbBox = true;
     }
-    return { nbLink, nbNode, nbBox };
+    return { tbLink, tbNode, tbBox };
   }
 
   /**
    * 删除多个节点
-   * @param nodes 节点对象数组
-   * @param rebuild 是否触发重绘(默认是)
-   * @return 是否需要重绘 {nbLink, nbNode, nbBox}
+   * @param {Mapper.GraphNode[]} nodes 节点对象数组
+   * @param {boolean} rebuild 是否触发重绘(默认是)
+   * @return {ToBeRebuild} 是否需要重绘 {tbLink, tbNode, tbBox}
    */
   deleteNodes(nodes, rebuild = true) {
     if (!(nodes?.length > 0)) return;
-    let nbLink = false;
-    let nbNode = false;
-    let nbBox = false;
+    let tbLink = false;
+    let tbNode = false;
+    let tbBox = false;
     nodes.forEach((node) => {
       let needRebuild = this.deleteNode(node, false);
-      nbLink ||= needRebuild.nbLink;
-      nbNode ||= needRebuild.nbNode;
-      nbBox ||= needRebuild.nbBox;
+      tbLink ||= needRebuild.tbLink;
+      tbNode ||= needRebuild.tbNode;
+      tbBox ||= needRebuild.tbBox;
     });
     if (rebuild) {
-      if (nbLink) {
+      if (tbLink) {
         this.buildLink(); // 重绘连接线
-        nbLink = false;
+        tbLink = false;
       }
-      if (nbNode) {
+      if (tbNode) {
         this.buildNode(); // 重绘节点
-        nbNode = false;
+        tbNode = false;
       }
-      if (nbBox) {
+      if (tbBox) {
         this.buildBox(); // 重绘选择框
-        nbBox = false;
+        tbBox = false;
       }
     }
 
-    return { nbLink, nbNode, nbBox };
+    return { tbLink, tbNode, tbBox };
   }
 
   /**
    * 单个节点-置于顶层
-   * @param node 节点对象
+   * @param {Mapper.GraphNode} node 节点对象
    */
   nodeBringToFront(node) {
     if (!node) return;
-    return this.nodesBringToFront([node]);
+    return this.nodesBringToFront(new Map([node.id, node]));
   }
 
   /**
    * 多个节点-置于顶层
-   * @param nodes 节点对象数组
+   * @param {Map<number,Mapper.GraphNode>} nodeMap 节点对象id映射
    */
-  nodesBringToFront(nodes) {
+  nodesBringToFront(nodeMap) {
+    if (!(nodeMap?.size > 0)) return;
     if (!this.$nodeGroup) throw "节点层Selection不存在！";
+    let nodes = Array.from(nodeMap.values());
+    // 元素移置父级的最后
     this.$nodeGroup
       .selectAll(".node")
       .data(nodes, (d) => d.id)
       .raise();
+    // 数据数组也移置最后，否则复制和持久化将丢失置顶
+    this._nodes = this._nodes.filter((n) => !nodeMap.has(n.id)).concat(nodes);
+  }
+
+  /**
+   * 所有选中节点置于顶层
+   */
+  handleSelectionBringToFront() {
+    this.nodesBringToFront(this._selection.nodeMap);
   }
 
   /**
    * 单个节点-置于底层
-   * @param node 节点对象
+   * @param {Mapper.GraphNode} node 节点对象
    */
   nodeSendToBack(node) {
     if (!node) return;
-    return this.nodesSendToBack([node]);
+    return this.nodesSendToBack(new Map([node.id, node]));
   }
 
   /**
    * 多个节点-置于底层
-   * @param nodes 节点对象数组
+   * @param {Map<number,Mapper.GraphNode>} nodeMap 节点对象id映射
    */
-  nodesSendToBack(nodes = []) {
+  nodesSendToBack(nodeMap) {
+    if (!(nodeMap?.size > 0)) return;
     if (!this.$nodeGroup) throw "节点层Selection不存在！";
+    let nodes = Array.from(nodeMap.values());
+    // 元素移置父级的最前
     this.$nodeGroup
       .selectAll(".node")
       .data(nodes, (d) => d.id)
       .lower();
+    // 数据数组也移置最前，否则复制和持久化将丢失置底
+    this._nodes = nodes.concat(this._nodes.filter((n) => !nodeMap.has(n.id)));
+  }
+
+  /**
+   * 所有选中节点置于底层
+   */
+  handleSelectionSendToBack() {
+    this.nodesSendToBack(this._selection.nodeMap);
   }
 
   /**
    * 切换插槽输入输出方向
-   * @param slot 插槽对象
+   * @param {Mapper.GraphNodeSlot} slot 插槽对象
    */
   changeSlotDir(slot) {
+    const modelId = slot?.node?.modelId;
+    if (modelId !== 0 && modelId != 1) return; // 只有四向/流速器可调转输入输出口
     // 删除节点上带的连接线
     this.deleteEdge(slot.edge);
     slot.dir = slot.dir === 1 ? -1 : 1;
     if (slot.priority === 1) {
       // 如果是优先插槽，移除同节点同向的其他插槽的优先标识
-      const node = this._nodeMap.get(slot.nodeId);
-      for (let s of node.slots) {
+      for (let s of slot.node.slots) {
         // 移除同节点同向的其他插槽的优先标识
         if (s.dir == slot.dir && s.priority === 1 && s !== slot) {
           s.priority = 0;
@@ -605,17 +639,18 @@ export default class Graph {
 
   /**
    * 切换四向插槽是否优先
-   * @param slot 插槽对象
+   * @param {Mapper.GraphNodeSlot} slot 插槽对象
    */
   changeSlotPriority(slot) {
+    const modelId = slot?.node?.modelId;
+    if (modelId !== 0) return; // 不是四向
     // 删除节点上带的连接线
     if (slot.priority === 1) {
       slot.priority = 0;
     } else {
       // 改为优先
       slot.priority = 1;
-      const node = this._nodeMap.get(slot.nodeId);
-      for (let s of node.slots) {
+      for (let s of slot.node.slots) {
         // 移除同节点同向的其他插槽的优先标识
         if (s.dir == slot.dir && s.priority === 1 && s !== slot) {
           s.priority = 0;
@@ -628,27 +663,43 @@ export default class Graph {
 
   /**
    * 切换四向优先输出插槽 过滤物品id
-   * @param slot 插槽对象
-   * @param filterItemId 过滤物品id
+   * @param {Mapper.GraphNodeSlot} slot 插槽对象
+   * @param {number} filterItemId 过滤物品id
    */
   changeSlotFilter(slot, filterItemId) {
+    const modelId = slot?.node?.modelId;
+    if (modelId !== 0) return; // 不是四向
     if (slot.dir !== 1) return; // 输入口不可设置过滤物品
     slot.filterId = filterItemId;
     // 重绘节点插槽
     this.buildNodeSlot();
   }
 
-  // 增加连接线
-  addEdge(startId, startSlot, endId, endSlot) {
-    const newEdge = Mapper.dataToEdge(
-      {
-        startId: startId,
-        startSlot: startSlot,
-        endId: endId,
-        endSlot: endSlot,
-      },
-      this._nodeMap
+  /**
+   * 切换流速器生成/消耗物品id 过滤物品id
+   * @param {Mapper.GraphNode} node 节点对象
+   * @param {number} itemId 物品id
+   */
+  changeNodeItemId(node, itemId) {
+    const modelId = node?.modelId;
+    if (![1, 2, 3].includes(modelId)) return; // 不是流速器
+    node.itemId = itemId;
+    // 重绘节点颜色
+    d3.select(`#${this.uniqueTag}_node-bg-${node.id}`).style(
+      "fill",
+      Cfg.filterItemMap.get(itemId)?.color ?? Cfg.color.item_default
     );
+  }
+
+  /**
+   * 增加连接线
+   * @param {number} startId 起点节点id
+   * @param {number} startSlot 起点插槽索引index
+   * @param {number} endId 终点节点id
+   * @param {number} endSlot 终点插槽索引index
+   * */
+  addEdge(startId, startSlot, endId, endSlot) {
+    const newEdge = Mapper.dataToEdge({ startId, startSlot, endId, endSlot }, this._nodeMap);
     if (newEdge instanceof Error) return;
     this._edges.push(newEdge);
     // 重绘连线
@@ -657,13 +708,13 @@ export default class Graph {
 
   /**
    * 删除连接线
-   * @param edge 连接线对象
-   * @param rebuild 是否触发重绘(默认是)
-   * @return 是否需要重绘 {nbLink}
+   * @param {Mapper.GraphEdge} edge 连接线对象
+   * @param {boolean} rebuild 是否触发重绘(默认是)
+   * @return {ToBeRebuild} 是否需要重绘 {tbLink}
    */
   deleteEdge(edge, rebuild = true) {
     if (!edge) return;
-    let nbLink = false;
+    let tbLink = false;
     edge.sourceSlot.edge = null;
     edge.targetSlot.edge = null;
     let i = this._edges.findIndex((e) => e == edge);
@@ -672,28 +723,30 @@ export default class Graph {
     }
     // 重绘连线
     if (rebuild) this.buildLink();
-    else nbLink = true;
-    return { nbLink };
+    else tbLink = true;
+    return { tbLink };
   }
 
   /**
    * 删除多条连接线
-   * @param edges 连接线对象数组
-   * @param rebuild 是否触发重绘(默认是)
-   * @return 是否需要重绘 {nbLink}
+   * @param {Mapper.GraphEdge[]} edges 连接线对象数组
+   * @param {boolean} rebuild 是否触发重绘(默认是)
+   * @return {ToBeRebuild} 是否需要重绘 {tbLink}
    */
   deleteEdges(edges, rebuild = true) {
     if (!(edges?.length > 0)) return;
-    let nbLink = false;
+    let tbLink = false;
     edges.forEach((edge) => {
-      nbLink ||= this.deleteEdge(edge, false).nbLink;
+      if (this.deleteEdge(edge, false).tbLink) {
+        tbLink = true;
+      }
     });
     // 重绘连线
-    if (nbLink && rebuild) {
+    if (tbLink && rebuild) {
       this.buildLink();
-      nbLink = false;
+      tbLink = false;
     }
-    return { nbLink };
+    return { tbLink };
   }
 
   // 绘制节点
@@ -742,7 +795,10 @@ export default class Graph {
     this.buildNodeSlot();
   }
 
-  // 创建节点模型
+  /**
+   * 创建节点模型
+   * @param {d3.Selection} nodeEnter
+   */
   createNodeBg(nodeEnter) {
     let _this = this;
     nodeEnter.each(function (d) {
@@ -826,12 +882,16 @@ export default class Graph {
           .style("stroke-width", Cfg.strokeW.light);
       }
       bg.attr("class", "node-bg")
-        .attr("id", `${this.uniqueTag}_node-bg-${d.id}`)
+        .attr("id", `${_this.uniqueTag}_node-bg-${d.id}`)
         .style("opacity", 0.8);
     });
   }
 
-  // 创建多行文本
+  /**
+   * 创建多行文本
+   * @param {d3.Selection} Sel
+   * @param {string[]} texts
+   */
   createTspan(Sel, texts = []) {
     if (!Sel) throw "文本容器Selection不能为空";
     let startY = Cfg.lineHeight / 3 - (Cfg.lineHeight / 2) * (texts.length - 1); // 首行偏移量(居中对齐)
@@ -857,7 +917,7 @@ export default class Graph {
     if (!this.$node) throw "节点集Selection不存在！";
     const nodeSlot = this.$node.selectAll(".node-slot").data(
       (d) => d.slots,
-      (point) => point.index
+      (slot) => slot.index
     );
     nodeSlot.exit().remove(); // 移除多余对象
 
@@ -866,8 +926,8 @@ export default class Graph {
       .enter()
       .append("g")
       .attr("class", "node-slot")
-      .attr("id", (point) => {
-        return `${this.uniqueTag}_node-slot-${point.nodeId}-${point.index}`;
+      .attr("id", (slot) => {
+        return `${this.uniqueTag}_node-slot-${slot.node.id}-${slot.index}`;
       });
     // 合并新增/更新对象
     const nodeSlotMerge = nodeSlot.merge(nodeSlotEnter);
@@ -880,7 +940,7 @@ export default class Graph {
       .append("circle")
       .attr("class", "slot-point")
       .style("cursor", "pointer")
-      .attr("transform", (point) => `translate(${point.ox},${point.oy})`)
+      .attr("transform", (slot) => `translate(${slot.ox},${slot.oy})`)
       .attr("r", Cfg.pointSize)
       .style("fill", Cfg.color.slotFill)
       .style("stroke", Cfg.color.slotStroke)
@@ -891,8 +951,7 @@ export default class Graph {
       .on("dblclick.changeSlotDir", (d) => {
         // 双击插槽，切换插槽输入输出方向
         d3.event.stopPropagation();
-        const node = this._nodeMap.get(d.nodeId);
-        if (node.modelId === 0 || node.modelId === 1) {
+        if (d.node.modelId === 0 || d.node.modelId === 1) {
           // 只有四向/流速器可调转输入输出口
           this.changeSlotDir(d);
         }
@@ -909,7 +968,7 @@ export default class Graph {
     // // 更新插槽节点相对位置
     // nodeSlotMerge
     //   .selectAll(".slot-point")
-    //   .attr("transform", (point) => `translate(${point.ox},${point.oy})`);
+    //   .attr("transform", (slot) => `translate(${slot.ox},${slot.oy})`);
 
     // 新增 插槽+-号
     nodeSlotEnter
@@ -996,7 +1055,7 @@ export default class Graph {
 
     const link = this.$linkGroup
       .selectAll(".line")
-      .data(this._edges, (d) => d.source + "_" + d.target);
+      .data(this._edges, (d) => d.source.id + "_" + d.target.id);
     link.exit().remove(); // 移除多余对象
 
     // 新增 连接线
@@ -1016,7 +1075,7 @@ export default class Graph {
 
     // 更新 连接线
     linkMerge.attr("id", (d) => {
-      return `${this.uniqueTag}_line-source-${d.source}-target-${d.target}`;
+      return `${this.uniqueTag}_line-source-${d.source.id}-target-${d.target.id}`;
     });
   }
 
@@ -1093,7 +1152,7 @@ export default class Graph {
 
   /**
    * 更新选中节点包围盒
-   * @param recalcu 是否重新计算包围盒
+   * @param {boolean} recalcu 是否重新计算包围盒
    */
   updateSelectionBox(recalcu = true) {
     if (!this.$boxGroup) throw "选择框层Selection不存在！";
@@ -1178,17 +1237,35 @@ export default class Graph {
   // 右键框选事件
   bindSelectionWindowEvent() {
     if (d3.event.button !== 2) return;
-    d3.event.preventDefault();
-    d3.event.stopPropagation();
+    let startX = d3.event.pageX;
+    let startY = d3.event.pageY;
     this.initSelectionWindow(d3.event.offsetX, d3.event.offsetY);
     this.$svg.on("mousemove.selection", () => {
       // 右键移动
       this.updateSelectionWindow(d3.event.offsetX, d3.event.offsetY);
     });
+
     d3.select("body").on("mouseup.selection", () => {
       // 松开右键
       this.$svg.on("mousemove.selection", null);
       d3.select("body").on("mouseup.selection", null);
+
+      // 若按住右键移动超过一定距离，则阻止右键事件
+      const distance = 30; // 像素距离
+      if (
+        Math.pow(d3.event.pageX - startX, 2) + Math.pow(d3.event.pageY - startY, 2) >
+        Math.pow(distance, 2)
+      ) {
+        d3.select("body").on(
+          "contextmenu.stopPropagation",
+          () => {
+            d3.event.stopPropagation();
+            d3.event.preventDefault();
+            d3.select("body").on("contextmenu.stopPropagation", null);
+          },
+          { once: true, capture: true } // 捕获阶段触发，配合stopPropagation阻止右键事件捕获
+        );
+      }
 
       // 判断右键框选元素
       let start = this._selectionWindow?.start;
@@ -1312,7 +1389,6 @@ export default class Graph {
     // 使圆点可拖动并在拖动时创建线段
     // 开始拖拽
     function dragstart(d) {
-      const node = _this._nodeMap.get(d.nodeId);
       // 已占用插槽 || 不是输出口，显示红色边框提示
       if (d.edge || d.dir !== 1) {
         d3.select(this).style("stroke", Cfg.color.danger).style("stroke-width", Cfg.strokeW.bold);
@@ -1331,7 +1407,7 @@ export default class Graph {
         .attr("id", `${_this.uniqueTag}_dragLine`)
         .attr(
           "d",
-          `M${node.x + d.ox},${node.y + d.oy} ${node.x + d3.event.x},${node.y + d3.event.y}`
+          `M${d.node.x + d.ox},${d.node.y + d.oy} ${d.node.x + d3.event.x},${d.node.y + d3.event.y}`
         )
         .style("stroke", Cfg.color.tmpLineStroke)
         .attr("fill", "none")
@@ -1345,7 +1421,7 @@ export default class Graph {
           d3.select(this)
             .style("stroke", (targetD) => {
               // 同节点插槽 || 已占用插槽 || 不是输入口，显示红色边框提示
-              if (sourceD.nodeId == targetD.nodeId || targetD.edge || targetD.dir !== -1) {
+              if (sourceD.node.id == targetD.node.id || targetD.edge || targetD.dir !== -1) {
                 return Cfg.color.danger; // 红色
               }
               return Cfg.color.success; // 绿色
@@ -1361,13 +1437,12 @@ export default class Graph {
 
     // 正在拖拽
     function dragmove(d) {
-      const node = _this._nodeMap.get(d.nodeId);
       // 在拖动过程中更新线段的终点
       _this.$linkGroup
         .select(`#${_this.uniqueTag}_dragLine`)
         .attr(
           "d",
-          `M${node.x + d.ox},${node.y + d.oy} ${node.x + d3.event.x},${node.y + d3.event.y}`
+          `M${d.node.x + d.ox},${d.node.y + d.oy} ${d.node.x + d3.event.x},${d.node.y + d3.event.y}`
         );
     }
 
@@ -1391,12 +1466,12 @@ export default class Graph {
       // 在拖动结束时，检查鼠标是否落在另一个圆点上
       if (targetEl.classed("slot-point")) {
         const targetD = targetEl.datum();
-        if (d.nodeId == targetD.nodeId) {
+        if (d.node.id == targetD.node.id) {
           // 同节点插槽，限制不可连接
           return;
         }
         // 如果在另一个圆点上停止，则连接两个圆点
-        _this.addEdge(d.nodeId, d.index, targetD.nodeId, targetD.index);
+        _this.addEdge(d.node.id, d.index, targetD.node.id, targetD.index);
       }
     }
 
@@ -1415,7 +1490,7 @@ export default class Graph {
 
   /**
    * 更新坐标
-   * @param isTransition 是否动画过渡
+   * @param {boolean} isTransition 是否动画过渡
    */
   buildTick(isTransition) {
     let node = this.$node;
@@ -1434,6 +1509,7 @@ export default class Graph {
 
   /**
    * 更新节点坐标
+   * @param {d3.Selection<,Mapper.GraphNode>} node
    */
   updateNodePosition(node) {
     node?.attr("transform", (d) => "translate(" + d.x + "," + d.y + ")");
@@ -1441,6 +1517,7 @@ export default class Graph {
 
   /**
    * 更新节点选择框坐标
+   * @param {d3.Selection<,Mapper.GraphNode>} box
    */
   updateBoxPosition(box) {
     box?.attr("transform", (d) => "translate(" + d.x + "," + d.y + ")");
@@ -1448,15 +1525,14 @@ export default class Graph {
 
   /**
    * 更新连接线路径
+   * @param {d3.Selection<,Mapper.GraphEdge>} link
    */
   updateLinkPath(link) {
     link?.attr("d", (d) => {
-      let startNode = this._nodeMap.get(d.source);
-      let endNode = this._nodeMap.get(d.target);
-      const startNodeX = startNode.x + d.sourceSlot.ox;
-      const startNodeY = startNode.y + d.sourceSlot.oy;
-      const endNodeX = endNode.x + d.targetSlot.ox;
-      const endNodeY = endNode.y + d.targetSlot.oy;
+      const startNodeX = d.source.x + d.sourceSlot.ox;
+      const startNodeY = d.source.y + d.sourceSlot.oy;
+      const endNodeX = d.target.x + d.targetSlot.ox;
+      const endNodeY = d.target.y + d.targetSlot.oy;
       return `M${startNodeX},${startNodeY} L${endNodeX},${endNodeY}`;
     });
   }
@@ -1518,7 +1594,7 @@ export default class Graph {
       graphName: this.graphName,
     });
     window.localStorage.setItem("cacheGraphData", JSON.stringify(graphData));
-    Util._success("已保存至浏览器缓存！")
+    Util._success("已保存至浏览器缓存！");
   }
 
   /**
@@ -1530,7 +1606,7 @@ export default class Graph {
       graphName: this.graphName,
     });
     Util.saveAsJson(graphData);
-    Util._success("导出成功！")
+    Util._success("导出成功！");
   }
 
   /**
@@ -1540,9 +1616,9 @@ export default class Graph {
     if (this._selection.nodeMap.size > 0) {
       // 删除所有选中的节点
       this.deleteNodes(Array.from(this._selection.nodeMap.values()));
-      Util._success("删除成功！")
+      Util._success("删除成功！");
     } else {
-      Util._warn("请先框选节点后进行删除！")
+      Util._warn("请先框选节点后进行删除！");
     }
   }
 }

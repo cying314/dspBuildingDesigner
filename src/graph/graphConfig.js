@@ -69,7 +69,6 @@ filterItem.forEach((f) => filterItemMap.set(f.id, f));
  * @property {string} name - 节点名称
  * @property {number} modelId - 模型Id
  * @property {string} icon - 图标class
- * @property {boolean} fixedSlot - 是否固定插槽位置
  */
 /**
  * 节点默认模型构造器
@@ -85,25 +84,21 @@ export const nodeModels = [
     name: "四向分流器",
     modelId: 0,
     icon: "if-icon-fdir",
-    fixedSlot: true,
   },
   {
     name: "流速器(生成/消耗)",
     modelId: 1,
     icon: "el-icon-receiving",
-    fixedSlot: true,
   },
   {
     name: "起点(信号输出口)",
     modelId: 2,
     icon: "if-icon-start",
-    fixedSlot: true,
   },
   {
     name: "终点(信号输入口)",
     modelId: 3,
     icon: "if-icon-end",
-    fixedSlot: true,
   },
 ];
 /**

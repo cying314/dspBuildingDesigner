@@ -1,113 +1,90 @@
 import * as Cfg from "./graphConfig.js";
 import * as Util from "./graphUtil.js";
-/**
- * @typedef {Object} GraphNode 图谱节点对象
- * @property {number} modelId - 模型id
- * @property {number} id - 节点id
- * @property {number} x - 节点x偏移
- * @property {number} y - 节点y偏移
- * @property {number} w - 节点宽度
- * @property {number} h - 节点高度
- * @property {string} text - 节点文本
- * @property {number} itemId - 生成/消耗物品id
- * @property {GraphNodeSlot[]} slots - 插槽
- */
-/**
- * @typedef {Object} GraphNodeSlot 图谱节点插槽对象
- * @property {number} index - 插槽数组索引
- * @property {number} nodeId - 节点id
- * @property {number} ox - 节点内x偏移
- * @property {number} oy - 节点内y偏移
- * @property {number} dir - 输入输出方向 (1:输出, -1:输入)
- * @property {number} priority - 是否优先插槽 (1:是, -1:否) [当modelId=0时生效]
- * @property {number} filterId - 过滤优先输出物品id [当modelId=0时生效]
- */
 
 /**
- * @typedef {Object} NodeData 节点持久化数据
- * @property {number} modelId - 模型id
- * @property {number} id - 节点id
- * @property {number} x - 节点x偏移
- * @property {number} y - 节点y偏移
- * @property {number} w - 节点宽度
- * @property {number} h - 节点高度
- * @property {string} text - 节点文本
- * @property {number} itemId - 生成/消耗物品id
- * @property {NodeSlotData[]} slots - 插槽
+ * @typedef {Object} GraphData 图谱 持久化数据
+ * @property {HeaderData} header - 头部信息
+ * @property {{
+ *   nodes: NodeData[],
+ *   lines: LineData[]
+ * }} data - 节点连接信息
  */
 /**
- * @typedef {Object} NodeSlotData 节点插槽持久化数据
- * @property {number} nodeId - 节点id
- * @property {number} ox - 节点内x偏移
- * @property {number} oy - 节点内y偏移
- * @property {number} dir - 输入输出方向 (1:输出, -1:输入)
- * @property {number} priority - 是否优先插槽 (1:是, -1:否) [当modelId=0时生效]
- * @property {number} filterId - 过滤优先输出物品id [当modelId=0时生效]
+ * @typedef {Object} HeaderData 头部信息
+ * @property {string} version - 数据对应工具版本
+ * @property {number} timestramp - 数据导出时间戳
+ * @property {string} graphName - 蓝图名
+ * @property {object} boundingBox - 节点包围盒边界信息 {minX, minY, maxX, maxY, w, h}
+ * @property {object} transform - 画布位移、缩放 { x, y, k }
  */
-
 /**
  * 解析图谱持久化数据
- * @param graphData 图谱持久化数据 { header:{boundingBox}, data:{nodes,lines} }
+ * @param {GraphData} graphData 图谱持久化数据 { header:{boundingBox}, data:{nodes,lines} }
  * @param startId 起始id(默认0)
  * @param offset 整体偏移 [x,y]
  * @return 图谱对象 {_header:{_graphName, _transform, _boundingBox}, _nodes, _edges, _maxId, _nodeMap}
  */
 export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
   Util.checkGraphData(graphData, true, true);
-  const nodes = graphData.data.nodes;
-  const lines = graphData.data.lines;
+  try {
+    const nodes = graphData.data.nodes;
+    const lines = graphData.data.lines;
 
-  let _maxId = startId;
-  const nodeMap = new Map(); // 导入id映射节点：dataId -> node
-  const _nodeMap = new Map(); // 自增id映射节点：nodeId -> node
+    let _maxId = startId;
+    const nodeMap = new Map(); // 导入id映射节点：dataId -> node
+    const _nodeMap = new Map(); // 自增id映射节点：nodeId -> node
 
-  // 解析节点数据
-  const _nodes = [];
-  nodes.forEach((d) => {
-    if (d == null) return console.warn("存在空节点对象！已忽略");
-    if (d.id == null) return console.warn("存在节点id为空！已忽略");
-    if (nodeMap.has(d.id)) return console.warn("存在重复节点id:" + d.id);
-    const node = dataToNode(d, ++_maxId, offset);
-    nodeMap.set(d.id, node);
-    _nodeMap.set(node.id, node);
-    _nodes.push(node);
-  });
+    // 解析节点数据
+    const _nodes = [];
+    nodes.forEach((d) => {
+      if (d == null) return console.warn("存在空节点对象！已忽略");
+      if (d.id == null) return console.warn("存在节点id为空！已忽略");
+      if (nodeMap.has(d.id)) return console.warn("存在重复节点id:" + d.id);
+      const node = dataToNode(d, ++_maxId, offset);
+      nodeMap.set(d.id, node);
+      _nodeMap.set(node.id, node);
+      _nodes.push(node);
+    });
 
-  // 解析连接线数据
-  const _edges = [];
-  lines.forEach((line) => {
-    if (line == null) return console.warn("存在空连接线对象！已忽略");
-    const edge = dataToEdge(line, nodeMap);
-    if (edge instanceof Error) return console.warn(edge.message);
-    _edges.push(edge);
-  });
+    // 解析连接线数据
+    const _edges = [];
+    lines.forEach((line) => {
+      if (line == null) return console.warn("存在空连接线对象！已忽略");
+      const edge = dataToEdge(line, nodeMap);
+      if (edge instanceof Error) return console.warn(edge.message);
+      _edges.push(edge);
+    });
 
-  const { minX = 0, minY = 0, maxX = 0, maxY = 0, w = 0, h = 0 } = graphData.header.boundingBox;
-  const { x = 0, y = 0, k = 1 } = graphData.header.transform;
-  return {
-    _header: {
-      _graphName: graphData.header.graphName,
-      _transform: { x, y, k },
-      _boundingBox: {
-        minX: minX + offset[0],
-        minY: minY + offset[1],
-        maxX: maxX + offset[0],
-        maxY: maxY + offset[1],
-        w: w,
-        h: h,
+    const { minX = 0, minY = 0, maxX = 0, maxY = 0, w = 0, h = 0 } = graphData.header.boundingBox;
+    const { x = 0, y = 0, k = 1 } = graphData.header.transform;
+    return {
+      _header: {
+        _graphName: graphData.header.graphName,
+        _transform: { x, y, k },
+        _boundingBox: {
+          minX: minX + offset[0],
+          minY: minY + offset[1],
+          maxX: maxX + offset[0],
+          maxY: maxY + offset[1],
+          w: w,
+          h: h,
+        },
       },
-    },
-    _nodes,
-    _edges,
-    _maxId,
-    _nodeMap,
-  };
+      _nodes,
+      _edges,
+      _maxId,
+      _nodeMap,
+    };
+  } catch (e) {
+    Util._err("载入数据失败：" + e);
+    throw e;
+  }
 }
 
 /**
  * 点边数据 转换为 图谱持久化数据
- * @param nodes 节点数据
- * @param edges 边数据
+ * @param {GraphNode[]} nodes 节点数据
+ * @param {GraphEdge[]} edges 边数据
  * @param header 图谱相关信息 header:{transform, graphName}
  * @return 图谱持久化数据 { header, data:{nodes,lines} }
  */
@@ -133,6 +110,29 @@ export function toGraphData(
 }
 
 /**
+ * @typedef {Object} GraphNode 图谱节点对象
+ * @property {number} modelId - 模型id
+ * @property {number} id - 节点id
+ * @property {number} x - 节点x偏移
+ * @property {number} y - 节点y偏移
+ * @property {number} w - 节点宽度
+ * @property {number} h - 节点高度
+ * @property {string} text - 节点文本
+ * @property {number} itemId - 生成/消耗物品id
+ * @property {GraphNodeSlot[]} slots - 插槽
+ */
+/**
+ * @typedef {Object} GraphNodeSlot 图谱节点插槽对象
+ * @property {number} index - 插槽数组索引
+ * @property {GraphNode} node - 节点
+ * @property {GraphEdge} edge - 连接线对象(不存在连接时为null)
+ * @property {number} ox - 节点内x偏移
+ * @property {number} oy - 节点内y偏移
+ * @property {number} dir - 输入输出方向 (1:输出, -1:输入)
+ * @property {number} priority - 是否优先插槽 (1:是, -1:否) [当modelId=0时生效]
+ * @property {number} filterId - 过滤优先输出物品id [当modelId=0时生效]
+ */
+/**
  * 初始化一个基本的节点对象
  * @param {NodeData} d 初始化的节点数据对象(只需传入非默认值)
  * @return {GraphNode} 节点持久化数据
@@ -148,14 +148,14 @@ export function initGraphNode(d) {
     w: _toFloat(d.w, Cfg.nodeSize),
     h: _toFloat(d.h, Cfg.nodeSize),
     itemId: _toInt(d.itemId),
-    text: _toStr(d.text, Cfg.defaultText),
+    text: _toStr(d.text, d.modelId == -1 ? Cfg.defaultText : null),
     slots: [],
   };
   d.slots?.forEach((s, si) => {
     /** @type {GraphNodeSlot} */
     const slot = {
       index: si,
-      nodeId: _toInt(d.id),
+      node: node,
       ox: _toFloat(s.ox, 0),
       oy: _toFloat(s.oy, 0),
       dir: s.dir === 1 || s.dir === -1 ? s.dir : 1, // 默认输出
@@ -208,16 +208,16 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
       // 合并传入的插槽参数
       if (other.slots?.length > 0) {
         d.slots.forEach((s, si) => {
-          let source = other.slots[si];
-          if (!source) return;
-          if (source.dir === 1 || source.dir === -1) {
-            s.dir = source.dir; // 插槽方向
+          let slot = other.slots[si];
+          if (!slot) return;
+          if (slot.dir === 1 || slot.dir === -1) {
+            s.dir = slot.dir; // 插槽方向
           }
-          if (source.priority === 1) {
+          if (slot.priority === 1) {
             s.priority = 1; // 是否优先
           }
-          if (s.dir === 1 && s.priority === 1 && source.filterId != null) {
-            s.filterId = source.filterId; // 过滤优先输出物品id
+          if (s.dir === 1 && s.priority === 1 && slot.filterId != null) {
+            s.filterId = _toInt(slot.filterId); // 过滤优先输出物品id
           }
         });
       }
@@ -226,15 +226,15 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
     case 2: // 起点(信号输出口)
     case 3: // 终点(信号输入口)
       d.w = d.h = Cfg.nodeSize / 2; // 一半四向宽
-      d.itemId = 6002; // 生成/消耗物品id（默认红糖）
+      d.itemId = _toInt(other.itemId, 6002); // 生成/消耗物品id（默认红糖）
       d.slots = [
-        { dir: modelId === 3 ? 0 : 1 }, // 默认输出->1 [终点默认输入->0]
+        { dir: modelId === 3 ? -1 : 1 }, // 默认输出->1 [终点默认输入->0]
       ];
-      // 合并传入的插槽参数
-      if (other.slots && other.slots[0]) {
-        let source = other.slots[0];
-        if (source.dir === 1 || source.dir === -1) {
-          d.slots[0] = source.dir; // 插槽方向
+      // 合并传入的插槽参数（2、3起终点方向不可变）
+      if (modelId === 1 && other.slots && other.slots[0]) {
+        let slot = other.slots[0];
+        if (slot.dir === 1 || slot.dir === -1) {
+          d.slots[0].dir = slot.dir; // 插槽方向
         }
       }
       break;
@@ -256,13 +256,34 @@ export function dataToNode(data, nodeId, offset) {
 }
 
 /**
+ * @typedef {Object} NodeData 节点 持久化数据
+ * @property {number} modelId - 模型id
+ * @property {number} id - 节点id
+ * @property {number} x - 节点x偏移
+ * @property {number} y - 节点y偏移
+ * @property {number} w - 节点宽度
+ * @property {number} h - 节点高度
+ * @property {string} text - 节点文本
+ * @property {number} itemId - 生成/消耗物品id
+ * @property {NodeSlotData[]} slots - 插槽
+ */
+/**
+ * @typedef {Object} NodeSlotData 节点插槽 持久化数据
+ * @property {number} ox - 节点内x偏移
+ * @property {number} oy - 节点内y偏移
+ * @property {number} dir - 输入输出方向 (1:输出, -1:输入)
+ * @property {number} priority - 是否优先插槽 (1:是, -1:否) [当modelId=0时生效]
+ * @property {number} filterId - 过滤优先输出物品id [当modelId=0时生效]
+ */
+/**
  * 节点图谱对象 转 持久化数据
- * @param node 节点图谱对象
- * @return 节点持久化数据对象
+ * @param {GraphNode} node 节点图谱对象
+ * @return {NodeData} 节点持久化数据对象
  */
 export function nodeToData(node) {
   if (!node) throw "节点对象不能为空！";
   const modelId = node.modelId; // 模型类型（0:四向）
+  /** @type {NodeData} */
   const data = {
     id: node.id,
     x: node.x,
@@ -274,6 +295,7 @@ export function nodeToData(node) {
     // 四向
     data.slots = [];
     node.slots.forEach((s) => {
+      // 固定插槽，不保存偏移
       let slot = {
         dir: s.dir, // 1:输出口 -1:输入口
       };
@@ -287,6 +309,14 @@ export function nodeToData(node) {
       }
       data.slots.push(slot);
     });
+  } else if ([1, 2, 3].includes(modelId)) {
+    // 流速器、起终点
+    data.itemId = node.itemId; // 生成/消耗物品id
+    data.slots =
+      node.slots?.map((s) => ({
+        // 固定插槽，不保存偏移
+        dir: s.dir, // 1:输出口 -1:输入口
+      })) || [];
   } else {
     // TODO:其他模型
     data.w = node.w;
@@ -302,13 +332,20 @@ export function nodeToData(node) {
 }
 
 /**
+ * @typedef {Object} GraphEdge 图谱边对象
+ * @property {GraphNode} source - 起点节点
+ * @property {GraphNodeSlot} sourceSlot - 起点节点插槽对象
+ * @property {GraphNode} target - 终点节点
+ * @property {GraphNodeSlot} targetSlot - 终点节点插槽对象
+ */
+/**
  * 连接线持久化数据 转 图谱对象
  * @description 连接线起终点匹配不到节点时，返回Error
  * @description 起点到终点不是输出口到输入口，返回Error
  * @description 起点或终点插槽已占用，返回Error
- * @param data 连接线数据
- * @param nodeMap 节点id->对象Map
- * @return edge对象
+ * @param {LineData} data 连接线数据
+ * @param {Map<number,GraphNode>} nodeMap 节点id->对象Map
+ * @return {GraphEdge} edge对象
  */
 export function dataToEdge(data, nodeMap) {
   if (!data) throw "连接线数据不能为空！";
@@ -327,10 +364,11 @@ export function dataToEdge(data, nodeMap) {
   if (sourceSlot.edge != null) return new Error("连接线起点插槽已占用！");
   if (targetSlot.edge != null) return new Error("连接线终点插槽已占用！");
 
+  /** @type {GraphEdge} */
   const edge = {
-    source: sourceNode.id,
+    source: sourceNode,
     sourceSlot: sourceSlot,
-    target: targetNode.id,
+    target: targetNode,
     targetSlot: targetSlot,
   };
   sourceSlot.edge = targetSlot.edge = edge;
@@ -338,19 +376,25 @@ export function dataToEdge(data, nodeMap) {
 }
 
 /**
+ * @typedef {Object} LineData 连接线 持久化数据
+ * @property {number} startId - 起点节点id
+ * @property {number} startSlot - 起点插槽索引index
+ * @property {number} endId - 终点节点id
+ * @property {number} endSlot - 终点插槽索引index
+ */
+/**
  * 连接线图谱对象 转 持久化数据
- * @param edge 连接线图谱对象
- * @return 连接线持久化数据对象
+ * @param {GraphEdge} edge 连接线图谱对象
+ * @return {LineData} 连接线持久化数据对象
  */
 export function edgeToData(edge) {
   if (!edge) throw "连接线对象不能为空！";
-  const line = {
-    startId: edge.source,
+  return {
+    startId: edge.source.id,
     startSlot: edge.sourceSlot.index,
-    endId: edge.target,
+    endId: edge.target.id,
     endSlot: edge.targetSlot.index,
   };
-  return line;
 }
 
 function _toInt(num, def) {

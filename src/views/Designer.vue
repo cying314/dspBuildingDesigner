@@ -351,6 +351,7 @@ export default {
     },
     // 右键节点
     handleRclickNode(event, d) {
+      const modelId = d.modelId;
       this.dspGraph.handleSelectNode(d); // 选中节点
       this.operMenuBtns = [
         {
@@ -366,10 +367,7 @@ export default {
           icon: "el-icon-top",
           handler: () => {
             // 所有选中节点置于顶层
-            const selectionNodeMap = this.dspGraph._selection.nodeMap;
-            if (selectionNodeMap.size > 0) {
-              this.dspGraph.nodesBringToFront(Array.from(selectionNodeMap.values()));
-            }
+            this.dspGraph.handleSelectionBringToFront();
           },
         },
         {
@@ -377,21 +375,32 @@ export default {
           icon: "el-icon-bottom",
           handler: () => {
             // 所有选中节点置于底层
-            const selectionNodeMap = this.dspGraph._selection.nodeMap;
-            if (selectionNodeMap.size > 0) {
-              this.dspGraph.nodesSendToBack(Array.from(selectionNodeMap.values()));
-            }
+            this.dspGraph.handleSelectionSendToBack();
           },
         },
       ];
+      if ([1, 2, 3].includes(modelId)) {
+        // 流速器、起终点 切换生成/消耗物品
+        const dir = d.slots[0]?.dir ?? 1;
+        Cfg.filterItem.forEach((item) => {
+          this.operMenuBtns.push({
+            title: (dir == 1 ? "生成" : "消耗") + item.name,
+            icon: "el-icon-circle-plus",
+            style: `color:${item.color};text-shadow:0 0 1px #5a5a5a`,
+            handler: () => {
+              this.dspGraph.changeNodeItemId(d, item.id);
+            },
+          });
+        });
+      }
       this.showOperMenu(event.offsetX, event.offsetY);
     },
     // 右键插槽
     handleRclickSlot(event, d) {
-      const node = this.dspGraph._nodeMap.get(d.nodeId);
-      if (node.modelId === 2 || node.modelId === 3) {
+      const modelId = d.node.modelId;
+      if (modelId === 2 || modelId === 3) {
         // 起终点没有插槽事件，代理到节点事件
-        return this.handleRclickNode(event, node);
+        return this.handleRclickNode(event, d.node);
       }
       this.operMenuBtns = [];
       if (d.edge != null) {
@@ -405,7 +414,7 @@ export default {
           },
         });
       }
-      if (node.modelId === 0 || node.modelId === 1) {
+      if (modelId === 0 || modelId === 1) {
         // 只有四向/流速器可调转输入输出口
         this.operMenuBtns.push({
           title: (d.dir === 1 ? "切换为输入口" : "切换为输出口") + "\n(快捷键：双击插槽)",
@@ -415,7 +424,7 @@ export default {
           },
         });
       }
-      if (node.modelId === 0) {
+      if (modelId === 0) {
         // 四向
         this.operMenuBtns.push({
           title: d.priority === 1 ? "取消优先" : "设为优先",
@@ -487,7 +496,11 @@ export default {
       // 落在画布上
       if (this.dragOverCanvas) {
         // 创建节点
-        this.dspGraph.createNode(modelId, [this.dragX, this.dragY]);
+        try {
+          this.dspGraph.createNode(modelId, [this.dragX, this.dragY]);
+        } catch {
+          //
+        }
       }
     },
     // 结束拖拽模型
@@ -495,7 +508,11 @@ export default {
       // 落在画布上
       if (this.dragOverCanvas) {
         // 创建模型
-        this.dspGraph.appendGraphData(data, [this.dragX, this.dragY]);
+        try {
+          this.dspGraph.appendGraphData(data, [this.dragX, this.dragY]);
+        } catch {
+          //
+        }
       }
     },
     // 抽屉宽度拖拽start

@@ -3,11 +3,17 @@ import { Notification, Message } from "element-ui";
 import { saveAs } from "file-saver";
 
 /**
+ * @typedef {import("./dataMapper.js").GraphData} GraphData
+ * @typedef {import("./dataMapper.js").GraphNode} GraphNode
+ * @typedef {import("./dataMapper.js").GraphNodeSlot} GraphNodeSlot
+ * @typedef {import("./dataMapper.js").GraphEdge} GraphEdge
+ */
+/**
  * 校验图谱持久化数据结构
- * @param graphData 图谱持久化数据 { header, data:{nodes,lines} }
- * @param isThrow 是否抛出异常
- * @param popupMessage 是否弹出提示
- * @return {Boolean} 是否正常
+ * @param {GraphData} graphData 图谱持久化数据 { header, data:{nodes,lines} }
+ * @param {boolean} isThrow 是否抛出异常
+ * @param {boolean} popupMessage 是否弹出提示
+ * @return {boolean} 是否正常
  */
 export function checkGraphData(graphData, isThrow, popupMessage) {
   try {
@@ -20,7 +26,7 @@ export function checkGraphData(graphData, isThrow, popupMessage) {
     if (!(graphData.data.lines instanceof Array)) throw "data.lines数据异常！";
   } catch (e) {
     if (popupMessage) {
-      _warn("图谱数据校验失败：" + e);
+      _warn("数据校验不通过：" + e);
     }
     if (isThrow) throw e;
     return false;
@@ -30,9 +36,9 @@ export function checkGraphData(graphData, isThrow, popupMessage) {
 
 /**
  * 相对画布svg坐标，转换画布内坐标
- * @param offset 相对画布坐标 [ox, oy]
- * @param transform 转换参数 {x, y, k}
- * @return 画布内坐标 [cx, cx]
+ * @param {number[]} offset 相对画布坐标 [ox, oy]
+ * @param {object} transform 转换参数 {x, y, k}
+ * @return {number[]} 画布内坐标 [cx, cx]
  */
 export function offsetToCoord([ox, oy], { x, y, k }) {
   return [(ox - x) / k, (oy - y) / k];
@@ -40,9 +46,9 @@ export function offsetToCoord([ox, oy], { x, y, k }) {
 
 /**
  * 画布内坐标，转换相对画布svg坐标
- * @param coord 画布内坐标 [cx, cy]
- * @param transform 转换参数 {x, y, k}
- * @return 相对画布坐标 [ox, oy]
+ * @param {number[]} coord 画布内坐标 [cx, cy]
+ * @param {object} transform 转换参数 {x, y, k}
+ * @return {number[]} 相对画布坐标 [ox, oy]
  */
 export function coordToOffset([cx, cy], { x, y, k }) {
   return [cx * k + x, cy * k + y];
@@ -50,9 +56,9 @@ export function coordToOffset([cx, cy], { x, y, k }) {
 
 /**
  * 限制每行字符数，切换字符串
- * @param text
- * @param lineWidth 一行容纳多少个字符(非中文算0.5个字符)
- * @return {Array} 分割字符串数组
+ * @param {string} text
+ * @param {number} lineWidth 一行容纳多少个字符(非中文算0.5个字符)
+ * @return {string[]} 分割字符串数组
  */
 export function splitLines(text, lineWidth = Cfg.lineWordNum) {
   text = text?.trim() || Cfg.defaultText;
@@ -96,8 +102,8 @@ export function splitLines(text, lineWidth = Cfg.lineWordNum) {
 
 /**
  * 计算文本行数(至少一行)
- * @param text 文本
- * @param lineWidth 一行容纳多少个字符(非中文算0.5个字符)
+ * @param {string} text 文本
+ * @param {number} lineWidth 一行容纳多少个字符(非中文算0.5个字符)
  */
 export function getLineNum(text, lineWidth = Cfg.lineWordNum) {
   text = text?.trim() || Cfg.defaultText;
@@ -107,10 +113,10 @@ export function getLineNum(text, lineWidth = Cfg.lineWordNum) {
 
 /**
  * 获取固定大小（随着视图缩小变大，以保持相对窗口大小不变）
- * @param size 未缩放的数值
- * @param scale 缩放量
- * @param minSize 最小数值(默认size)
- * @param maxSize 最大数值(默认Number.MAX_VALUE)
+ * @param {number} size 未缩放的数值
+ * @param {number} scale 缩放量
+ * @param {number} minSize 最小数值(默认size)
+ * @param {number} maxSize 最大数值(默认Number.MAX_VALUE)
  */
 export function fixedSize(size, scale, minSize = size, maxSize = Number.MAX_VALUE) {
   return Math.min(Math.max(size / scale, minSize), maxSize);
@@ -118,9 +124,9 @@ export function fixedSize(size, scale, minSize = size, maxSize = Number.MAX_VALU
 
 /**
  * 获取网格对齐坐标偏移量
- * @param x
- * @param y
- * @return 对齐坐标偏移量 [dtX, dtY]
+ * @param {number} x
+ * @param {number} y
+ * @return {number[]} 对齐坐标偏移量 [dtX, dtY]
  */
 export function getGridAlignmentOffset(x, y) {
   let dtX, dtY;
@@ -142,9 +148,9 @@ export function getGridAlignmentOffset(x, y) {
 
 /**
  * 网格对齐坐标
- * @param x
- * @param y
- * @return 对齐后坐标 [x, y]
+ * @param {number} x
+ * @param {number} y
+ * @return {number[]} 对齐后坐标 [x, y]
  */
 export function gridAlignment(x, y) {
   let [dtX, dtY] = getGridAlignmentOffset(x, y);
@@ -154,7 +160,7 @@ export function gridAlignment(x, y) {
 /**
  * 计算节点包围盒边界
  * @description 节点集为空 或 长度为0 时，返回null
- * @param nodes 节点集 [{x, y, w, h},...]
+ * @param {GraphNode[]} nodes 节点集 [{x, y, w, h},...]
  * @return 包围盒边界信息 {minX, minY, maxX, maxY, w, h}
  */
 export function calcuBoundingBox(nodes) {
@@ -177,8 +183,8 @@ export function calcuBoundingBox(nodes) {
 
 /**
  * 通过节点集合获取边集（排除节点集合外的边）
- * @param nodes 节点对象集合
- * @return edges 连接线对象集合
+ * @param {GraphNode[]} nodes 节点对象集合
+ * @return {GraphEdge[]} edges 连接线对象集合
  */
 export function getEdgesByNodes(nodes) {
   const nodeMap = new Map();
@@ -190,15 +196,15 @@ export function getEdgesByNodes(nodes) {
 
 /**
  * 通过节点映射获取边集（排除节点映射外的边）
- * @param nodeMap 节点对象映射
- * @return edges 连接线对象集合
+ * @param {Map<number,GraphNode>} nodeMap 节点对象映射
+ * @return {GraphEdge[]} edges 连接线对象集合
  */
 export function getEdgesByNodeMap(nodeMap) {
   const edges = new Set(); // 去重
   nodeMap.forEach((n) => {
     n.slots.forEach((s) => {
       // 排除节点映射外的边
-      if (s.edge && nodeMap.has(s.edge.source) && nodeMap.has(s.edge.target)) {
+      if (s.edge && nodeMap.has(s.edge.source.id) && nodeMap.has(s.edge.target.id)) {
         edges.add(s.edge);
       }
     });
@@ -209,7 +215,7 @@ export function getEdgesByNodeMap(nodeMap) {
 /**
  * 读取json文件，获取graphData
  * @param {File} file
- * @return Promise
+ * @return {Promise<GraphData>}
  */
 export function readFileToGraphData(file) {
   return new Promise((resolve, reject) => {
@@ -236,7 +242,7 @@ export function readFileToGraphData(file) {
 
 /**
  * 保存为json文件
- * @param graphData
+ * @param {GraphData} graphData
  */
 export function saveAsJson(graphData) {
   try {
@@ -251,7 +257,7 @@ export function saveAsJson(graphData) {
 /**
  * 从localStorage获取缓存数据，若不存在或校验失败则返回null
  * @param {File} file
- * @return Promise
+ * @return {GraphData}
  */
 export function getCacheGraphData() {
   const json = window.localStorage.getItem("cacheGraphData");
@@ -272,6 +278,7 @@ export function getCacheGraphData() {
 
 /**
  * 获取初始化图谱数据
+ * @return {GraphData}
  */
 export function getInitGraphData() {
   return {
