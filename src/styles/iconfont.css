@@ -1,0 +1,79 @@
+@font-face {
+  font-family: "iconfont"; /* Project id 4409562 */
+  src: url("../assets/fonts/iconfont.ttf") format("truetype");
+}
+
+[class*=" if-icon-"],
+[class^="if-icon-"] {
+  font-family: "iconfont" !important;
+  speak: none;
+  font-style: normal;
+  font-weight: 400;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  vertical-align: baseline;
+  display: inline-block;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.iconfont {
+  font-family: "iconfont" !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.if-icon-json:before {
+  content: "\ea42";
+}
+
+.if-icon-save:before {
+  content: "\e6b2";
+}
+
+.if-icon-priority:before {
+  content: "\e615";
+}
+
+.if-icon-un-priority:before {
+  content: "\e636";
+}
+
+.if-icon-fdir:before {
+  content: "\e63b";
+}
+
+.if-icon-textarea:before {
+  content: "\e64b";
+}
+
+.if-icon-unlink:before {
+  content: "\e6fd";
+}
+
+.if-icon-start:before {
+  content: "\e6c3";
+}
+
+.if-icon-end:before {
+  content: "\e6c5";
+}
+
+.if-icon-text:before {
+  content: "\e63e";
+}
+
+.if-icon-paste:before {
+  content: "\ea32";
+}
+
+.if-icon-grid:before {
+  content: "\e77a";
+}
+
+.if-icon-blueprint:before {
+  content: "\ea60";
+}

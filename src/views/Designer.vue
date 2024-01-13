@@ -6,21 +6,26 @@
         <el-scrollbar :vertical="false">
           <div class="btns">
             <!-- 校验成功才可执行 -->
-            <el-button type="primary" icon="el-icon-document-add" title="新建"></el-button>
-            <el-button type="primary" icon="el-icon-folder-opened" title="载入文件"></el-button>
-            <el-button type="primary" icon="el-icon-download" title="保存文件(Ctrl+S)"></el-button>
+            <el-button type="primary" icon="el-icon-document-add" title="新建" @click="newProject"></el-button>
+            <el-upload style="margin-left:10px;" action :auto-upload="false" :show-file-list="false" accept=".json" :on-change="openFile_onChange">
+              <el-button slot="trigger" type="primary" icon="el-icon-folder-opened" title="载入文件"></el-button>
+            </el-upload>
+            <el-divider direction="vertical"></el-divider>
+            <el-button type="primary" icon="if-icon-save" title="保存(Ctrl+S)" @click="dspGraph.handleSave()"></el-button>
+            <el-button type="primary" icon="if-icon-json" title="保存为JSON文件(Ctrl+D)" @click="dspGraph.handleSaveAsJson()"></el-button>
+            <el-button type="primary" icon="if-icon-blueprint" title="导出蓝图(Ctrl+X)"></el-button>
             <el-divider direction="vertical"></el-divider>
             <el-button type="primary" icon="el-icon-document-copy" title="复制(Ctrl+C)" @click="dspGraph.handleCopy()"></el-button>
-            <el-button type="primary" icon="el-icon-tickets" title="粘贴(Ctrl+V)" @click="dspGraph.handlePaste()"></el-button>
+            <el-button type="primary" icon="if-icon-paste" title="粘贴(Ctrl+V)" @click="dspGraph.handlePaste()"></el-button>
             <el-button type="primary" icon="el-icon-delete" title="删除(Delete)" @click="dspGraph.handleDelete()"></el-button>
             <el-divider direction="vertical"></el-divider>
-            <el-button type="primary" icon="el-icon-s-grid" :key="gridAlignment?'on':'off'" :title="(gridAlignment?'取消':'')+'网格对齐'" :plain="gridAlignment" @click="gridAlignment=!gridAlignment"></el-button>
+            <el-button type="primary" icon="if-icon-grid" :key="gridAlignment?'on':'off'" :title="(gridAlignment?'取消':'')+'网格对齐'" :plain="gridAlignment" @click="gridAlignment=!gridAlignment"></el-button>
           </div>
         </el-scrollbar>
       </div>
       <div class="rt">
         <span class="label">蓝图名：</span>
-        <el-input class="ipt" v-model="fileName" maxlength="30" size="mini" clearable></el-input>
+        <el-input class="ipt" v-model="graphName" maxlength="30" size="mini" clearable></el-input>
       </div>
     </div>
     <div class="content">
@@ -45,7 +50,7 @@
               title="拖拽创建组件"
             >
               <span>
-                <i :class="node.icon"></i>
+                <i style="margin-right:10px" :class="node.icon"></i>
                 <span>{{node.name}}</span>
               </span>
               <div class="item_rt">
@@ -59,22 +64,29 @@
           </div>
           <ul class="group">
             <li class="modelItem flex-between" v-for="data,index in baseModels" :key="'base_'+index" draggable @dragstart="handleItemDragStart()" @dragend="handleModelDragEnd(data)">
-              <span>{{index+1+'. '}}{{data.header?.name}}</span>
+              <span>{{index+1+'. '}}{{data.header?.graphName}}</span>
               <div class="item_rt">
                 <el-checkbox v-if="dbcCreate" :value="selectModel=='base_'+index" @click.native.prevent="changeSelectModel('base_'+index)" title="勾选双击创建的组件"></el-checkbox>
               </div>
             </li>
           </ul>
-          <div class="groupName">导入组件</div>
+          <div class="groupName flex-between">
+            <span>导入组件</span>
+            <el-button class="btn" type="text" icon="el-icon-refresh" size="small" @click="refreshUploadModels">刷新</el-button>
+          </div>
           <ul class="group">
-            <li class="modelItem" v-for="data,index in uploadModels" :key="'upload_'+index" draggable @dragstart="handleItemDragStart()" @dragend="handleModelDragEnd(data)">
-              <span>{{index+1+'. '}}{{data.header?.name}}</span>
+            <li class="modelItem flex-between" v-for="data,index in uploadModels" :key="'upload_'+index" draggable @dragstart="handleItemDragStart()" @dragend="handleModelDragEnd(data)">
+              <span>{{index+1+'. '}}{{data.header?.graphName}}</span>
               <div class="item_rt">
+                <div class="item_btns">
+                  <el-button type="text" icon="el-icon-download" title="下载" @click="downloadUploadModel(data)"></el-button>
+                  <el-button type="text" icon="el-icon-close" title="删除" @click="deleteUploadModel(index)"></el-button>
+                </div>
                 <el-checkbox v-if="dbcCreate" :value="selectModel=='upload_'+index" @click.native.prevent="changeSelectModel('upload_'+index)" title="勾选双击创建的组件"></el-checkbox>
               </div>
             </li>
           </ul>
-          <el-upload class="uploader" drag action="#" multiple accept=".json">
+          <el-upload class="uploader" drag action multiple :auto-upload="false" :show-file-list="false" accept=".json" :on-change="uploadModels_onChange">
             <i class="el-icon-upload"></i>
             <div class="el-upload__text">
               将文件拖到此处，或
@@ -101,8 +113,9 @@
 </template>
 
 <script>
-import DspGraph from "./graph/dspGraph.js";
-import * as Cfg from "./graph/graphConfig.js";
+import DspGraph from "@/graph/dspGraph.js";
+import * as Cfg from "@/graph/graphConfig.js";
+import * as Util from "@/graph/graphUtil.js";
 export default {
   name: "test",
   data() {
@@ -112,7 +125,7 @@ export default {
        * @type {DspGraph}
        */
       dspGraph: null,
-      fileName: "新蓝图1",
+      graphName: null,
       gridAlignment: true, // 是否网格对齐
       dbcCreate: true, // 是否双击创建
       // 抽屉start
@@ -137,28 +150,34 @@ export default {
       // 导入组件
       uploadModels: [],
       // 勾选组件
-      selectModel: "node_0", // 默认选择四向
+      selectModel: "node_1", // 默认选择四向
     };
   },
   watch: {
     gridAlignment(val) {
       this.dspGraph.gridAlignment = val;
     },
+    graphName(val) {
+      this.dspGraph.graphName = val;
+    },
   },
   created() {
     this.getBaseModels();
+    this.refreshUploadModels();
   },
   mounted() {
-    const graphData = {
-      header: {
-        boundingBox: {},
-      },
-      data: {
-        lines: [],
-        nodes: [],
-      },
-    };
+    const param = this.getUrlParams();
+    let graphData;
+    if (param._blank) {
+      // 新建
+      graphData = Util.getInitGraphData();
+    } else {
+      graphData = Util.getCacheGraphData() ?? Util.getInitGraphData(); // 优先获取缓存，没有则初始化
+    }
+    this.graphName = graphData.header.graphName;
+
     this.dspGraph = new DspGraph({
+      graphName: this.graphName,
       graphData,
       canvasDOM: this.$refs.canvasRef,
       gridAlignment: this.gridAlignment,
@@ -168,6 +187,119 @@ export default {
     });
   },
   methods: {
+    // 获取当前url参数
+    getUrlParams() {
+      const urlParams = new URLSearchParams(window.location.href.split("?")[1]);
+      const params = {};
+      for (let param of urlParams.entries()) {
+        params[param[0]] = param[1];
+      }
+      return params;
+    },
+    // 新建
+    newProject() {
+      window.open("?_blank=1");
+    },
+    // 载入文件
+    openFile_onChange(file) {
+      Util.readFileToGraphData(file.raw)
+        .then((graphData) => {
+          this.$confirm("确定覆盖当前画布内容么?", "提示", {
+            confirmButtonText: "确定",
+            cancelButtonText: "取消",
+            type: "warning",
+          })
+            .then(() => {
+              this.graphName = graphData.header.graphName;
+              this.dspGraph.resetGraphData(graphData);
+              Util._success("载入成功！");
+            })
+            .catch(() => {});
+        })
+        .catch((e) => {
+          Util._warn("导入的JSON数据有误：" + e);
+        });
+    },
+    // 导入组件
+    uploadModels_onChange(file, fileList) {
+      let len = fileList.length;
+      Util.readFileToGraphData(file.raw)
+        .then((graphData) => {
+          this.addUploadModel(graphData);
+        })
+        .catch((e) => {
+          Util._warn(`导入的JSON数据有误${len > 1 ? `[${file.name}](${len})` : ""}：` + e);
+        });
+    },
+    addUploadModel(graphData) {
+      if (!graphData) return;
+      this.refreshUploadModels();
+      graphData.header.graphName ??= Cfg.defaultGraphName;
+      let idx = this.uploadModels.findIndex(
+        (e) => e.header.graphName == graphData.header.graphName
+      );
+      if (idx != -1) {
+        this.$confirm(`是否覆盖[${idx + 1}. ${graphData.header.graphName}]？`, "提示", {
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+          type: "warning",
+        })
+          .then(() => {
+            this.uploadModels[idx] = graphData;
+            this.cacheUploadModels();
+            Util._success("导入组件成功！");
+          })
+          .catch(() => {});
+      } else {
+        this.uploadModels.push(graphData);
+        this.cacheUploadModels();
+        Util._success("导入组件成功！");
+      }
+    },
+    deleteUploadModel(i) {
+      let d = this.uploadModels[i];
+      if (!d) return;
+      this.$confirm(`确定要移除组件[${i + 1}. ${d.header?.graphName}]？`, "提示", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      })
+        .then(() => {
+          this.uploadModels.splice(i, 1);
+          this.cacheUploadModels();
+        })
+        .catch(() => {});
+    },
+    downloadUploadModel(data) {
+      Util.saveAsJson(data);
+    },
+    // 从localStorage获取更新导入组件
+    refreshUploadModels() {
+      let uploadModels = window.localStorage.getItem("uploadModels");
+      if (uploadModels == null) return;
+      try {
+        uploadModels = JSON.parse(uploadModels);
+        if (uploadModels instanceof Array) {
+          this.uploadModels = uploadModels;
+        }
+      } catch (e) {
+        // 解析数据失败
+        console.error("解析缓存导入组件数据失败：" + e);
+      }
+    },
+    // 将当前导入组件列表更新到localStorage
+    cacheUploadModels() {
+      try {
+        if (this.uploadModels?.length > 0) {
+          window.localStorage.setItem("uploadModels", JSON.stringify(this.uploadModels));
+        } else {
+          window.localStorage.setItem("uploadModels", null);
+        }
+      } catch (e) {
+        // 缓存数据失败
+        console.error("缓存导入组件数据失败：" + e);
+      }
+    },
     // 读取基础组件JSON
     getBaseModels() {
       if (this.baseModelsLoading) return;
@@ -266,7 +398,7 @@ export default {
         // 存在连接线
         this.operMenuBtns.push({
           title: "断开连接线",
-          icon: "el-icon-link",
+          icon: "if-icon-unlink",
           style: `color:${Cfg.color.danger}`,
           handler: () => {
             this.dspGraph.deleteEdge(d.edge);
@@ -287,7 +419,7 @@ export default {
         // 四向
         this.operMenuBtns.push({
           title: d.priority === 1 ? "取消优先" : "设为优先",
-          icon: d.priority === 1 ? "el-icon-caret-bottom" : "el-icon-caret-top",
+          icon: d.priority === 1 ? "if-icon-un-priority" : "if-icon-priority",
           style: `color:${
             d.priority === 1
               ? "#aaa"
@@ -438,6 +570,7 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
         align-items: center;
         .el-button {
           padding: 7px 10px;
+          font-size: 20px;
         }
         .el-divider--vertical {
           margin: 0 8px;
@@ -540,6 +673,21 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
             }
             & + .modelItem {
               margin-top: 5px;
+            }
+            .item_rt {
+              flex-shrink: 0;
+              display: flex;
+              align-items: center;
+            }
+            .item_btns {
+              margin-right: 5px;
+              opacity: 0.4;
+              .el-button {
+                padding: 0;
+              }
+            }
+            &:hover .item_btns {
+              opacity: 1;
             }
           }
         }

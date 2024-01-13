@@ -1,14 +1,17 @@
 /**
+ * @typedef {Object} wmOptions
+ * @property {string} width
+ * @property {string} height
+ * @property {string} textAlign
+ * @property {string} textBaseline
+ * @property {string} font
+ * @property {string} fillStyle
+ * @property {string} content
+ * @property {string} rotate
+ */
+/**
  * 生成base64图片
- * @param {Object} [param0={}]
- * @param {string} [param0.width="300px"]
- * @param {string} [param0.height="220px"]
- * @param {string} [param0.textAlign="center"]
- * @param {string} [param0.textBaseline="middle"]
- * @param {string} [param0.font="18px microsoft yahei"]
- * @param {string} [param0.fillStyle="rgba(184, 184, 184, 0.35)"]
- * @param {string} [param0.content]
- * @param {string} [param0.rotate="30"]
+ * @param {wmOptions} options
  */
 export function generateWMBase64({
   width = "300px",
@@ -37,11 +40,11 @@ export function generateWMBase64({
 
 /**
  * 插入水印
- * @param {Object} [param0={}]
- * @param {HTMLElement} [param0.parentEl=document.body]
- * @param {string} [param0.id="watermark"]
- * @param {number} [param0.zIndex=1]
- * @param {Object} param0.option
+ * @param {Object} options
+ * @param {HTMLElement} options.parentEl
+ * @param {string} options.id
+ * @param {number} options.zIndex
+ * @param {wmOptions} options.option
  */
 export function insertWatermark({
   parentEl = document.body,
@@ -70,9 +73,9 @@ export function insertWatermark({
 
 /**
  * 设置水印背景
- * @param {Object} param0
- * @param {HTMLElement} [param0.EL=document.body]
- * @param {Object} param0.option
+ * @param {Object} options
+ * @param {HTMLElement} options.EL
+ * @param {wmOptions} options.option
  */
 export function setWatermarkBg({ EL = document.body, option }) {
   EL.setAttribute(

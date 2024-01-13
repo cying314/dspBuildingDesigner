@@ -3,8 +3,8 @@ import * as Cfg from "./graphConfig.js";
 import * as Mapper from "./dataMapper.js";
 import * as Util from "./graphUtil.js";
 import * as Watermark from "@/utils/watermark.js";
-import { Message } from "element-ui";
 export default class Graph {
+  graphName; // 图谱名称
   transform = { x: 0, y: 0, k: 1 }; // 画布位移、缩放
   width; // 画布宽度
   height; // 画布高度
@@ -27,45 +27,51 @@ export default class Graph {
   _edges; // 连接线数据
   _maxId; // 最大节点id
   _nodeMap; // 节点id对应实体Map
-  // 节点选择框
   _selection = {
+    // 节点选择框
     nodeMap: new Map(), // 选中节点id对应实体Map
     boundingBox: null, // 选中节点包围盒边界信息 {minX, minY, maxX, maxY, w, h}
   };
   _selectionWindow; // 右键选择框窗口
   _ctrlDown = false; // 按下ctrl
+  _mouseIsEnter = false; // 当前鼠标是否在画布内
+  _mouseOffset = [0, 0]; // 当前鼠标在画布内相对位置
   handleDblclick; // 画布空白位置双击事件
   handleRclickNode; // 右键点击节点事件
   handleRclickSlot; // 右键点击插槽事件
 
   /**
-   * @param {Object} obj
-   * @param obj.canvasDOM 画布容器dom对象
-   * @param obj.graphData 图谱数据
-   * @param obj.uniqueTag 画布内元素id唯一标识(默认def)
-   * @param obj.gridAlignment 网格对齐(默认是)
-   * @param obj.defaultScale 初始化缩放(默认1)
-   * @param obj.minScale 最小缩放(默认0.1)
-   * @param obj.maxScale 最大缩放(默认5)
-   * @param obj.handleDblclick 画布空白位置双击事件
-   * @param obj.handleRclickNode 右键点击插槽事件
-   * @param obj.handleRclickSlot 右键点击插槽事件
+   * 图谱实例
+   * @param {Object} options
+   * @param {HTMLElement} options.canvasDOM 画布容器dom对象
+   * @param {Object} options.graphData 图谱数据
+   * @param {string} options.uniqueTag 画布内元素id唯一标识(默认def)
+   * @param {string} options.graphName 图谱名称
+   * @param {boolean} options.gridAlignment 网格对齐(默认是)
+   * @param {number} options.defaultScale 初始化缩放
+   * @param {number} options.minScale 最小缩放
+   * @param {number} options.maxScale 最大缩放
+   * @param {(event: Event) => void} options.handleDblclick 画布空白位置双击事件
+   * @param {(event: Event, d: Object) => void} options.handleRclickNode 右键点击插槽事件
+   * @param {(event: Event, d: Object) => void} options.handleRclickSlot 右键点击插槽事件
    */
   constructor({
     canvasDOM,
     graphData,
     uniqueTag = "def",
+    graphName,
     gridAlignment = true, // 网格对齐
-    defaultScale = 1,
-    minScale = 0.1,
-    maxScale = 5,
+    defaultScale = Cfg.defaultScale,
+    minScale = Cfg.minScale,
+    maxScale = Cfg.maxScale,
     handleDblclick,
     handleRclickNode,
     handleRclickSlot,
   }) {
     if (!canvasDOM) throw "画布容器dom不存在！";
     this._canvasDOM = canvasDOM;
-    this.uniqueTag = uniqueTag || "def";
+    this.uniqueTag = uniqueTag;
+    this.graphName = graphName;
     this.gridAlignment = gridAlignment;
     this.defaultScale = defaultScale;
     this.minScale = minScale;
@@ -150,6 +156,19 @@ export default class Graph {
         // 监听右键框选
         this.bindSelectionWindowEvent();
       })
+      .on("mouseenter", () => {
+        // 进入画布
+        this._mouseIsEnter = true;
+      })
+      .on("mouseleave", () => {
+        // 离开画布
+        this._mouseIsEnter = false;
+      })
+      .on("mousemove", () => {
+        // 记录鼠标在画布内位置
+        this._mouseOffset[0] = d3.event.offsetX;
+        this._mouseOffset[1] = d3.event.offsetY;
+      })
       // 开始拖拽、滚轮缩放时，中断动画
       .on("mousedown.stopZoomTransition", stopZoomTransition)
       .on("touchstart.stopZoomTransition", stopZoomTransition)
@@ -186,6 +205,25 @@ export default class Graph {
 
   // 绑定按钮事件
   bindKeyEvent() {
+    d3.select("body").on("keydown." + this.uniqueTag, () => {
+      // 保存、导出事件绑定在整个页面上，避免未聚焦画布时，触发浏览器默认事件
+      if (d3.event.ctrlKey) {
+        switch (d3.event.keyCode) {
+          case 83: // Ctrl+S键
+            // 保存
+            d3.event.preventDefault();
+            this.handleSave();
+            break;
+          case 68: // Ctrl+D键
+            // 导出JSON
+            d3.event.preventDefault();
+            this.handleSaveAsJson();
+            break;
+          case 88: // Ctrl+X键
+            break;
+        }
+      }
+    });
     d3.select(this._canvasDOM)
       .attr("tabindex", 0) // dom设置该属性才可以绑定键盘事件
       .on("keydown." + this.uniqueTag, () => {
@@ -200,16 +238,19 @@ export default class Graph {
         if (this._ctrlDown) {
           switch (d3.event.keyCode) {
             case 65: // Ctrl+A键
+              // 全选节点
               d3.event.preventDefault();
-              this.selectAllNode(); // 全选节点
+              this.selectAllNode();
               break;
             case 67: // Ctrl+C键
+              // 复制节点
               d3.event.preventDefault();
-              this.handleCopy(); // 复制节点
+              this.handleCopy();
               break;
             case 86: // Ctrl+V键
+              // 粘贴
               d3.event.preventDefault();
-              this.handlePaste(); // 粘贴
+              this.handlePaste();
               break;
           }
         }
@@ -225,58 +266,73 @@ export default class Graph {
    * @param graphData 图谱持久化数据
    */
   resetGraphData(graphData) {
-    const { _nodes, _edges, _maxId, _nodeMap } = Mapper.graphDataParse(graphData, 0);
-    this._nodes = _nodes;
-    this._edges = _edges;
-    this._maxId = _maxId;
-    this._nodeMap = _nodeMap;
-    this._selection.nodeMap.clear();
+    try {
+      const { _header, _nodes, _edges, _maxId, _nodeMap } = Mapper.graphDataParse(graphData, 0);
+      this._nodes = _nodes;
+      this._edges = _edges;
+      this._maxId = _maxId;
+      this._nodeMap = _nodeMap;
+      this._selection.nodeMap.clear();
 
-    // 重绘节点
-    this.buildNode();
-    // 重绘连线
-    this.buildLink();
-    // 重绘选择框
-    this.buildBox();
+      // 图谱名称
+      this.graphName = _header._graphName;
+      // 设置画布位移、缩放
+      this.setTransform(_header._transform);
+
+      // 重绘节点
+      this.buildNode();
+      // 重绘连线
+      this.buildLink();
+      // 重绘选择框
+      this.buildBox();
+    } catch (e) {
+      Util._err("载入数据失败：" + e);
+      throw e;
+    }
   }
 
   /**
    * 加载数据，并追加到当前图谱
    * @param graphData 图谱持久化数据
-   * @param offset 相对画布svg坐标 [ox, oy] (默认当前视图中央)
+   * @param offset 相对画布svg坐标 [ox, oy]
    */
-  appendGraphData(graphData, offset = [this.width / 2, this.height / 2]) {
-    Util.checkGraphData(graphData, true, true); // 校验图谱数据
-    const { minX = 0, minY = 0, w = 0, h = 0 } = graphData.header.boundingBox;
-    // 将坐标转换为视图内坐标
-    const coord = Util.offsetToCoord(offset, this.transform);
-    let bboxOffset;
-    if (this.gridAlignment) {
-      // 网格对齐
-      const ga = Util.gridAlignment(-w / 2 + coord[0], -h / 2 + coord[1]);
-      bboxOffset = [-minX + ga[0], -minY + ga[1]];
-    } else {
-      bboxOffset = [-minX - w / 2 + coord[0], -minY - h / 2 + coord[1]];
-    }
-    const { _nodes, _edges, _maxId, _nodeMap } = Mapper.graphDataParse(
-      graphData,
-      this._maxId,
-      bboxOffset // 整体偏移
-    );
-    this._nodes.push(..._nodes);
-    this._edges.push(..._edges);
-    this._maxId = _maxId;
-    _nodeMap.forEach((n, nid) => {
-      this._nodeMap.set(nid, n);
-    });
-    this._selection.nodeMap = _nodeMap; // 选中粘贴的节点
+  appendGraphData(graphData, [ox = 0, oy = 0] = []) {
+    try {
+      Util.checkGraphData(graphData, true, true); // 校验图谱数据
+      const { minX = 0, minY = 0, w = 0, h = 0 } = graphData.header.boundingBox ?? {};
+      // 将坐标转换为视图内坐标
+      const coord = Util.offsetToCoord([ox, oy], this.transform);
+      let bboxOffset;
+      if (this.gridAlignment) {
+        // 网格对齐
+        const ga = Util.gridAlignment(-w / 2 + coord[0], -h / 2 + coord[1]);
+        bboxOffset = [-minX + ga[0], -minY + ga[1]];
+      } else {
+        bboxOffset = [-minX - w / 2 + coord[0], -minY - h / 2 + coord[1]];
+      }
+      const { _nodes, _edges, _maxId, _nodeMap } = Mapper.graphDataParse(
+        graphData,
+        this._maxId,
+        bboxOffset // 整体偏移
+      );
+      this._nodes.push(..._nodes);
+      this._edges.push(..._edges);
+      this._maxId = _maxId;
+      _nodeMap.forEach((n, nid) => {
+        this._nodeMap.set(nid, n);
+      });
+      this._selection.nodeMap = _nodeMap; // 选中粘贴的节点
 
-    // 重绘节点
-    this.buildNode();
-    // 重绘连线
-    this.buildLink();
-    // 重绘选择框
-    this.buildBox();
+      // 重绘节点
+      this.buildNode();
+      // 重绘连线
+      this.buildLink();
+      // 重绘选择框
+      this.buildBox();
+    } catch (e) {
+      Util._err("载入数据失败：" + e);
+      throw e;
+    }
   }
 
   /**
@@ -304,7 +360,17 @@ export default class Graph {
       }
     }
     // 默认缩放，初始定位
-    const Transform = d3.zoomIdentity.scale(this.defaultScale).translate(0, 0);
+    this.setTransform({ x: 0, y: 0, k: this.defaultScale }, isTransition);
+  }
+
+  /**
+   * 设置画布位移、缩放
+   * @param transform 转换参数 {x, y, k}
+   * @param isTransition 是否动画过渡
+   */
+  setTransform({ x, y, k }, isTransition) {
+    if (!this.$svg) throw "根节点SVGSelection不存在！";
+    const Transform = d3.zoomIdentity.translate(x, y).scale(k);
     let svgSelection = this.$svg;
     if (isTransition) {
       // 过渡动画命名：zoomTransition （同名会直接中断，不会重复）
@@ -320,7 +386,7 @@ export default class Graph {
    */
   createNode(modelId, offset = [0, 0]) {
     const coord = Util.offsetToCoord(offset, this.transform);
-    const newNode = Mapper.modelIdToNode(modelId, ++this._maxId, coord); // 模型Id 转 节点对象
+    const newNode = Mapper.modelIdToNode(modelId, ++this._maxId, null, coord); // 模型Id 转 节点对象
     if (this.gridAlignment) {
       // 网格对齐
       const ga = Util.gridAlignment(newNode.x, newNode.y);
@@ -412,9 +478,12 @@ export default class Graph {
     let nbNode = false;
     let nbBox = false;
     // 删除节点插槽连线
-    let edges = node.slots.map((s) => s.edge).filter((e) => e);
-    if (edges.length > 0) {
-      nbLink ||= this.deleteEdges(edges, rebuild).nbLink;
+    let edgeSet = new Set();
+    node.slots.forEach((s) => {
+      if (s.edge) edgeSet.add(s.edge);
+    });
+    if (edgeSet.size > 0) {
+      nbLink ||= this.deleteEdges(Array.from(edgeSet), rebuild).nbLink;
     }
     // 删除节点
     this._nodeMap.delete(node.id);
@@ -1398,21 +1467,19 @@ export default class Graph {
   handleCopy() {
     // 复制选中节点
     if (this._selection.nodeMap.size == 0) {
-      return Message({
-        message: "请先框选节点后进行复制！",
-        type: "warning",
-      });
+      Util._warn("请先框选节点后进行复制！");
+      return;
     }
     const graphData = Mapper.toGraphData(
       Array.from(this._selection.nodeMap.values()), // 选中节点集合
-      Util.getEdgesByNodeMap(this._selection.nodeMap) // 通过节点映射获取边集
+      Util.getEdgesByNodeMap(this._selection.nodeMap), // 通过节点映射获取边集
+      {
+        transform: this.transform,
+        graphName: this.graphName,
+      }
     );
     window.localStorage.setItem("copyGraphData", JSON.stringify(graphData));
-    Message({
-      message: "复制成功！",
-      type: "success",
-      duration: 1000,
-    });
+    Util._success("复制成功！");
   }
 
   /**
@@ -1421,24 +1488,49 @@ export default class Graph {
   handlePaste() {
     let copyGraphData = window.localStorage.getItem("copyGraphData");
     if (copyGraphData == null) {
-      return Message({
-        message: "请先框选节点后进行复制！",
-        type: "warning",
-      });
+      Util._warn("请先框选节点后进行复制！");
+      return;
     }
     try {
-      this.appendGraphData(JSON.parse(copyGraphData));
+      let offset;
+      if (this._mouseIsEnter) {
+        // 如果鼠标在画布内，则粘贴到鼠标位置
+        offset = this._mouseOffset;
+      } else {
+        // 否则粘贴到当前视图中央
+        offset = [this.width / 2, this.height / 2];
+      }
+      this.appendGraphData(JSON.parse(copyGraphData), offset);
     } catch (e) {
-      return Message({
-        message: "粘贴失败！" + e,
-        type: "warning",
-      });
+      console.error(e);
+      Util._warn("粘贴失败！");
+      return;
     }
-    Message({
-      message: "粘贴成功！",
-      type: "success",
-      duration: 1000,
+    Util._success("粘贴成功！");
+  }
+
+  /**
+   * 保存当前图谱数据到localStorage
+   */
+  handleSave() {
+    const graphData = Mapper.toGraphData(this._nodes, this._edges, {
+      transform: this.transform,
+      graphName: this.graphName,
     });
+    window.localStorage.setItem("cacheGraphData", JSON.stringify(graphData));
+    Util._success("已保存至浏览器缓存！")
+  }
+
+  /**
+   * 导出当前图谱数据为JSON
+   */
+  handleSaveAsJson() {
+    const graphData = Mapper.toGraphData(this._nodes, this._edges, {
+      transform: this.transform,
+      graphName: this.graphName,
+    });
+    Util.saveAsJson(graphData);
+    Util._success("导出成功！")
   }
 
   /**
@@ -1448,16 +1540,9 @@ export default class Graph {
     if (this._selection.nodeMap.size > 0) {
       // 删除所有选中的节点
       this.deleteNodes(Array.from(this._selection.nodeMap.values()));
-      Message({
-        message: "删除成功！",
-        type: "success",
-        duration: 1000,
-      });
+      Util._success("删除成功！")
     } else {
-      Message({
-        message: "请先框选节点后进行删除！",
-        type: "warning",
-      });
+      Util._warn("请先框选节点后进行删除！")
     }
   }
 }

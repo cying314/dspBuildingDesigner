@@ -1,9 +1,10 @@
 import * as Cfg from "./graphConfig.js";
-import { Message } from "element-ui";
+import { Notification, Message } from "element-ui";
+import { saveAs } from "file-saver";
 
 /**
- * 校验图谱序列化数据结构
- * @param graphData 图谱序列化数据 { header, data:{nodes,lines} }
+ * 校验图谱持久化数据结构
+ * @param graphData 图谱持久化数据 { header, data:{nodes,lines} }
  * @param isThrow 是否抛出异常
  * @param popupMessage 是否弹出提示
  * @return {Boolean} 是否正常
@@ -13,15 +14,13 @@ export function checkGraphData(graphData, isThrow, popupMessage) {
     if (graphData == null) throw "图谱数据为null！";
     if (!(graphData.header instanceof Object)) throw "header数据异常！";
     if (!(graphData.header.boundingBox instanceof Object)) throw "header.boundingBox数据异常！";
+    if (!(graphData.header.transform instanceof Object)) throw "header.transform数据异常！";
     if (!(graphData.data instanceof Object)) throw "data数据异常！";
     if (!(graphData.data.nodes instanceof Array)) throw "data.nodes数据异常！";
     if (!(graphData.data.lines instanceof Array)) throw "data.lines数据异常！";
   } catch (e) {
     if (popupMessage) {
-      Message({
-        message: "图谱数据校验失败：" + e,
-        type: "warning",
-      });
+      _warn("图谱数据校验失败：" + e);
     }
     if (isThrow) throw e;
     return false;
@@ -55,8 +54,8 @@ export function coordToOffset([cx, cy], { x, y, k }) {
  * @param lineWidth 一行容纳多少个字符(非中文算0.5个字符)
  * @return {Array} 分割字符串数组
  */
-export function splitLines(text = "", lineWidth = Cfg.lineWordNum) {
-  text = text.trim();
+export function splitLines(text, lineWidth = Cfg.lineWordNum) {
+  text = text?.trim() || Cfg.defaultText;
   if (text.length == 0) return [];
   var totalWidth = 0;
   var lines = [];
@@ -100,8 +99,8 @@ export function splitLines(text = "", lineWidth = Cfg.lineWordNum) {
  * @param text 文本
  * @param lineWidth 一行容纳多少个字符(非中文算0.5个字符)
  */
-export function getLineNum(text = "", lineWidth = Cfg.lineWordNum) {
-  text = text.trim();
+export function getLineNum(text, lineWidth = Cfg.lineWordNum) {
+  text = text?.trim() || Cfg.defaultText;
   if (text.length == 0) return 1;
   return splitLines(text, lineWidth).length;
 }
@@ -195,14 +194,129 @@ export function getEdgesByNodes(nodes) {
  * @return edges 连接线对象集合
  */
 export function getEdgesByNodeMap(nodeMap) {
-  const edges = [];
+  const edges = new Set(); // 去重
   nodeMap.forEach((n) => {
     n.slots.forEach((s) => {
       // 排除节点映射外的边
       if (s.edge && nodeMap.has(s.edge.source) && nodeMap.has(s.edge.target)) {
-        edges.push(s.edge);
+        edges.add(s.edge);
       }
     });
   });
-  return edges;
+  return Array.from(edges);
+}
+
+/**
+ * 读取json文件，获取graphData
+ * @param {File} file
+ * @return Promise
+ */
+export function readFileToGraphData(file) {
+  return new Promise((resolve, reject) => {
+    if (file.type != "application/json") {
+      return reject("请上传json格式的文件");
+    }
+    if (typeof FileReader === "undefined") {
+      return reject("您的浏览器不支持FileReader接口");
+    }
+    let reader = new FileReader();
+    reader.readAsText(file, "UTF-8");
+
+    reader.onload = (r) => {
+      try {
+        const graphData = JSON.parse(r.target.result);
+        checkGraphData(graphData, true, false);
+        resolve(graphData);
+      } catch (e) {
+        reject(e);
+      }
+    };
+  });
+}
+
+/**
+ * 保存为json文件
+ * @param graphData
+ */
+export function saveAsJson(graphData) {
+  try {
+    let fileName = (graphData.header.graphName ?? Cfg.defaultGraphName) + ".json";
+    saveAs(new Blob([JSON.stringify(graphData)], { type: "text/plain;charset=utf-8" }), fileName);
+  } catch (e) {
+    this.warning("导出JSON文件失败！");
+    throw e;
+  }
+}
+
+/**
+ * 从localStorage获取缓存数据，若不存在或校验失败则返回null
+ * @param {File} file
+ * @return Promise
+ */
+export function getCacheGraphData() {
+  const json = window.localStorage.getItem("cacheGraphData");
+  if (json != null) {
+    try {
+      let cacheGraphData = JSON.parse(json);
+      let check = checkGraphData(cacheGraphData, false, false);
+      if (check) {
+        // 校验成功返回
+        return cacheGraphData;
+      }
+    } catch (e) {
+      console.warn("加载缓存数据失败：" + e);
+    }
+  }
+  return null;
+}
+
+/**
+ * 获取初始化图谱数据
+ */
+export function getInitGraphData() {
+  return {
+    header: {
+      version: Cfg.version,
+      graphName: Cfg.defaultGraphName,
+      timestramp: new Date().getTime(),
+      transform: { x: 0, y: 0, k: 1 },
+      boundingBox: { minX: 0, minY: 0, maxX: 0, maxY: 0, w: 0, h: 0 },
+    },
+    data: {
+      lines: [],
+      nodes: [],
+    },
+  };
+}
+
+/**
+ * 成功信息
+ */
+export function _success(mes) {
+  Message({
+    message: mes,
+    type: "success",
+    duration: 1000,
+  });
+}
+
+/**
+ * 警告信息
+ */
+export function _warn(mes) {
+  Message({
+    message: mes,
+    type: "warning",
+  });
+}
+
+/**
+ * 异常信息
+ */
+export function _err(mes) {
+  Notification({
+    title: "错误",
+    message: mes,
+    type: "error",
+  });
 }
