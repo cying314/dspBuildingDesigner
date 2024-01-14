@@ -67,6 +67,13 @@ export const filterItem = [
 ];
 export const filterItemMap = new Map();
 filterItem.forEach((f) => filterItemMap.set(f.id, f));
+export const ModelId = {
+  /** 普通文本 */ text: -1,
+  /** 四向 */ fdir: 0,
+  /** 流速器 */ monitor: 1,
+  /** 起点 */ start: 2,
+  /** 终点 */ end: 3,
+};
 /**
  * @typedef {Object} NodeModelConfig
  * @property {string} name - 节点名称
@@ -74,41 +81,33 @@ filterItem.forEach((f) => filterItemMap.set(f.id, f));
  * @property {string} icon - 图标class
  */
 /**
- * 节点默认模型构造器
+ * 拖拽节点列表
  * @type {NodeModelConfig[]}
  */
 export const nodeModels = [
   {
     name: "普通文本",
-    modelId: -1,
+    modelId: ModelId.text,
     icon: "if-icon-text",
   },
   {
     name: "四向分流器",
-    modelId: 0,
+    modelId: ModelId.fdir,
     icon: "if-icon-fdir",
   },
   {
     name: "流速器(生成/消耗)",
-    modelId: 1,
+    modelId: ModelId.monitor,
     icon: "el-icon-receiving",
   },
   {
     name: "起点(信号输出口)",
-    modelId: 2,
+    modelId: ModelId.start,
     icon: "if-icon-start",
   },
   {
     name: "终点(信号输入口)",
-    modelId: 3,
+    modelId: ModelId.end,
     icon: "if-icon-end",
   },
 ];
-/**
- * 节点默认模型Map (modelId -> modelBuilder)
- * @type {Map<string, NodeModelConfig>}
- */
-export const nodeModelMap = new Map();
-nodeModels.forEach((m) => {
-  nodeModelMap.set(m.modelId, m);
-});

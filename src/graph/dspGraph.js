@@ -3,6 +3,7 @@ import * as Cfg from "./graphConfig.js";
 import * as Mapper from "./dataMapper.js";
 import * as Util from "./graphUtil.js";
 import * as Watermark from "@/utils/watermark.js";
+import * as BuildingUtil from "@/utils/buildingUtil.js";
 export default class Graph {
   /** 图谱名称 @type {string} */ graphName;
   /** 画布位移、缩放 @type {{x, y, k}} */ transform = { x: 0, y: 0, k: 1 };
@@ -237,8 +238,9 @@ export default class Graph {
             this.handleSaveAsJson();
             break;
           case 66: // Ctrl+B键
-            // TODO:导出蓝图
+            // 导出蓝图
             d3.event.preventDefault();
+            this.handleGenerateBlueprint();
             break;
         }
       }
@@ -661,7 +663,7 @@ export default class Graph {
    */
   changeSlotDir(slot) {
     const modelId = slot?.node?.modelId;
-    if (modelId !== 0 && modelId != 1) return; // 只有四向/流速器可调转输入输出口
+    if (![Cfg.ModelId.fdir, Cfg.ModelId.monitor].includes(modelId)) return; // 只有四向/流速器可调转输入输出口
     // 删除节点上带的连接线
     this.deleteEdge(slot.edge);
     slot.dir = slot.dir === 1 ? -1 : 1;
@@ -686,7 +688,7 @@ export default class Graph {
    */
   changeSlotPriority(slot) {
     const modelId = slot?.node?.modelId;
-    if (modelId !== 0) return; // 不是四向
+    if (modelId !== Cfg.ModelId.fdir) return; // 不是四向
     // 删除节点上带的连接线
     if (slot.priority === 1) {
       slot.priority = 0;
@@ -713,7 +715,7 @@ export default class Graph {
    */
   changeSlotFilter(slot, filterItemId) {
     const modelId = slot?.node?.modelId;
-    if (modelId !== 0) return; // 不是四向
+    if (modelId !== Cfg.ModelId.fdir) return; // 不是四向
     if (slot.dir !== 1) return; // 输入口不可设置过滤物品
     slot.filterId = filterItemId;
     // 重绘节点插槽
@@ -729,7 +731,7 @@ export default class Graph {
    */
   changeNodeItemId(node, itemId) {
     const modelId = node?.modelId;
-    if (![1, 2, 3].includes(modelId)) return; // 不是流速器
+    if (![Cfg.ModelId.monitor, Cfg.ModelId.start, Cfg.ModelId.end].includes(modelId)) return; // 不是流速器、起终点
     node.itemId = itemId;
     // 重绘节点颜色
     d3.select(`#${this.uniqueTag}_node-bg-${node.id}`).style(
@@ -867,7 +869,7 @@ export default class Graph {
     let _this = this;
     nodeEnter.each(function (d) {
       let bg;
-      if (d.modelId === -1) {
+      if (d.modelId === Cfg.ModelId.text) {
         // 普通文本
         bg = d3
           .select(this)
@@ -915,7 +917,7 @@ export default class Graph {
           });
         // 创建多行文本
         _this.createTspan(bg, Util.splitLines(d.text));
-      } else if (d.modelId === 2 || d.modelId === 3) {
+      } else if (d.modelId === Cfg.ModelId.start || d.modelId === Cfg.ModelId.end) {
         // 起/终点模型
         bg = d3
           .select(this)
@@ -924,13 +926,15 @@ export default class Graph {
           .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default)
           .style(
             "stroke",
-            d.modelId === 2 ? Cfg.color.priorityOutStroke : Cfg.color.priorityInStroke
+            d.modelId === Cfg.ModelId.start
+              ? Cfg.color.priorityOutStroke
+              : Cfg.color.priorityInStroke
           )
           .style("stroke-width", Cfg.strokeW.bold);
       } else {
         // 其他模型：矩形
         let fill = Cfg.color.nodeFill;
-        if (d.modelId === 1) {
+        if (d.modelId === Cfg.ModelId.monitor) {
           // 流速器：生成消耗物品颜色
           fill = Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default;
         }
@@ -1015,7 +1019,7 @@ export default class Graph {
       .on("dblclick.changeSlotDir", (d) => {
         // 双击插槽，切换插槽输入输出方向
         d3.event.stopPropagation();
-        if (d.node.modelId === 0 || d.node.modelId === 1) {
+        if (d.node.modelId === Cfg.ModelId.fdir || d.node.modelId === Cfg.ModelId.monitor) {
           // 只有四向/流速器可调转输入输出口
           this.changeSlotDir(d);
         }
@@ -1056,7 +1060,7 @@ export default class Graph {
   buildSlotPriority() {
     if (!this.$node) throw "节点集Selection不存在！";
     let nodeSlot = this.$node
-      .filter((d) => d.modelId === 0) // 过滤四向模型(modelId=0)
+      .filter((d) => d.modelId === Cfg.ModelId.fdir) // 过滤四向模型
       .selectAll(".node-slot");
     // 移除非优先数据的标记
     nodeSlot
@@ -1304,8 +1308,6 @@ export default class Graph {
   // 右键框选事件
   bindSelectionWindowEvent() {
     if (d3.event.button !== 2) return;
-    let startX = d3.event.pageX;
-    let startY = d3.event.pageY;
     this.initSelectionWindow(d3.event.offsetX, d3.event.offsetY);
     this.$svg.on("mousemove.selection", () => {
       // 右键移动
@@ -1316,30 +1318,33 @@ export default class Graph {
       // 松开右键
       this.$svg.on("mousemove.selection", null);
       d3.select("body").on("mouseup.selection", null);
-
-      // 若按住右键移动超过一定距离，则阻止右键事件
-      const distance = 30; // 像素距离
-      if (
-        Math.pow(d3.event.pageX - startX, 2) + Math.pow(d3.event.pageY - startY, 2) >
-        Math.pow(distance, 2)
-      ) {
-        d3.select("body").on(
-          "contextmenu.stopPropagation",
-          () => {
-            d3.event.stopPropagation();
-            d3.event.preventDefault();
-            d3.select("body").on("contextmenu.stopPropagation", null);
-          },
-          { once: true, capture: true } // 捕获阶段触发，配合stopPropagation阻止右键事件捕获
-        );
-      }
-
-      // 判断右键框选元素
+      // 拖拽起终点
       let start = this._selectionWindow?.start;
       let end = this._selectionWindow?.end;
+      this.removeSelectionWindow();
       if (start && end) {
-        // 将坐标转换为视图内坐标
+        // 若按住右键移动超过一定距离，则阻止右键事件
+        const distance = 30; // 像素距离
+        if (
+          Math.pow(end[0] - start[0], 2) + Math.pow(end[1] - start[1], 2) >
+          Math.pow(distance, 2)
+        ) {
+          d3.select("body").on(
+            "contextmenu.stopPropagation",
+            () => {
+              d3.event.stopPropagation();
+              d3.event.preventDefault();
+              d3.select("body").on("contextmenu.stopPropagation", null);
+            },
+            { once: true, capture: true } // 捕获阶段触发，配合stopPropagation阻止右键事件捕获
+          );
+        } else {
+          // 否则视为右键点击，不触发框选
+          return;
+        }
 
+        // 判断右键框选元素
+        // 将坐标转换为视图内坐标
         let [minX, minY] = Util.offsetToCoord(start, this.transform);
         let [maxX, maxY] = Util.offsetToCoord(end, this.transform);
         if (minX > maxX) {
@@ -1378,7 +1383,6 @@ export default class Graph {
           this.buildBox();
         }
       }
-      this.removeSelectionWindow();
     });
   }
 
@@ -1703,7 +1707,7 @@ export default class Graph {
   /**
    * 撤回
    */
-  handleUndo(showSuccess = true) {
+  handleUndo() {
     if (this._undoList.length <= 1) {
       Util._warn("没有可撤回的记录！");
       return false;
@@ -1714,14 +1718,14 @@ export default class Graph {
     clearTimeout(this._undoTimer);
     this._undoTimer = setTimeout(() => {
       this.resetGraphData(undoData, false);
-      if (showSuccess) Util._success("撤回成功！");
+      Util._success("撤回成功！");
     }, Cfg.undoRebuildInterval);
   }
 
   /**
    * 重做
    */
-  handleRedo(showSuccess = true) {
+  handleRedo() {
     if (this._redoList.length == 0) {
       Util._warn("没有可重做的记录！");
       return false;
@@ -1732,7 +1736,7 @@ export default class Graph {
     clearTimeout(this._undoTimer);
     this._undoTimer = setTimeout(() => {
       this.resetGraphData(redoData, false);
-      if (showSuccess) Util._success("重做成功！");
+      Util._success("重做成功！");
     }, Cfg.undoRebuildInterval);
   }
 
@@ -1740,23 +1744,52 @@ export default class Graph {
    * 保存当前图谱数据到localStorage
    */
   handleSave() {
-    const graphData = Mapper.toGraphData(this._nodes, this._edges, {
-      transform: this.transform,
-      graphName: this.graphName,
-    });
-    window.localStorage.setItem("cacheGraphData", JSON.stringify(graphData));
-    Util._success("已保存至浏览器缓存！");
+    try {
+      const graphData = Mapper.toGraphData(this._nodes, this._edges, {
+        transform: this.transform,
+        graphName: this.graphName,
+      });
+      window.localStorage.setItem("cacheGraphData", JSON.stringify(graphData));
+      Util._success("已保存至浏览器缓存！");
+    } catch (e) {
+      Util._err("保存失败：" + e);
+    }
   }
 
   /**
    * 导出当前图谱数据为JSON
    */
   handleSaveAsJson() {
-    const graphData = Mapper.toGraphData(this._nodes, this._edges, {
-      transform: this.transform,
-      graphName: this.graphName,
-    });
-    Util.saveAsJson(graphData);
-    Util._success("导出成功！");
+    if (this._nodes.length == 0) {
+      Util._warn("当前没有可导出的节点！");
+      return false;
+    }
+    try {
+      const graphData = Mapper.toGraphData(this._nodes, this._edges, {
+        transform: this.transform,
+        graphName: this.graphName,
+      });
+      Util.saveGraphDataAsJson(graphData);
+      Util._success("导出成功！");
+    } catch (e) {
+      Util._err("导出失败：" + e);
+    }
+  }
+
+  /**
+   * 生成蓝图数据
+   */
+  handleGenerateBlueprint() {
+    if (this._nodes.length == 0) {
+      Util._warn("当前没有可导出的节点！");
+      return false;
+    }
+    try {
+      const blueprint = BuildingUtil.generateBlueprint(this._nodes, this._edges, this.graphName);
+      Util.saveBlueprintAsTxt(blueprint);
+      Util._success("生成蓝图成功！");
+    } catch (e) {
+      Util._err("生成蓝图失败：" + e);
+    }
   }
 }

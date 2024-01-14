@@ -129,8 +129,8 @@ export function toGraphData(
  * @property {number} ox - 节点内x偏移
  * @property {number} oy - 节点内y偏移
  * @property {number} dir - 输入输出方向 (1:输出, -1:输入)
- * @property {number} priority - 是否优先插槽 (1:是, -1:否) [当modelId=0时生效]
- * @property {number} filterId - 过滤优先输出物品id [当modelId=0时生效]
+ * @property {number} priority - 是否优先插槽 (1:是, -1:否) [当模型为四向时生效]
+ * @property {number} filterId - 过滤优先输出物品id [当模型为四向时生效]
  */
 /**
  * 初始化一个基本的节点对象
@@ -141,14 +141,14 @@ export function initGraphNode(d) {
   if (d == null) d = {};
   /** @type {GraphNode} */
   const node = {
-    modelId: _toInt(d.modelId, 0), // 默认四向
+    modelId: _toInt(d.modelId, Cfg.ModelId.fdir), // 默认四向
     id: _toInt(d.id),
     x: _toFloat(d.x, 0),
     y: _toFloat(d.y, 0),
     w: _toFloat(d.w, Cfg.nodeSize),
     h: _toFloat(d.h, Cfg.nodeSize),
     itemId: _toInt(d.itemId),
-    text: _toStr(d.text, d.modelId == -1 ? Cfg.defaultText : null),
+    text: _toStr(d.text, d.modelId == Cfg.ModelId.text ? Cfg.defaultText : null),
     slots: [],
   };
   d.slots?.forEach((s, si) => {
@@ -160,7 +160,7 @@ export function initGraphNode(d) {
       oy: _toFloat(s.oy, 0),
       dir: s.dir === 1 || s.dir === -1 ? s.dir : 1, // 默认输出
     };
-    if (node.modelId == 0) {
+    if (node.modelId == Cfg.ModelId.fdir) {
       // 四向分流器
       if (s.priority === 1) {
         // 优先插槽
@@ -192,11 +192,11 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
   // 创建节点对象
   const d = { ...other, id: nodeId, modelId, x: ox, y: oy };
   switch (modelId) {
-    case -1: // 文本
+    case Cfg.ModelId.text: // 文本
       d.w = Cfg.lineWordNum * Cfg.fontSize;
       d.h = Util.getLineNum(d.text) * Cfg.lineHeight; // 根据实际文本行数修改高度
       break;
-    case 0: // 四向分流器
+    case Cfg.ModelId.fdir: // 四向分流器
       d.w = d.h = Cfg.nodeSize;
       // 固定插槽位置
       d.slots = [
@@ -222,16 +222,16 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
         });
       }
       break;
-    case 1: // 流速器(生成/消耗)
-    case 2: // 起点(信号输出口)
-    case 3: // 终点(信号输入口)
+    case Cfg.ModelId.monitor: // 流速器(生成/消耗)
+    case Cfg.ModelId.start: // 起点(信号输出口)
+    case Cfg.ModelId.end: // 终点(信号输入口)
       d.w = d.h = Cfg.nodeSize / 2; // 一半四向宽
       d.itemId = _toInt(other.itemId, 6002); // 生成/消耗物品id（默认红糖）
       d.slots = [
-        { dir: modelId === 3 ? -1 : 1 }, // 默认输出->1 [终点默认输入->0]
+        { dir: modelId === Cfg.ModelId.end ? -1 : 1 }, // 默认输出->1 [终点默认输入->-1]
       ];
-      // 合并传入的插槽参数（2、3起终点方向不可变）
-      if (modelId === 1 && other.slots && other.slots[0]) {
+      // 流速器合并传入的插槽参数（起终点方向不可变）
+      if (modelId === Cfg.ModelId.monitor && other.slots && other.slots[0]) {
         let slot = other.slots[0];
         if (slot.dir === 1 || slot.dir === -1) {
           d.slots[0].dir = slot.dir; // 插槽方向
@@ -251,7 +251,7 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
  */
 export function dataToNode(data, nodeId, offset) {
   if (!data) throw "节点数据不能为空！";
-  const modelId = data.modelId ?? 0; // 模型ID(默认四向)
+  const modelId = data.modelId ?? Cfg.ModelId.fdir; // 模型ID(默认四向)
   return modelIdToNode(modelId, nodeId, data, offset);
 }
 
@@ -291,7 +291,7 @@ export function nodeToData(node) {
     modelId: node.modelId,
     text: node.text,
   };
-  if (modelId == 0) {
+  if (modelId === Cfg.ModelId.fdir) {
     // 四向
     data.slots = [];
     node.slots.forEach((s) => {
@@ -309,7 +309,7 @@ export function nodeToData(node) {
       }
       data.slots.push(slot);
     });
-  } else if ([1, 2, 3].includes(modelId)) {
+  } else if ([Cfg.ModelId.monitor, Cfg.ModelId.start, Cfg.ModelId.end].includes(modelId)) {
     // 流速器、起终点
     data.itemId = node.itemId; // 生成/消耗物品id
     data.slots =

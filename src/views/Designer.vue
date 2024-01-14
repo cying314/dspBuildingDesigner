@@ -13,7 +13,7 @@
             <el-divider direction="vertical"></el-divider>
             <el-button type="primary" icon="if-icon-save" title="保存(Ctrl+S)" @click="dspGraph.handleSave()"></el-button>
             <el-button type="primary" icon="if-icon-json" title="保存为JSON文件(Ctrl+D)" @click="dspGraph.handleSaveAsJson()"></el-button>
-            <el-button type="primary" icon="if-icon-blueprint" title="导出蓝图(Ctrl+B)"></el-button>
+            <el-button type="primary" icon="if-icon-blueprint" title="导出蓝图(Ctrl+B)" @click="dspGraph.handleGenerateBlueprint()"></el-button>
             <el-divider direction="vertical"></el-divider>
             <el-button type="primary" icon="if-icon-undo" title="撤回(Ctrl+Z)" @click="dspGraph.handleUndo()"></el-button>
             <el-button type="primary" icon="if-icon-redo" title="重做(Ctrl+Shift+Z)" @click="dspGraph.handleRedo()"></el-button>
@@ -275,7 +275,7 @@ export default {
         .catch(() => {});
     },
     downloadUploadModel(data) {
-      Util.saveAsJson(data);
+      Util.saveGraphDataAsJson(data);
     },
     // 从localStorage获取更新导入组件
     refreshUploadModels() {
@@ -383,7 +383,7 @@ export default {
           },
         },
       ];
-      if ([1, 2, 3].includes(modelId)) {
+      if ([Cfg.ModelId.monitor, Cfg.ModelId.start, Cfg.ModelId.end].includes(modelId)) {
         // 流速器、起终点 切换生成/消耗物品
         const dir = d.slots[0]?.dir ?? 1;
         Cfg.filterItem.forEach((item) => {
@@ -402,7 +402,7 @@ export default {
     // 右键插槽
     handleRclickSlot(event, d) {
       const modelId = d.node.modelId;
-      if (modelId === 2 || modelId === 3) {
+      if (modelId === Cfg.ModelId.start || modelId === Cfg.ModelId.end) {
         // 起终点没有插槽事件，代理到节点事件
         return this.handleRclickNode(event, d.node);
       }
@@ -418,7 +418,7 @@ export default {
           },
         });
       }
-      if (modelId === 0 || modelId === 1) {
+      if (modelId === Cfg.ModelId.fdir || modelId === Cfg.ModelId.monitor) {
         // 只有四向/流速器可调转输入输出口
         this.operMenuBtns.push({
           title: (d.dir === 1 ? "切换为输入口" : "切换为输出口") + "\n(快捷键：双击插槽)",
@@ -428,7 +428,7 @@ export default {
           },
         });
       }
-      if (modelId === 0) {
+      if (modelId === Cfg.ModelId.fdir) {
         // 四向
         this.operMenuBtns.push({
           title: d.priority === 1 ? "取消优先" : "设为优先",
@@ -514,6 +514,7 @@ export default {
         // 创建模型
         try {
           this.dspGraph.appendGraphData(data, [this.dragX, this.dragY]);
+          this.dspGraph._canvasDOM.focus(); // 获取画布焦点
         } catch {
           //
         }
@@ -750,6 +751,7 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
       #canvas_dsp {
         width: 100%;
         height: 100%;
+        outline: none; // 去除聚焦边框
       }
       .operMenuWrap {
         width: 100%;
