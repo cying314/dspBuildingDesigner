@@ -41,6 +41,8 @@ export default class Graph {
   /** 是否按下ctrl */ _ctrlDown = false;
   /** 当前鼠标是否在画布内 */ _mouseIsEnter = false;
   /** 当前鼠标在画布内相对位置 */ _mouseOffset = [0, 0];
+  /** 撤回列表 @type {Mapper.GraphData[]} */ _undoList = [];
+  /** 重做列表 @type {Mapper.GraphData[]} */ _redoList = [];
   /** 画布空白位置双击事件 */ handleDblclick;
   /** 右键点击节点事件 */ handleRclickNode;
   /** 右键点击插槽事件 */ handleRclickSlot;
@@ -87,6 +89,10 @@ export default class Graph {
     this.init(graphData);
   }
 
+  /**
+   * 初始化视图
+   * @param {Mapper.GraphData} graphData 图谱持久化数据
+   */
   init(graphData) {
     // 画布外层节点
     const pNode = this._canvasDOM.parentNode;
@@ -95,14 +101,13 @@ export default class Graph {
 
     // 创建svg视图
     this.buildVis();
-    // 创建视图中的元素分层
-    this.buildGroup();
 
     // 绑定按钮事件
     this.bindKeyEvent();
 
     // 装载数据更新图谱
     this.resetGraphData(graphData);
+    this._undoList = [graphData];
   }
 
   // 创建画布
@@ -231,7 +236,7 @@ export default class Graph {
             d3.event.preventDefault();
             this.handleSaveAsJson();
             break;
-          case 88: // Ctrl+X键
+          case 66: // Ctrl+B键
             // TODO:导出蓝图
             d3.event.preventDefault();
             break;
@@ -260,6 +265,22 @@ export default class Graph {
               d3.event.preventDefault();
               this.handlePaste();
               break;
+            case 88: // Ctrl+X键
+              // 剪切
+              d3.event.preventDefault();
+              this.handleCut();
+              break;
+            case 90: // Ctrl+Z键
+              d3.event.preventDefault();
+              if (!d3.event.shiftKey) {
+                // 撤回
+                this.handleUndo();
+              } else {
+                // Ctrl+Shift+Z键
+                // 重做
+                this.handleRedo();
+              }
+              break;
           }
         }
       })
@@ -272,8 +293,9 @@ export default class Graph {
   /**
    * 加载数据，重置图谱
    * @param {Mapper.GraphData} graphData 图谱持久化数据
+   * @param {boolean} isTransform 是否更新视图位置
    */
-  resetGraphData(graphData) {
+  resetGraphData(graphData, isTransform = true) {
     const { _header, _nodes, _edges, _maxId, _nodeMap } = Mapper.graphDataParse(graphData, 0);
     this._nodes = _nodes;
     this._edges = _edges;
@@ -284,8 +306,10 @@ export default class Graph {
     // 图谱名称
     this.graphName = _header._graphName;
     // 设置画布位移、缩放
-    this.setTransform(_header._transform);
+    if (isTransform) this.setTransform(_header._transform);
 
+    // 重置视图中的元素分层（否则可能会出现数据绑定异常）
+    this.buildGroup();
     // 重绘节点
     this.buildNode();
     // 重绘连线
@@ -331,6 +355,9 @@ export default class Graph {
     this.buildLink();
     // 重绘选择框
     this.buildBox();
+
+    // 记录操作
+    this.recordUndo();
   }
 
   /**
@@ -400,6 +427,9 @@ export default class Graph {
     this.buildNode();
     // 重绘选择框
     this.buildBox();
+
+    // 记录操作
+    this.recordUndo();
   }
 
   /**
@@ -510,6 +540,9 @@ export default class Graph {
       if (rebuild) this.buildBox();
       else tbBox = true;
     }
+
+    // 记录操作
+    if (rebuild) this.recordUndo();
     return { tbLink, tbNode, tbBox };
   }
 
@@ -543,6 +576,8 @@ export default class Graph {
         this.buildBox(); // 重绘选择框
         tbBox = false;
       }
+      // 记录操作
+      this.recordUndo();
     }
 
     return { tbLink, tbNode, tbBox };
@@ -554,7 +589,9 @@ export default class Graph {
    */
   nodeBringToFront(node) {
     if (!node) return;
-    return this.nodesBringToFront(new Map([node.id, node]));
+    this.nodesBringToFront(new Map([node.id, node]));
+    // 记录操作
+    this.recordUndo();
   }
 
   /**
@@ -572,6 +609,8 @@ export default class Graph {
       .raise();
     // 数据数组也移置最后，否则复制和持久化将丢失置顶
     this._nodes = this._nodes.filter((n) => !nodeMap.has(n.id)).concat(nodes);
+    // 记录操作
+    this.recordUndo();
   }
 
   /**
@@ -587,7 +626,7 @@ export default class Graph {
    */
   nodeSendToBack(node) {
     if (!node) return;
-    return this.nodesSendToBack(new Map([node.id, node]));
+    this.nodesSendToBack(new Map([node.id, node]));
   }
 
   /**
@@ -605,6 +644,8 @@ export default class Graph {
       .lower();
     // 数据数组也移置最前，否则复制和持久化将丢失置底
     this._nodes = nodes.concat(this._nodes.filter((n) => !nodeMap.has(n.id)));
+    // 记录操作
+    this.recordUndo();
   }
 
   /**
@@ -635,6 +676,8 @@ export default class Graph {
     }
     // 重绘节点插槽
     this.buildNodeSlot();
+    // 记录操作
+    this.recordUndo();
   }
 
   /**
@@ -659,6 +702,8 @@ export default class Graph {
     }
     // 重绘节点插槽
     this.buildNodeSlot();
+    // 记录操作
+    this.recordUndo();
   }
 
   /**
@@ -673,6 +718,8 @@ export default class Graph {
     slot.filterId = filterItemId;
     // 重绘节点插槽
     this.buildNodeSlot();
+    // 记录操作
+    this.recordUndo();
   }
 
   /**
@@ -689,6 +736,8 @@ export default class Graph {
       "fill",
       Cfg.filterItemMap.get(itemId)?.color ?? Cfg.color.item_default
     );
+    // 记录操作
+    this.recordUndo();
   }
 
   /**
@@ -704,6 +753,8 @@ export default class Graph {
     this._edges.push(newEdge);
     // 重绘连线
     this.buildLink();
+    // 记录操作
+    this.recordUndo();
   }
 
   /**
@@ -717,13 +768,24 @@ export default class Graph {
     let tbLink = false;
     edge.sourceSlot.edge = null;
     edge.targetSlot.edge = null;
-    let i = this._edges.findIndex((e) => e == edge);
+    let i = this._edges.findIndex(
+      (e) =>
+        e.source.id === edge.source.id &&
+        e.sourceSlot.index === edge.sourceSlot.index &&
+        e.target.id === edge.target.id &&
+        e.targetSlot.index === edge.targetSlot.index
+    );
     if (i > -1) {
       this._edges.splice(i, 1);
     }
     // 重绘连线
-    if (rebuild) this.buildLink();
-    else tbLink = true;
+    if (rebuild) {
+      this.buildLink();
+      // 记录操作
+      this.recordUndo();
+    } else {
+      tbLink = true;
+    }
     return { tbLink };
   }
 
@@ -745,6 +807,8 @@ export default class Graph {
     if (tbLink && rebuild) {
       this.buildLink();
       tbLink = false;
+      // 记录操作
+      this.recordUndo();
     }
     return { tbLink };
   }
@@ -1055,7 +1119,10 @@ export default class Graph {
 
     const link = this.$linkGroup
       .selectAll(".line")
-      .data(this._edges, (d) => d.source.id + "_" + d.target.id);
+      .data(
+        this._edges,
+        (d) => `${d.source.id}-${d.sourceSlot.index}_${d.target.id}-${d.targetSlot.index}`
+      );
     link.exit().remove(); // 移除多余对象
 
     // 新增 连接线
@@ -1075,7 +1142,7 @@ export default class Graph {
 
     // 更新 连接线
     linkMerge.attr("id", (d) => {
-      return `${this.uniqueTag}_line-source-${d.source.id}-target-${d.target.id}`;
+      return `${this.uniqueTag}_line-source-${d.source.id}-${d.sourceSlot.index}-target-${d.target.id}-${d.targetSlot.index}`;
     });
   }
 
@@ -1366,6 +1433,8 @@ export default class Graph {
           this.buildTick();
         }
       }
+      // 记录操作
+      this.recordUndo();
     };
 
     if (!this._nodeDrag) {
@@ -1540,11 +1609,11 @@ export default class Graph {
   /**
    * 复制
    */
-  handleCopy() {
+  handleCopy(showSuccess = true) {
     // 复制选中节点
     if (this._selection.nodeMap.size == 0) {
       Util._warn("请先框选节点后进行复制！");
-      return;
+      return false;
     }
     const graphData = Mapper.toGraphData(
       Array.from(this._selection.nodeMap.values()), // 选中节点集合
@@ -1555,17 +1624,18 @@ export default class Graph {
       }
     );
     window.localStorage.setItem("copyGraphData", JSON.stringify(graphData));
-    Util._success("复制成功！");
+    if (showSuccess) Util._success("复制成功！");
+    return true;
   }
 
   /**
    * 粘贴
    */
-  handlePaste() {
+  handlePaste(showSuccess = true) {
     let copyGraphData = window.localStorage.getItem("copyGraphData");
     if (copyGraphData == null) {
       Util._warn("请先框选节点后进行复制！");
-      return;
+      return false;
     }
     try {
       let offset;
@@ -1577,12 +1647,93 @@ export default class Graph {
         offset = [this.width / 2, this.height / 2];
       }
       this.appendGraphData(JSON.parse(copyGraphData), offset);
+      if (showSuccess) Util._success("粘贴成功！");
+      return true;
     } catch (e) {
       console.error(e);
       Util._warn("粘贴失败！");
-      return;
+      return false;
     }
-    Util._success("粘贴成功！");
+  }
+
+  /**
+   * 删除
+   */
+  handleDelete(showSuccess = true) {
+    if (this._selection.nodeMap.size > 0) {
+      // 删除所有选中的节点
+      this.deleteNodes(Array.from(this._selection.nodeMap.values()));
+      if (showSuccess) Util._success("删除成功！");
+      return true;
+    } else {
+      Util._warn("请先框选节点后进行删除！");
+      return false;
+    }
+  }
+
+  /**
+   * 剪切
+   */
+  handleCut(showSuccess = true) {
+    if (this.handleCopy(false) && this.handleDelete(false)) {
+      if (showSuccess) Util._success("剪切成功！");
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * 记录操作到撤回列表
+   */
+  recordUndo() {
+    // 记录撤回间隔防抖
+    clearTimeout(this._recordUndoTimer);
+    this._recordUndoTimer = setTimeout(() => {
+      const graphData = Mapper.toGraphData(this._nodes, this._edges, {
+        transform: this.transform,
+        graphName: this.graphName,
+      });
+      this._undoList.push(graphData);
+      this._redoList = []; // 重置重做列表
+      // 超过记录的撤回次数
+      if (this._undoList.length - 1 > Cfg.undoNum) this._undoList.shift();
+    }, Cfg.undoInterval);
+  }
+
+  /**
+   * 撤回
+   */
+  handleUndo(showSuccess = true) {
+    if (this._undoList.length <= 1) {
+      Util._warn("没有可撤回的记录！");
+      return false;
+    }
+    this._redoList.push(this._undoList.pop());
+    const undoData = this._undoList[this._undoList.length - 1];
+    // 一段时间内多次撤回只重绘一次
+    clearTimeout(this._undoTimer);
+    this._undoTimer = setTimeout(() => {
+      this.resetGraphData(undoData, false);
+      if (showSuccess) Util._success("撤回成功！");
+    }, Cfg.undoRebuildInterval);
+  }
+
+  /**
+   * 重做
+   */
+  handleRedo(showSuccess = true) {
+    if (this._redoList.length == 0) {
+      Util._warn("没有可重做的记录！");
+      return false;
+    }
+    const redoData = this._redoList.pop();
+    this._undoList.push(redoData);
+    // 一段时间内多次撤回只重绘一次
+    clearTimeout(this._undoTimer);
+    this._undoTimer = setTimeout(() => {
+      this.resetGraphData(redoData, false);
+      if (showSuccess) Util._success("重做成功！");
+    }, Cfg.undoRebuildInterval);
   }
 
   /**
@@ -1607,18 +1758,5 @@ export default class Graph {
     });
     Util.saveAsJson(graphData);
     Util._success("导出成功！");
-  }
-
-  /**
-   * 删除
-   */
-  handleDelete() {
-    if (this._selection.nodeMap.size > 0) {
-      // 删除所有选中的节点
-      this.deleteNodes(Array.from(this._selection.nodeMap.values()));
-      Util._success("删除成功！");
-    } else {
-      Util._warn("请先框选节点后进行删除！");
-    }
   }
 }

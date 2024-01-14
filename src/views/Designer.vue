@@ -13,10 +13,14 @@
             <el-divider direction="vertical"></el-divider>
             <el-button type="primary" icon="if-icon-save" title="保存(Ctrl+S)" @click="dspGraph.handleSave()"></el-button>
             <el-button type="primary" icon="if-icon-json" title="保存为JSON文件(Ctrl+D)" @click="dspGraph.handleSaveAsJson()"></el-button>
-            <el-button type="primary" icon="if-icon-blueprint" title="导出蓝图(Ctrl+X)"></el-button>
+            <el-button type="primary" icon="if-icon-blueprint" title="导出蓝图(Ctrl+B)"></el-button>
+            <el-divider direction="vertical"></el-divider>
+            <el-button type="primary" icon="if-icon-undo" title="撤回(Ctrl+Z)" @click="dspGraph.handleUndo()"></el-button>
+            <el-button type="primary" icon="if-icon-redo" title="重做(Ctrl+Shift+Z)" @click="dspGraph.handleRedo()"></el-button>
             <el-divider direction="vertical"></el-divider>
             <el-button type="primary" icon="el-icon-document-copy" title="复制(Ctrl+C)" @click="dspGraph.handleCopy()"></el-button>
             <el-button type="primary" icon="if-icon-paste" title="粘贴(Ctrl+V)" @click="dspGraph.handlePaste()"></el-button>
+            <el-button type="primary" icon="el-icon-scissors" title="剪切(Ctrl+X)" @click="dspGraph.handleCut()"></el-button>
             <el-button type="primary" icon="el-icon-delete" title="删除(Delete)" @click="dspGraph.handleDelete()"></el-button>
             <el-divider direction="vertical"></el-divider>
             <el-button type="primary" icon="if-icon-grid" :key="gridAlignment?'on':'off'" :title="(gridAlignment?'取消':'')+'网格对齐'" :plain="gridAlignment" @click="gridAlignment=!gridAlignment"></el-button>

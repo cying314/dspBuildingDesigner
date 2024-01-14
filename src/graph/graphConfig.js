@@ -20,10 +20,13 @@ export const pointSize = 7; // 节点插槽圆点大小
 export const defaultText = "双击修改文本"; // 默认文本
 export const fontSize = 15; // 字体大小
 export const lineHeight = 15; // 行高
-export const lineWordNum = 6; // 一行文本的字数(非中文算0.5个字符)
+export const lineWordNum = 6; // 一行文本的字数（非中文算0.5个字符）
 export const selectionMargin = 5; // 节点选中框与元素间距
 export const nodeCornerWidth = 5; // 节点选中角框长度
 export const gridStep = nodeSize / 4; // 网格对齐间距
+export const undoNum = 10; // 记录可撤回的次数
+export const undoInterval = 500; // 记录撤回的时间间隔（单位:ms）
+export const undoRebuildInterval = 200; // 撤回、重做重绘画布的事件间隔（单位:ms）
 export const color = {
   success: "#67c23a",
   warning: "#e6a23c",

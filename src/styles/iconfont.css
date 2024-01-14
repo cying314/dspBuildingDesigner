@@ -26,6 +26,14 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.if-icon-redo:before {
+  content: "\e7cf";
+}
+
+.if-icon-undo:before {
+  content: "\e822";
+}
+
 .if-icon-json:before {
   content: "\ea42";
 }
