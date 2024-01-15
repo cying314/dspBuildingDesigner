@@ -383,8 +383,8 @@ export default {
           },
         },
       ];
-      if ([Cfg.ModelId.monitor, Cfg.ModelId.start, Cfg.ModelId.end].includes(modelId)) {
-        // 流速器、起终点 切换生成/消耗物品
+      if ([Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
+        // 流速器、信号输出、信号输入 切换生成/消耗物品id
         const dir = d.slots[0]?.dir ?? 1;
         Cfg.filterItem.forEach((item) => {
           this.operMenuBtns.push({
@@ -402,10 +402,10 @@ export default {
     // 右键插槽
     handleRclickSlot(event, d) {
       const modelId = d.node.modelId;
-      if (modelId === Cfg.ModelId.start || modelId === Cfg.ModelId.end) {
-        // 起终点没有插槽事件，代理到节点事件
-        return this.handleRclickNode(event, d.node);
-      }
+      // if (modelId === Cfg.ModelId.output || modelId === Cfg.ModelId.input) {
+      //   // 信号输出、信号输入没有插槽事件，代理到节点事件
+      //   return this.handleRclickNode(event, d.node);
+      // }
       this.operMenuBtns = [];
       if (d.edge != null) {
         // 存在连接线
@@ -418,8 +418,12 @@ export default {
           },
         });
       }
-      if (modelId === Cfg.ModelId.fdir || modelId === Cfg.ModelId.monitor) {
-        // 只有四向/流速器可调转输入输出口
+      if (
+        [Cfg.ModelId.fdir, Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(
+          modelId
+        )
+      ) {
+        // 只有四向、流速器、信号输出、信号输入 可调转输入输出口
         this.operMenuBtns.push({
           title: (d.dir === 1 ? "切换为输入口" : "切换为输出口") + "\n(快捷键：双击插槽)",
           icon: d.dir === 1 ? "el-icon-remove-outline" : "el-icon-circle-plus-outline",

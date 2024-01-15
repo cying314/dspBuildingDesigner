@@ -223,14 +223,14 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
       }
       break;
     case Cfg.ModelId.monitor: // 流速器(生成/消耗)
-    case Cfg.ModelId.start: // 起点(信号输出口)
-    case Cfg.ModelId.end: // 终点(信号输入口)
+    case Cfg.ModelId.output: // 信号输出(生成)
+    case Cfg.ModelId.input: // 信号输入(消耗)
       d.w = d.h = Cfg.nodeSize / 2; // 一半四向宽
       d.itemId = _toInt(other.itemId, 6002); // 生成/消耗物品id（默认红糖）
       d.slots = [
-        { dir: modelId === Cfg.ModelId.end ? -1 : 1 }, // 默认输出->1 [终点默认输入->-1]
+        { dir: modelId === Cfg.ModelId.input ? -1 : 1 }, // 默认输出->1 [信号输入->-1]
       ];
-      // 流速器合并传入的插槽参数（起终点方向不可变）
+      // 流速器合并传入的插槽参数（信号输出、信号输入方向不可变）
       if (modelId === Cfg.ModelId.monitor && other.slots && other.slots[0]) {
         let slot = other.slots[0];
         if (slot.dir === 1 || slot.dir === -1) {
@@ -309,8 +309,8 @@ export function nodeToData(node) {
       }
       data.slots.push(slot);
     });
-  } else if ([Cfg.ModelId.monitor, Cfg.ModelId.start, Cfg.ModelId.end].includes(modelId)) {
-    // 流速器、起终点
+  } else if ([Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
+    // 流速器、信号输出、信号输入
     data.itemId = node.itemId; // 生成/消耗物品id
     data.slots =
       node.slots?.map((s) => ({

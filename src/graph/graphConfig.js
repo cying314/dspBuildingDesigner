@@ -11,7 +11,7 @@ export const maxScale = 5; // 默认画布最大缩放
 export const defaultW = 1000; // 画布默认宽度（优先使用画布外层宽度）
 export const defaultH = 600; // 画布默认高度（优先使用画布外层高度）
 export const strokeW = {
-  line: 2, // 连接线宽度
+  link: 2, // 连接线宽度
   light: 1.5, // 细边宽
   bold: 2.5, // 粗边宽
 };
@@ -44,7 +44,7 @@ export const color = {
   priorityInStroke: "rgb(33, 150, 243)", // 四向输入优先
   priorityInFill: "rgb(232, 236, 247)",
 
-  lineStroke: "rgba(33, 150, 243, 0.8)", // 连接线
+  linkStroke: "rgba(33, 150, 243, 0.8)", // 连接线
   tmpLineStroke: "rgba(170, 170, 170, 0.8)", // 临时连接线
   selectionStroke: "rgba(51, 51, 51, 0.5)", // 选择框
   selectionCornerStroke: "rgba(81, 81, 249, 0.8)", // 选择角框
@@ -71,8 +71,8 @@ export const ModelId = {
   /** 普通文本 */ text: -1,
   /** 四向 */ fdir: 0,
   /** 流速器 */ monitor: 1,
-  /** 起点 */ start: 2,
-  /** 终点 */ end: 3,
+  /** 信号输出口 */ output: 2,
+  /** 信号输入口 */ input: 3,
 };
 /**
  * @typedef {Object} NodeModelConfig
@@ -101,13 +101,13 @@ export const nodeModels = [
     icon: "el-icon-receiving",
   },
   {
-    name: "起点(信号输出口)",
-    modelId: ModelId.start,
+    name: "信号输出(生成)",
+    modelId: ModelId.output,
     icon: "if-icon-start",
   },
   {
-    name: "终点(信号输入口)",
-    modelId: ModelId.end,
+    name: "信号输入(消耗)",
+    modelId: ModelId.input,
     icon: "if-icon-end",
   },
 ];

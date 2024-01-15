@@ -21,7 +21,8 @@ export default class Graph {
   /** 连接线层Sel @type {d3.Selection<SVGGElement>} */ $linkGroup;
   /** 选择框层Sel @type {d3.Selection<SVGGElement>} */ $boxGroup;
 
-  /** 节点集Selection @type {d3.Selection<,Mapper.GraphNode>} */ $node;
+  /** 节点g标签Selection @type {d3.Selection<SVGGElement, Mapper.GraphNode>} */ $node;
+  /** 节点插槽g标签Selection @type {d3.Selection<SVGGElement, Mapper.GraphNodeSlot>} */ $nodeSlot;
   /** 连线集Selection @type {d3.Selection<,Mapper.GraphEdge>} */ $link;
   /** 选择框Selection @type {d3.Selection<,Mapper.GraphNode>} */ $box;
 
@@ -663,7 +664,27 @@ export default class Graph {
    */
   changeSlotDir(slot) {
     const modelId = slot?.node?.modelId;
-    if (![Cfg.ModelId.fdir, Cfg.ModelId.monitor].includes(modelId)) return; // 只有四向/流速器可调转输入输出口
+    // 只有四向、流速器、信号输出、信号输入 可调转输入输出口
+    let legalModelIds = [
+      Cfg.ModelId.fdir,
+      Cfg.ModelId.monitor,
+      Cfg.ModelId.output,
+      Cfg.ModelId.input,
+    ];
+    if (!legalModelIds.includes(modelId)) return;
+    if (modelId === Cfg.ModelId.output || modelId === Cfg.ModelId.input) {
+      if (modelId === Cfg.ModelId.output) {
+        // 输出口切换为输入口
+        slot.node.modelId = Cfg.ModelId.input;
+      } else {
+        // 输入口切换为输出口
+        slot.node.modelId = Cfg.ModelId.output;
+      }
+      // 重绘节点模型
+      let nodeSel = this.$node.filter((d) => d.id === slot.node.id);
+      this.insertNodeBg(nodeSel);
+    }
+
     // 删除节点上带的连接线
     this.deleteEdge(slot.edge);
     slot.dir = slot.dir === 1 ? -1 : 1;
@@ -677,7 +698,7 @@ export default class Graph {
       }
     }
     // 重绘节点插槽
-    this.buildNodeSlot();
+    this.updateSingleNodeSlot(slot);
     // 记录操作
     this.recordUndo();
   }
@@ -703,7 +724,7 @@ export default class Graph {
       }
     }
     // 重绘节点插槽
-    this.buildNodeSlot();
+    this.updateSingleNodeSlot(slot);
     // 记录操作
     this.recordUndo();
   }
@@ -719,7 +740,7 @@ export default class Graph {
     if (slot.dir !== 1) return; // 输入口不可设置过滤物品
     slot.filterId = filterItemId;
     // 重绘节点插槽
-    this.buildNodeSlot();
+    this.updateSingleNodeSlot(slot);
     // 记录操作
     this.recordUndo();
   }
@@ -731,7 +752,7 @@ export default class Graph {
    */
   changeNodeItemId(node, itemId) {
     const modelId = node?.modelId;
-    if (![Cfg.ModelId.monitor, Cfg.ModelId.start, Cfg.ModelId.end].includes(modelId)) return; // 不是流速器、起终点
+    if (![Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) return; // 不是流速器、信号输出、信号输入
     node.itemId = itemId;
     // 重绘节点颜色
     d3.select(`#${this.uniqueTag}_node-bg-${node.id}`).style(
@@ -815,16 +836,78 @@ export default class Graph {
     return { tbLink };
   }
 
-  // 绘制节点
-  buildNode() {
+  /**
+   * 查询节点元素并绑定数据
+   */
+  getNodeSel() {
     if (!this._nodes) throw "节点数据不存在！";
     if (!this.$nodeGroup) throw "节点层Selection不存在！";
-    const node = this.$nodeGroup.selectAll(".node").data(this._nodes, (d) => d.id);
-    node.exit().remove(); // 移除多余对象
+    return this.$nodeGroup.selectAll(".node").data(this._nodes, (d) => d.id);
+  }
 
-    // 新增 节点g标签
-    const nodeEnter = node
-      .enter()
+  /**
+   * 查询节点插槽元素并绑定数据
+   * @param {d3.Selection<SVGGElement, Mapper.GraphNode>} nodeSel
+   */
+  getNodeSlotSel(nodeSel) {
+    if (!nodeSel) {
+      if (!this.$node) throw "节点集Selection不存在！";
+      nodeSel = this.$node;
+    }
+    return nodeSel.selectAll(".node-slot").data(
+      (d) => d.slots,
+      (slot) => slot.index
+    );
+  }
+
+  /**
+   * 查询连接线元素并绑定数据
+   */
+  getLinkSel() {
+    if (!this._edges) throw "连接线数据不存在！";
+    if (!this.$linkGroup) throw "连接线层Selection不存在！";
+    return this.$linkGroup
+      .selectAll(".link")
+      .data(
+        this._edges,
+        (d) => `${d.source.id}-${d.sourceSlot.index}_${d.target.id}-${d.targetSlot.index}`
+      );
+  }
+
+  /**
+   * 查询节点选择框元素并绑定数据
+   */
+  getNodeBoxSel() {
+    if (!this.$boxGroup) throw "选择框层Selection不存在！";
+    return this.$boxGroup
+      .selectAll(".node-box")
+      .data(Array.from(this._selection.nodeMap.values()), (d) => d.id);
+  }
+
+  /**
+   * 绘制节点
+   * @return {d3.Selection<SVGGElement, Mapper.GraphNode>} nodeGMerge
+   */
+  buildNode() {
+    this.$node = this.getNodeSel().join(
+      (enter) => this.appendNode(enter, false),
+      (update) => this.updateNode(update),
+      (exit) => exit.remove()
+    );
+    // 绘制节点插槽
+    this.buildNodeSlot(this.$node);
+    return this.$node;
+  }
+
+  /**
+   * 创建节点
+   * @param {d3.Selection<BaseType, Mapper.GraphNode>} nodeEnter
+   * @param {boolean} overwrite 覆盖
+   * @return {d3.Selection<SVGGElement, Mapper.GraphNode>} nodeGEnter 返回带绑定g标签的enter
+   */
+  appendNode(nodeEnter, overwrite = true) {
+    if (overwrite) nodeEnter.selectAll(".node").remove();
+    const nodeGEnter = nodeEnter
       .append("g")
       .attr("class", "node")
       .attr("id", (d) => {
@@ -849,31 +932,39 @@ export default class Graph {
         }
       })
       .call(this.bindNodeDragEvent()); // 绑定节点拖拽事件
-    // 合并新增/更新对象
-    const nodeMerge = node.merge(nodeEnter);
-    this.$node = nodeMerge;
-    // 更新节点坐标
-    this.updateNodePosition(nodeMerge);
-
+    // 更新新增节点
+    this.updateNode(nodeGEnter);
     // 创建节点模型
-    this.createNodeBg(nodeEnter);
-    // 绘制节点插槽
-    this.buildNodeSlot();
+    this.insertNodeBg(nodeGEnter, false);
+    return nodeGEnter;
+  }
+
+  /**
+   * 更新节点
+   * @param {d3.Selection<SVGGElement, Mapper.GraphNode>} nodeUpdate
+   * @return {d3.Selection<SVGGElement, Mapper.GraphNode>}
+   */
+  updateNode(nodeUpdate) {
+    // 更新节点坐标
+    this.updateNodePosition(nodeUpdate);
+    return nodeUpdate;
   }
 
   /**
    * 创建节点模型
-   * @param {d3.Selection} nodeEnter
+   * @param {d3.Selection<SVGGElement, Mapper.GraphNode>} nodeSel
+   * @param {boolean} overwrite 覆盖
    */
-  createNodeBg(nodeEnter) {
+  insertNodeBg(nodeSel, overwrite = true) {
     let _this = this;
-    nodeEnter.each(function (d) {
+    if (overwrite) nodeSel.selectAll(".node-bg").remove();
+    nodeSel.each(function (d) {
       let bg;
       if (d.modelId === Cfg.ModelId.text) {
         // 普通文本
         bg = d3
           .select(this)
-          .append("text")
+          .insert("text", ".node-slot") // 在插槽前插入
           .style("font-size", Cfg.fontSize + "px")
           .attr("text-anchor", "middle")
           .on("dblclick.deleteNode", function (d) {
@@ -917,16 +1008,16 @@ export default class Graph {
           });
         // 创建多行文本
         _this.createTspan(bg, Util.splitLines(d.text));
-      } else if (d.modelId === Cfg.ModelId.start || d.modelId === Cfg.ModelId.end) {
-        // 起/终点模型
+      } else if (d.modelId === Cfg.ModelId.output || d.modelId === Cfg.ModelId.input) {
+        // 信号输出、信号输入模型
         bg = d3
           .select(this)
-          .append("circle")
+          .insert("circle", ".node-slot") // 在插槽前插入
           .attr("r", d.w / 2)
           .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default)
           .style(
             "stroke",
-            d.modelId === Cfg.ModelId.start
+            d.modelId === Cfg.ModelId.output
               ? Cfg.color.priorityOutStroke
               : Cfg.color.priorityInStroke
           )
@@ -940,7 +1031,7 @@ export default class Graph {
         }
         bg = d3
           .select(this)
-          .append("rect")
+          .insert("rect", ".node-slot") // 在插槽前插入
           .attr("x", -d.w / 2)
           .attr("y", -d.h / 2)
           .attr("width", d.w)
@@ -980,35 +1071,42 @@ export default class Graph {
     }
   }
 
-  // 绘制节点插槽
-  buildNodeSlot() {
-    if (!this.$node) throw "节点集Selection不存在！";
-    const nodeSlot = this.$node.selectAll(".node-slot").data(
-      (d) => d.slots,
-      (slot) => slot.index
+  /**
+   * 绘制节点插槽
+   * @param {d3.Selection<SVGGElement, Mapper.GraphNode>} nodeSel
+   * @return {d3.Selection<SVGGElement, Mapper.GraphNodeSlot>} nodeSlotGMerge
+   */
+  buildNodeSlot(nodeSel) {
+    this.$nodeSlot = this.getNodeSlotSel(nodeSel).join(
+      (enter) => this.appendNodeSlot(enter, false),
+      (update) => this.updateNodeSlot(update),
+      (exit) => exit.remove()
     );
-    nodeSlot.exit().remove(); // 移除多余对象
+    // 绘制四向插槽优先标记
+    this.buildSlotPriority(this.$nodeSlot);
+    return this.$nodeSlot;
+  }
 
-    // 新增 插槽g标签
-    const nodeSlotEnter = nodeSlot
-      .enter()
+  /**
+   * 创建节点插槽
+   * @param {d3.Selection<, Mapper.GraphNodeSlot, SVGGElement, Mapper.GraphNode>} nodeSlotEnter
+   * @param {boolean} overwrite 覆盖
+   * @return {d3.Selection<SVGGElement, Mapper.GraphNodeSlot>} nodeSlotGEnter 返回带绑定g标签的enter
+   */
+  appendNodeSlot(nodeSlotEnter, overwrite = true) {
+    if (overwrite) nodeSlotEnter.selectAll(".node-slot").remove();
+    const nodeSlotGEnter = nodeSlotEnter
       .append("g")
       .attr("class", "node-slot")
       .attr("id", (slot) => {
         return `${this.uniqueTag}_node-slot-${slot.node.id}-${slot.index}`;
       });
-    // 合并新增/更新对象
-    const nodeSlotMerge = nodeSlot.merge(nodeSlotEnter);
-
-    // 绘制四向插槽优先标记
-    this.buildSlotPriority();
 
     // 新增 插槽节点
-    nodeSlotEnter
+    nodeSlotGEnter
       .append("circle")
       .attr("class", "slot-point")
       .style("cursor", "pointer")
-      .attr("transform", (slot) => `translate(${slot.ox},${slot.oy})`)
       .attr("r", Cfg.pointSize)
       .style("fill", Cfg.color.slotFill)
       .style("stroke", Cfg.color.slotStroke)
@@ -1019,10 +1117,7 @@ export default class Graph {
       .on("dblclick.changeSlotDir", (d) => {
         // 双击插槽，切换插槽输入输出方向
         d3.event.stopPropagation();
-        if (d.node.modelId === Cfg.ModelId.fdir || d.node.modelId === Cfg.ModelId.monitor) {
-          // 只有四向/流速器可调转输入输出口
-          this.changeSlotDir(d);
-        }
+        this.changeSlotDir(d);
       })
       .on("contextmenu.rclickSlot", (d) => {
         // 右键插槽
@@ -1033,19 +1128,32 @@ export default class Graph {
         }
       })
       .call(this.bindSlotDragEvent()); // 绑定插槽圆点拖拽事件
-    // // 更新插槽节点相对位置
-    // nodeSlotMerge
-    //   .selectAll(".slot-point")
-    //   .attr("transform", (slot) => `translate(${slot.ox},${slot.oy})`);
 
     // 新增 插槽+-号
-    nodeSlotEnter
+    nodeSlotGEnter
       .append("path")
       .attr("class", "slot-dir")
       .style("pointer-events", "none") // 事件穿透
       .style("stroke", Cfg.color.slotStroke);
+
+    // 更新新增的节点插槽
+    this.updateNodeSlot(nodeSlotGEnter);
+    return nodeSlotGEnter;
+  }
+
+  /**
+   * 更新节点插槽
+   * @param {d3.Selection<SVGGElement, Mapper.GraphNodeSlot>} nodeSlotUpdate
+   * @return {d3.Selection<SVGGElement, Mapper.GraphNodeSlot>}
+   */
+  updateNodeSlot(nodeSlotUpdate) {
+    // 更新插槽节点相对位置
+    nodeSlotUpdate
+      .selectAll(".slot-point")
+      .attr("transform", (slot) => `translate(${slot.ox},${slot.oy})`);
+
     // 更新 插槽+-号
-    nodeSlotMerge.selectAll(".slot-dir").attr("d", (d) => {
+    nodeSlotUpdate.selectAll(".slot-dir").attr("d", (d) => {
       const r = Cfg.pointSize;
       let dAttr = `M${d.ox - r / 2},${d.oy} L${d.ox + r / 2},${d.oy}`;
       if (d.dir === 1) {
@@ -1054,100 +1162,150 @@ export default class Graph {
         return dAttr; // 输入口：－
       }
     });
+    return nodeSlotUpdate;
   }
 
-  // 绘制四向插槽优先标记
-  buildSlotPriority() {
-    if (!this.$node) throw "节点集Selection不存在！";
-    let nodeSlot = this.$node
-      .filter((d) => d.modelId === Cfg.ModelId.fdir) // 过滤四向模型
-      .selectAll(".node-slot");
-    // 移除非优先数据的标记
-    nodeSlot
-      .filter((d) => d.priority !== 1)
-      .selectAll(".slot-priority")
-      .remove();
+  /**
+   * 传入数据对象 更新单个节点插槽
+   * @param {Mapper.GraphNodeSlot} nodeSlot
+   */
+  updateSingleNodeSlot(nodeSlot) {
+    let nodeSlotSel = d3.select(
+      `#${this.uniqueTag}_node-slot-${nodeSlot.node.id}-${nodeSlot.index}`
+    );
+    if (nodeSlotSel.empty() || !nodeSlotSel.datum()) {
+      // 元素不存在 或 未绑定数据，则重绘所有插槽
+      this.buildNodeSlot();
+    } else {
+      // 更新插槽
+      this.updateNodeSlot(nodeSlotSel);
+      // 绘制四向插槽优先标记
+      this.buildSlotPriority(nodeSlotSel);
+    }
+  }
 
-    nodeSlot
-      .filter((d) => d.priority === 1) // 优先插槽
-      .each(function (d) {
-        let priority = d3
-          .select(this)
-          .selectAll(".slot-priority")
-          .data([d], (s) => s.index);
-        priority.exit().remove();
-        // 新增优先标记
-        let priorityEnter = priority
-          .enter()
-          .insert("path", ".slot-point") // 在插槽圆点前插入
-          .attr("class", "slot-priority")
-          .style("pointer-events", "none") // 事件穿透
-          .style("stroke-width", Cfg.strokeW.bold)
-          .style("opacity", 0.8)
-          .attr("d", (d) => {
-            const bw = Cfg.nodeSize / 2; // 三角形底宽
-            if (d.oy == 0) {
-              // 左右边缘插槽
-              return `M${d.ox},${bw / 2} L${d.ox},${-bw / 2} L${d.ox / 5},${0} Z`;
-            } else if (d.ox == 0) {
-              // 上下边缘插槽
-              return `M${bw / 2},${d.oy} L${-bw / 2},${d.oy} L${0},${d.oy / 5} Z`;
-            }
-          });
-        // 更新优先标记
-        priority
-          .merge(priorityEnter)
-          .style("stroke", (d) => {
-            if (d.dir === 1) return Cfg.color.priorityOutStroke; // 输出优先
-            else if (d.dir === -1) return Cfg.color.priorityInStroke; // 输入优先
-          })
-          .style("fill", (d) => {
-            if (d.dir === 1) {
-              // 输出口
-              if (!d.filterId) return Cfg.color.priorityOutFill;
-              // 过滤物品
-              return Cfg.filterItemMap.get(d.filterId)?.color ?? Cfg.color.item_default;
-            } else if (d.dir === -1) {
-              return Cfg.color.priorityInFill; // 输入优先
-            }
-          });
+  /**
+   * 绘制四向插槽优先标记
+   * @param {d3.Selection<SVGGElement, Mapper.GraphNodeSlot>} nodeSlotSel
+   */
+  buildSlotPriority(nodeSlotSel) {
+    let _this = this;
+    if (nodeSlotSel == null) {
+      nodeSlotSel = this.getNodeSlotSel();
+    }
+    nodeSlotSel.each(function (d) {
+      const nodeSlotG = d3.select(this);
+      if (d.node.modelId !== Cfg.ModelId.fdir || d.priority !== 1) {
+        // 删除非四向模型、非优先的优先标记
+        nodeSlotG.selectAll(".slot-priority").remove();
+        return;
+      }
+      const prioritySel = nodeSlotG.select(".slot-priority");
+      if (prioritySel.empty()) {
+        // 创建四向插槽优先标记
+        _this.insertSlotPriority(nodeSlotG, false);
+      } else {
+        // 更新标记
+        _this.updateSlotPriority(prioritySel);
+      }
+    });
+  }
+
+  /**
+   * 创建四向插槽优先标记
+   * @param {d3.Selection<SVGGElement, Mapper.GraphNodeSlot>} nodeSlotSel
+   * @param {boolean} overwrite 覆盖
+   * @return {d3.Selection<SVGPathElement, Mapper.GraphNodeSlot>} prioritySel
+   */
+  insertSlotPriority(nodeSlotSel, overwrite = true) {
+    if (overwrite) nodeSlotSel.selectAll(".slot-priority").remove();
+    const priority = nodeSlotSel
+      .insert("path", ".slot-point") // 在插槽圆点前插入
+      .attr("class", "slot-priority")
+      .style("pointer-events", "none") // 事件穿透
+      .style("stroke-width", Cfg.strokeW.bold)
+      .style("opacity", 0.8)
+      .attr("d", (d) => {
+        const bw = Cfg.nodeSize / 2; // 三角形底宽
+        if (d.oy == 0) {
+          // 左右边缘插槽
+          return `M${d.ox},${bw / 2} L${d.ox},${-bw / 2} L${d.ox / 5},${0} Z`;
+        } else if (d.ox == 0) {
+          // 上下边缘插槽
+          return `M${bw / 2},${d.oy} L${-bw / 2},${d.oy} L${0},${d.oy / 5} Z`;
+        }
       });
+    this.updateSlotPriority(priority);
+    return priority;
+  }
+
+  /**
+   * 更新四向插槽优先标记
+   * @param {d3.Selection<SVGPathElement, Mapper.GraphNodeSlot>} prioritySel
+   * @return {d3.Selection<SVGPathElement, Mapper.GraphNodeSlot>}
+   */
+  updateSlotPriority(prioritySel) {
+    prioritySel
+      .style("stroke", (d) => {
+        if (d.dir === 1) return Cfg.color.priorityOutStroke; // 输出优先
+        else if (d.dir === -1) return Cfg.color.priorityInStroke; // 输入优先
+      })
+      .style("fill", (d) => {
+        if (d.dir === 1) {
+          // 输出口
+          if (!d.filterId) return Cfg.color.priorityOutFill;
+          // 过滤物品
+          return Cfg.filterItemMap.get(d.filterId)?.color ?? Cfg.color.item_default;
+        } else if (d.dir === -1) {
+          return Cfg.color.priorityInFill; // 输入优先
+        }
+      });
+    return prioritySel;
   }
 
   // 绘制连线
   buildLink() {
-    if (!this._edges) throw "连接线数据不存在！";
-    if (!this.$linkGroup) throw "连接线层Selection不存在！";
-    const arrowId = "arrow-line";
-    this.createArrow(arrowId, Cfg.color.lineStroke);
+    this.createArrow("arrow-link", Cfg.color.linkStroke);
+    this.$link = this.getLinkSel().join(
+      (enter) => this.appendLink(enter, false),
+      (update) => this.updateLink(update),
+      (exit) => exit.remove()
+    );
+  }
 
-    const link = this.$linkGroup
-      .selectAll(".line")
-      .data(
-        this._edges,
-        (d) => `${d.source.id}-${d.sourceSlot.index}_${d.target.id}-${d.targetSlot.index}`
-      );
-    link.exit().remove(); // 移除多余对象
-
-    // 新增 连接线
-    const linkEnter = link
-      .enter()
+  /**
+   * 创建连接线
+   * @param {d3.Selection<, Mapper.GraphEdge>} edgeEnter
+   * @param {boolean} overwrite 覆盖
+   * @return {d3.Selection<SVGPathElement, Mapper.GraphEdge>} edgePathEnter 返回带绑定path标签的enter
+   */
+  appendLink(edgeEnter, overwrite = true) {
+    if (overwrite) edgeEnter.selectAll(".link").remove();
+    // 创建 连接线
+    const edgePathEnter = edgeEnter
       .append("path")
-      .attr("stroke-width", Cfg.strokeW.line)
-      .attr("class", "line")
-      .style("stroke", Cfg.color.lineStroke)
+      .attr("id", (d) => {
+        return `${this.uniqueTag}_link-source-${d.source.id}-${d.sourceSlot.index}-target-${d.target.id}-${d.targetSlot.index}`;
+      })
+      .attr("stroke-width", Cfg.strokeW.link)
+      .attr("class", "link")
+      .style("stroke", Cfg.color.linkStroke)
       .attr("fill", "none")
-      .attr("marker-end", `url(#${arrowId})`);
-    // 合并新增/更新对象
-    const linkMerge = link.merge(linkEnter);
-    this.$link = linkMerge;
-    // 更新连接线路径
-    this.updateLinkPath(linkMerge);
-
+      .attr("marker-end", `url(#arrow-link)`);
     // 更新 连接线
-    linkMerge.attr("id", (d) => {
-      return `${this.uniqueTag}_line-source-${d.source.id}-${d.sourceSlot.index}-target-${d.target.id}-${d.targetSlot.index}`;
-    });
+    this.updateLink(edgePathEnter);
+    return edgePathEnter;
+  }
+
+  /**
+   * 更新连接线
+   * @param {d3.Selection<SVGPathElement, Mapper.GraphEdge>} edgeSel
+   * @return {d3.Selection<SVGPathElement, Mapper.GraphEdge>}
+   */
+  updateLink(edgeSel) {
+    // 更新连接线路径
+    this.updateLinkPath(edgeSel);
+    return edgeSel;
   }
 
   // 创建连接线箭头
@@ -1168,35 +1326,38 @@ export default class Graph {
       .attr("d", "M0,-4L10,0L0,4")
       .attr("fill", color)
       .attr("stroke", color)
-      .attr("stroke-width", Cfg.strokeW.line / 2);
+      .attr("stroke-width", Cfg.strokeW.link / 2);
   }
 
   // 绘制节点选择框
   buildBox() {
-    if (!this.$boxGroup) throw "选择框层Selection不存在！";
-    const box = this.$boxGroup
-      .selectAll(".node-box")
-      .data(Array.from(this._selection.nodeMap.values()), (d) => d.id);
-    box.exit().remove(); // 移除多余对象
+    this.$box = this.getNodeBoxSel().join(
+      (enter) => this.appendNodeBox(enter, false),
+      (update) => this.updateNodeBox(update),
+      (exit) => exit.remove()
+    );
+    // 更新选中节点包围盒
+    this.updateSelectionBox();
+  }
 
-    // 新增 节点选择框g标签
-    const boxEnter = box
-      .enter()
+  /**
+   * 创建节点选择框
+   * @param {d3.Selection<, Mapper.GraphNode>} nodeBoxEnter
+   * @param {boolean} overwrite 覆盖
+   * @return {d3.Selection<SVGGElement, Mapper.GraphNode>} nodeBoxGEnter 返回带绑定g标签的enter
+   */
+  appendNodeBox(nodeBoxEnter, overwrite = true) {
+    if (overwrite) nodeBoxEnter.selectAll(".node-box").remove();
+    // 创建 节点选择框g标签
+    const nodeBoxGEnter = nodeBoxEnter
       .append("g")
       .attr("class", "node-box")
       .attr("id", (d) => {
         return `${this.uniqueTag}_node-box-${d.id}`;
       });
-    // 合并新增/更新对象
-    const boxMerge = box.merge(boxEnter);
-    this.$box = boxMerge;
-    // 更新节点选择框坐标
-    this.updateBoxPosition(boxMerge);
 
-    const mg = Cfg.selectionMargin; // 选择框与元素间距
-    const cw = Cfg.nodeCornerWidth; // 角框长度
     // 创建 节点角框
-    boxEnter
+    nodeBoxGEnter
       .append("path")
       .attr("class", "node-corner")
       .attr("id", (d) => {
@@ -1205,8 +1366,25 @@ export default class Graph {
       .attr("fill", "none")
       .style("stroke", Cfg.color.selectionCornerStroke)
       .style("stroke-width", Cfg.strokeW.bold);
+
+    // 更新节点选择框
+    this.updateNodeBox(nodeBoxGEnter);
+    return nodeBoxGEnter;
+  }
+
+  /**
+   * 更新节点选择框
+   * @param {d3.Selection<SVGGElement, Mapper.GraphNode>} nodeBoxSel
+   * @return {d3.Selection<SVGGElement, Mapper.GraphNode>} nodeBoxSel
+   */
+  updateNodeBox(nodeBoxSel) {
+    // 更新节点选择框坐标
+    this.updateBoxPosition(nodeBoxSel);
+
     // 更新节点角框
-    boxMerge.selectAll(".node-corner").attr("d", (d) => {
+    const mg = Cfg.selectionMargin; // 选择框与元素间距
+    const cw = Cfg.nodeCornerWidth; // 角框长度
+    nodeBoxSel.selectAll(".node-corner").attr("d", (d) => {
       let dx = d.w / 2 + mg;
       let dy = d.h / 2 + mg;
       return (
@@ -1216,9 +1394,7 @@ export default class Graph {
         ` M${-dx + cw},${dy} L${-dx},${dy} L${-dx},${dy - cw}`
       );
     });
-
-    // 更新选中节点包围盒
-    this.updateSelectionBox();
+    return nodeBoxSel;
   }
 
   /**
@@ -1475,8 +1651,8 @@ export default class Graph {
       _this.$linkGroup.select(`#${_this.uniqueTag}_dragLine`).remove();
       _this.$linkGroup
         .append("path")
-        .attr("stroke-width", Cfg.strokeW.line)
-        .attr("class", "line")
+        .attr("stroke-width", Cfg.strokeW.link)
+        .attr("class", "link")
         .attr("id", `${_this.uniqueTag}_dragLine`)
         .attr(
           "d",
@@ -1598,10 +1774,10 @@ export default class Graph {
 
   /**
    * 更新连接线路径
-   * @param {d3.Selection<,Mapper.GraphEdge>} link
+   * @param {d3.Selection<,Mapper.GraphEdge>} edgeSel
    */
-  updateLinkPath(link) {
-    link?.attr("d", (d) => {
+  updateLinkPath(edgeSel) {
+    edgeSel?.attr("d", (d) => {
       const startNodeX = d.source.x + d.sourceSlot.ox;
       const startNodeY = d.source.y + d.sourceSlot.oy;
       const endNodeX = d.target.x + d.targetSlot.ox;

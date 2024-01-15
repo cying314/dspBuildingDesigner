@@ -41,15 +41,15 @@ const monitorLayout = {
   maxH: 22,
   maxD: 10,
 };
-// 起点(输出口)布局
-const startLayout = {
+// 信号输出布局
+const outputLayout = {
   start: { x: 11, y: 0 }, // 布局起点
   maxW: 11,
   maxH: 2,
   maxD: 1,
 };
-// 终点(输入口)布局
-const endLayout = {
+// 信号输入布局
+const inputLayout = {
   start: { x: 0, y: 0 }, // 布局起点
   maxW: 11,
   maxH: 2,
@@ -102,8 +102,8 @@ export function createbuildings(nodes, edges) {
   let resList = [];
   let fdirList = []; // 四向节点
   let monitorList = []; // 流速器节点
-  let startList = []; // 起点
-  let endList = []; // 终点
+  let outputList = []; // 信号输出
+  let inputList = []; // 信号输入
   nodes.forEach((n) => {
     switch (n.modelId) {
       case Cfg.ModelId.fdir: // 四向
@@ -112,11 +112,11 @@ export function createbuildings(nodes, edges) {
       case Cfg.ModelId.monitor: // 流速器
         monitorList.push(n);
         break;
-      case Cfg.ModelId.start: // 起点
-        startList.push(n);
+      case Cfg.ModelId.output: // 信号输出
+        outputList.push(n);
         break;
-      case Cfg.ModelId.end: // 终点
-        endList.push(n);
+      case Cfg.ModelId.input: // 信号输入
+        inputList.push(n);
         break;
     }
   });
@@ -169,41 +169,41 @@ export function createbuildings(nodes, edges) {
     nodeId2SlotBeltsMap.set(n.id, monitorGroup._slotsBelts);
   });
 
-  // 3、起点：中心扩散布局
-  let startOffset = [startLayout.start.x, startLayout.start.y, 0];
-  let startLayoutCoords = centralCubeLayout(
-    startList.length,
+  // 3、信号输入：中心扩散布局
+  let startOffset = [outputLayout.start.x, outputLayout.start.y, 0];
+  let outputLayoutCoords = centralCubeLayout(
+    outputList.length,
     monitorSize.w,
     monitorSize.h,
     monitorSize.d,
-    startLayout.maxW,
-    startLayout.maxH,
-    startLayout.maxD,
+    outputLayout.maxW,
+    outputLayout.maxH,
+    outputLayout.maxD,
     startOffset,
-    "起点"
+    "信号输入流速器"
   );
-  startList.forEach((n, ni) => {
+  outputList.forEach((n, ni) => {
     //  创建流速器组（带两节传送带）
-    const monitorGroup = createMonitorGroup(resList.length, startLayoutCoords[ni], n, resList);
+    const monitorGroup = createMonitorGroup(resList.length, outputLayoutCoords[ni], n, resList);
     nodeId2SlotBeltsMap.set(n.id, monitorGroup._slotsBelts);
   });
 
-  // 4、终点：中心扩散布局
-  let endOffset = [endLayout.start.x, endLayout.start.y, 0];
-  let endLayoutCoords = centralCubeLayout(
-    endList.length,
+  // 4、信号输入：中心扩散布局
+  let endOffset = [inputLayout.start.x, inputLayout.start.y, 0];
+  let inputLayoutCoords = centralCubeLayout(
+    inputList.length,
     monitorSize.w,
     monitorSize.h,
     monitorSize.d,
-    endLayout.maxW,
-    endLayout.maxH,
-    endLayout.maxD,
+    inputLayout.maxW,
+    inputLayout.maxH,
+    inputLayout.maxD,
     endOffset,
-    "终点"
+    "信号输入流速器"
   );
-  endList.forEach((n, ni) => {
+  inputList.forEach((n, ni) => {
     //  创建流速器组（带两节传送带）
-    const monitorGroup = createMonitorGroup(resList.length, endLayoutCoords[ni], n, resList);
+    const monitorGroup = createMonitorGroup(resList.length, inputLayoutCoords[ni], n, resList);
     nodeId2SlotBeltsMap.set(n.id, monitorGroup._slotsBelts);
   });
 
@@ -218,7 +218,7 @@ export function createbuildings(nodes, edges) {
     inserterLayout.maxH,
     inserterLayout.maxD,
     inserterOffset,
-    "终点"
+    "分拣器"
   );
   edges.forEach((e, ei) => {
     let outputObjIdx = -1;
@@ -444,7 +444,7 @@ export function createMonitorGroup(
   let spawnItemOperator = 1; // 0:不勾选 1:生成货物 2:消耗货物
   let passColorId = 1;
   let failColorId = 1;
-  if (node.modelId === Cfg.ModelId.start || node.modelId === Cfg.ModelId.end) {
+  if (node.modelId === Cfg.ModelId.output || node.modelId === Cfg.ModelId.input) {
     // 只有开始和结束节点才点亮流速器
     passColorId = 113;
     failColorId = 13;
@@ -461,18 +461,18 @@ export function createMonitorGroup(
     offset: [ox, oy - beltDistance, oz],
   };
   if (
-    node.modelId === Cfg.ModelId.start ||
+    node.modelId === Cfg.ModelId.output ||
     (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1)
   ) {
-    // 起点 或流速器 生成货物
+    // 信号输出 或流速器 生成货物
     // 输出到下一节
     belt1.opt = [belt2.index, 1]; // 传送带插槽默认为1
     spawnItemOperator = 1;
   } else if (
-    node.modelId === Cfg.ModelId.end ||
+    node.modelId === Cfg.ModelId.input ||
     (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === -1)
   ) {
-    // 终点 或流速器 消耗货物
+    // 信号输入 或流速器 消耗货物
     // 输出到上一节
     belt2.opt = [belt1.index, 1]; // 传送带插槽默认为1
     spawnItemOperator = 2;
