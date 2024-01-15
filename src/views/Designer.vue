@@ -451,7 +451,7 @@ export default {
     getBaseModels() {
       if (this.baseModelsLoading) return;
       this.baseModelsLoading = true;
-      fetch("/static/data/models.json")
+      fetch("./static/data/models.json")
         .then((response) => response.json())
         .then((data) => {
           this.baseModels = data;

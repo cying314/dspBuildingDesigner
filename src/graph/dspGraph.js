@@ -1237,8 +1237,10 @@ export default class Graph {
     } else {
       // 更新插槽
       this.updateNodeSlot(nodeSlotSel);
+      // 更新节点下四个插槽
+      let nodeAllSlotSel = d3.selectAll(`[id^="${this.uniqueTag}_node-slot-${nodeSlot.node.id}-"]`);
       // 绘制四向插槽优先标记
-      this.buildSlotPriority(nodeSlotSel);
+      this.buildSlotPriority(nodeAllSlotSel);
     }
   }
 

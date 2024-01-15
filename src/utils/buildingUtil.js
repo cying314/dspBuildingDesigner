@@ -232,7 +232,7 @@ export function createItem(
   /** 插槽外接传送带建筑对象 @type {BuildingItem[]} */
   const _slotsBelts = [];
   const HorizDistance = 0.3;
-  const VerticalDistance = 0.2;
+  const VerticalDistance = 0.7; // 四个垂直带至少要放下两个货物，否则四向优先输出逻辑将失效
   // 创建4个短垂直带
   let os = [
     { x: ox, y: oy + HorizDistance, z: oz }, // 上
@@ -247,12 +247,12 @@ export function createItem(
     // 接四向
     let belt1 = {
       index: startIndex + ++offsetIndex,
-      offset: [os[i].x, os[i].y, os[i].z],
+      offset: [os[i].x, os[i].y, os[i].z + VerticalDistance / 2],
     };
     // 外接
     let belt2 = {
       index: startIndex + ++offsetIndex,
-      offset: [os[i].x, os[i].y, os[i].z - VerticalDistance],
+      offset: [os[i].x, os[i].y, os[i].z - VerticalDistance / 2],
     };
     if (s.dir === 1) {
       // 输出口 从四向输入
@@ -324,7 +324,7 @@ export function createFdir({
  * @param {number[]} opt.offset 偏移 [x,y,z]
  * @param {number[]} opt.opt 输出 [outputObjIdx, outputToSlot]
  * @param {number[]} opt.ipt 输入 [inputObjIdx, inputFromSlot]
- * @param {number} opt.level 传送带等级(1,2,3) 默认极速传送带
+ * @param {number} opt.level 传送带等级(1,2,3) 默认1级带
  * @return {BuildingItem}
  */
 export function createBelt({
@@ -332,7 +332,7 @@ export function createBelt({
   offset: [x = 0, y = 0, z = 0] = [],
   opt: [outputObjIdx = -1, outputToSlot = 0] = [],
   ipt: [inputObjIdx = -1, inputFromSlot = 0] = [],
-  level = 3,
+  level = 1,
   iconId,
 } = {}) {
   let itemId;
