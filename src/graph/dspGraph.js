@@ -45,9 +45,11 @@ export default class Graph {
   /** 当前鼠标在画布内相对位置 */ _mouseOffset = [0, 0];
   /** 撤回列表 @type {Mapper.GraphData[]} */ _undoList = [];
   /** 重做列表 @type {Mapper.GraphData[]} */ _redoList = [];
+
   /** 画布空白位置双击事件 */ handleDblclick;
   /** 右键点击节点事件 */ handleRclickNode;
   /** 右键点击插槽事件 */ handleRclickSlot;
+  /** 生成蓝图事件前置调用 */ beforeGenerateBlueprint;
 
   /**
    * 图谱实例
@@ -63,6 +65,7 @@ export default class Graph {
    * @param {(event: Event) => void} options.handleDblclick 画布空白位置双击事件
    * @param {(event: Event, d: Object) => void} options.handleRclickNode 右键点击插槽事件
    * @param {(event: Event, d: Object) => void} options.handleRclickSlot 右键点击插槽事件
+   * @param {(done: Function) => void} options.beforeGenerateBlueprint 生成蓝图事件前置调用
    */
   constructor({
     canvasDOM,
@@ -76,6 +79,7 @@ export default class Graph {
     handleDblclick,
     handleRclickNode,
     handleRclickSlot,
+    beforeGenerateBlueprint,
   }) {
     if (!canvasDOM) throw "画布容器dom不存在！";
     this._canvasDOM = canvasDOM;
@@ -88,6 +92,7 @@ export default class Graph {
     this.handleDblclick = handleDblclick;
     this.handleRclickNode = handleRclickNode;
     this.handleRclickSlot = handleRclickSlot;
+    this.beforeGenerateBlueprint = beforeGenerateBlueprint;
     this.init(graphData);
   }
 
@@ -310,6 +315,22 @@ export default class Graph {
     this.graphName = _header._graphName;
     // 设置画布位移、缩放
     if (isTransform) this.setTransform(_header._transform);
+    // 载入生成布局
+    console.log(_header._layout, "_header._layout");
+    if (_header._layout instanceof Object) {
+      Object.keys(_header._layout).forEach((key) => {
+        let _lay = _header._layout[key];
+        if (Object.hasOwnProperty.call(Cfg.layoutSetting, key)) {
+          let _cfgLay = Cfg.layoutSetting[key];
+          let { x = 0, y = 0 } = _lay.start ?? {};
+          _cfgLay.start = { x, y };
+          _cfgLay.maxW = _lay.maxW ?? 0;
+          _cfgLay.maxH = _lay.maxH ?? 0;
+          _cfgLay.maxD = _lay.maxD ?? 0;
+          _cfgLay.dir = _lay.dir ?? 0;
+        }
+      });
+    }
 
     // 重置视图中的元素分层（否则可能会出现数据绑定异常）
     this.buildGroup();
@@ -1953,19 +1974,33 @@ export default class Graph {
   }
 
   /**
-   * 生成蓝图数据
+   * 生成蓝图数据事件处理
    */
   handleGenerateBlueprint() {
     if (this._nodes.length == 0) {
       Util._warn("当前没有可导出的节点！");
       return false;
     }
+    if (this.beforeGenerateBlueprint instanceof Function) {
+      this.beforeGenerateBlueprint(() => this.generateBlueprint());
+    } else {
+      this.generateBlueprint();
+    }
+  }
+
+  /**
+   * 生成蓝图数据
+   */
+  generateBlueprint() {
     try {
       const blueprint = BuildingUtil.generateBlueprint(this._nodes, this._edges, this.graphName);
       Util.saveBlueprintAsTxt(blueprint);
       Util._success("生成蓝图成功！");
+      return true;
     } catch (e) {
+      console.error(e);
       Util._err("生成蓝图失败：" + e);
+      return false;
     }
   }
 }

@@ -14,15 +14,16 @@ import * as Util from "./graphUtil.js";
  * @property {string} version - 数据对应工具版本
  * @property {number} timestramp - 数据导出时间戳
  * @property {string} graphName - 蓝图名
- * @property {object} boundingBox - 节点包围盒边界信息 {minX, minY, maxX, maxY, w, h}
- * @property {object} transform - 画布位移、缩放 { x, y, k }
+ * @property {{x, y, k}} transform - 画布位移、缩放 { x, y, k }
+ * @property {{minX, minY, maxX, maxY, w, h}} boundingBox - 节点包围盒边界信息 {minX, minY, maxX, maxY, w, h}
+ * @property {object} layout - 生成蓝图布局 { fdirLayout: { start: { x, y }, maxW, maxH, maxD }, ...}
  */
 /**
  * 解析图谱持久化数据
  * @param {GraphData} graphData 图谱持久化数据 { header:{boundingBox}, data:{nodes,lines} }
  * @param startId 起始id(默认0)
  * @param offset 整体偏移 [x,y]
- * @return 图谱对象 {_header:{_graphName, _transform, _boundingBox}, _nodes, _edges, _maxId, _nodeMap}
+ * @return 图谱对象 {_header:{_graphName, _transform, _boundingBox, _layout}, _nodes, _edges, _maxId, _nodeMap}
  */
 export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
   Util.checkGraphData(graphData, true, true);
@@ -69,6 +70,7 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
           w: w,
           h: h,
         },
+        _layout: graphData.header.layout,
       },
       _nodes,
       _edges,
@@ -98,14 +100,26 @@ export function toGraphData(
       version: Cfg.version,
       graphName: graphName,
       timestramp: new Date().getTime(),
-      boundingBox: Util.calcuBoundingBox(nodes),
       transform: { x, y, k },
+      boundingBox: Util.calcuBoundingBox(nodes),
+      layout: Cfg.layoutSetting,
     },
     data: {
       nodes: nodes.map((n) => nodeToData(n)),
       lines: edges.map((e) => edgeToData(e)),
     },
   };
+  const _lay = (graphData.header.layout = {});
+  Object.keys(Cfg.layoutSetting).forEach((key) => {
+    let {
+      start: { x = 0, y = 0 } = {},
+      maxW = 0,
+      maxH = 0,
+      maxD = 0,
+      dir = 0,
+    } = Cfg.layoutSetting[key];
+    _lay[key] = { start: { x, y }, maxW, maxH, maxD, dir };
+  });
   return graphData;
 }
 

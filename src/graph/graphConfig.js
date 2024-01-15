@@ -111,3 +111,63 @@ export const nodeModels = [
     icon: "if-icon-end",
   },
 ];
+export function getDefaultLayout() {
+  return {
+    fdirLayout: {
+      name: "四向分流器",
+      start: { x: 0, y: 3 }, // 布局起点
+      maxW: 20, // 最大宽度（纬线方向）
+      maxH: 20, // 最大长度（经线方向）
+      maxD: 10, // 最大高度
+      dir: 1, // 展开方向 (0:左上, 1:右上, 2:右下, 3:左下)
+      previewBoxColor: "rgba(205, 192, 229, 0.3)", // 布局配置预览区域颜色
+    },
+    inserterLayout: {
+      name: "分拣器",
+      start: { x: -1, y: 2 },
+      maxW: 10,
+      maxH: 10,
+      maxD: 10,
+      dir: 3, // 左下
+      previewBoxColor: "rgba(255, 225, 137, 0.3)",
+    },
+    monitorLayout: {
+      name: "流速器-回收",
+      start: { x: -1, y: 3 },
+      maxW: 10,
+      maxH: 10,
+      maxD: 10,
+      dir: 0, // 左上
+      previewBoxColor: "rgba(120, 195, 255, 0.3)",
+    },
+    outputLayout: {
+      name: "流速器-信号输出",
+      start: { x: 0, y: 0 },
+      maxW: 20,
+      maxH: 2,
+      maxD: 1,
+      dir: 1, // 右上
+      previewBoxColor: "rgba(247, 155, 164, 0.3)",
+    },
+    inputLayout: {
+      name: "流速器-信号输入",
+      start: { x: 0, y: -3 },
+      maxW: 20,
+      maxH: 2,
+      maxD: 1,
+      dir: 1, // 右上
+      previewBoxColor: "rgba(118, 221, 68, 0.3)",
+    },
+  };
+}
+/** 生成蓝图布局 */
+export const layoutSetting = getDefaultLayout();
+/** 生成蓝图布局List */
+export const layoutSettingList = Object.values(layoutSetting);
+/** 重置默认布局 */
+export function resetLayout() {
+  const layout = getDefaultLayout();
+  Object.keys(layout).forEach((key) => {
+    Object.assign(layoutSetting[key], layout[key]);
+  });
+}
