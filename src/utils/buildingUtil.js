@@ -333,6 +333,7 @@ export function createBelt({
   opt: [outputObjIdx = -1, outputToSlot = 0] = [],
   ipt: [inputObjIdx = -1, inputFromSlot = 0] = [],
   level = 3,
+  iconId,
 } = {}) {
   let itemId;
   let modelIndex;
@@ -371,7 +372,7 @@ export function createBelt({
     inputOffset: 0,
     recipeId: 0,
     filterId: 0,
-    parameters: null,
+    parameters: iconId == null ? null : { iconId },
   };
 }
 
@@ -407,6 +408,7 @@ export function createMonitorGroup(
   let belt2 = {
     index: startIndex + 2,
     offset: [ox, oy - beltDistance, oz],
+    iconId: node.signalId, // 传送带标记
   };
   if (
     node.modelId === Cfg.ModelId.output ||

@@ -133,6 +133,7 @@ export function toGraphData(
  * @property {number} h - 节点高度
  * @property {string} text - 节点文本
  * @property {number} itemId - 生成/消耗物品id
+ * @property {number} signalId - 标记id
  * @property {GraphNodeSlot[]} slots - 插槽
  */
 /**
@@ -162,6 +163,7 @@ export function initGraphNode(d) {
     w: _toFloat(d.w, Cfg.nodeSize),
     h: _toFloat(d.h, Cfg.nodeSize),
     itemId: _toInt(d.itemId),
+    signalId: _toInt(d.signalId),
     text: _toStr(d.text, d.modelId == Cfg.ModelId.text ? Cfg.defaultText : null),
     slots: [],
   };
@@ -241,6 +243,7 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
     case Cfg.ModelId.input: // 信号输入(消耗)
       d.w = d.h = Cfg.nodeSize / 2; // 一半四向宽
       d.itemId = _toInt(other.itemId, 6002); // 生成/消耗物品id（默认红糖）
+      d.signalId = _toInt(other.signalId); // 标记id
       d.slots = [
         { dir: modelId === Cfg.ModelId.input ? -1 : 1 }, // 默认输出->1 [信号输入->-1]
       ];
@@ -279,6 +282,7 @@ export function dataToNode(data, nodeId, offset) {
  * @property {number} h - 节点高度
  * @property {string} text - 节点文本
  * @property {number} itemId - 生成/消耗物品id
+ * @property {number} signalId - 标记id
  * @property {NodeSlotData[]} slots - 插槽
  */
 /**
@@ -326,6 +330,7 @@ export function nodeToData(node) {
   } else if ([Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
     // 流速器、信号输出、信号输入
     data.itemId = node.itemId; // 生成/消耗物品id
+    data.signalId = node.signalId; // 标记id
     data.slots =
       node.slots?.map((s) => ({
         // 固定插槽，不保存偏移

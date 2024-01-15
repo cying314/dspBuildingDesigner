@@ -105,9 +105,10 @@
       <div class="canvasWrap" @contextmenu.prevent>
         <div ref="canvasRef" id="canvas_dsp" @dragover="handleDragOverCanvas" @dragleave="handleDragLeaveCanvas"></div>
         <div class="operMenuWrap" v-show="operMenuVisible" @click="operMenuVisible=false" @contextmenu="operMenuVisible=false">
-          <ul class="operMenu" :style="{top: operMenuTop+'px', left: operMenuLeft+'px'}" @contextmenu.prevent.stop @mousedown.stop>
+          <ul class="operMenu" :style="{top: operMenuTop+'px', left: operMenuLeft+'px', maxWidth: operMenuBtns.length>9?'150px':'90px'}" @contextmenu.prevent.stop @mousedown.stop>
             <li v-for="item,index in operMenuBtns" :key="index" :title="item.title" @click="item.handler" :style="item.style">
-              <i :class="item.icon"></i>
+              <img v-if="item.image" :src="item.image" />
+              <i v-else :class="item.icon"></i>
             </li>
           </ul>
         </div>
@@ -127,7 +128,7 @@
             <el-input-number v-model="row.start.y" :min="-9999" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
           </template>
         </el-table-column>
-        <el-table-column label="最大宽长高 (W, H, F)" align="center">
+        <el-table-column label="最大宽长高 (W, H, T)" align="center">
           <template slot-scope="{ row }">
             <el-input-number v-model="row.maxW" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
           </template>
@@ -137,7 +138,7 @@
             <el-input-number v-model="row.maxH" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
           </template>
         </el-table-column>
-        <el-table-column label="最大高F" align="center">
+        <el-table-column label="最大高T" align="center">
           <template slot-scope="{ row }">
             <el-input-number v-model="row.maxD" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
           </template>
@@ -155,7 +156,7 @@
       </el-table>
       <div class="layoutBox">
         <div class="item" v-for="item,index in layoutSettingList" :key="index" :style="layoutBoxItemStyle(item)">
-          <span class="num">{{item.maxD}}F</span>
+          <span class="num">{{item.maxD}}T</span>
           <div class="anchor" :class="'dir_'+item.dir" :style="{background:item.previewBoxColor}"></div>
         </div>
       </div>
@@ -172,6 +173,7 @@
 import DspGraph from "@/graph/dspGraph.js";
 import * as Cfg from "@/graph/graphConfig.js";
 import * as Util from "@/graph/graphUtil.js";
+import * as ItemsUtil from "@/utils/itemsUtil.js";
 export default {
   name: "test",
   data() {
@@ -527,15 +529,58 @@ export default {
       if ([Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
         // 流速器、信号输出、信号输入 切换生成/消耗物品id
         const dir = d.slots[0]?.dir ?? 1;
-        Cfg.filterItem.forEach((item) => {
-          this.operMenuBtns.push({
-            title: (dir == 1 ? "生成" : "消耗") + item.name,
-            icon: "el-icon-circle-plus",
-            style: `color:${item.color};text-shadow:0 0 1px #5a5a5a`,
-            handler: () => {
-              this.dspGraph.changeNodeItemId(d, item.id);
-            },
-          });
+        let tag = dir == 1 ? "生成" : "消耗";
+        this.operMenuBtns.push({
+          title: "切换" + tag + "物品",
+          icon: "el-icon-help",
+          handler: (event) => {
+            // 阻止关闭窗口
+            event.stopPropagation();
+            // 切换菜单选项为物品列表
+            this.operMenuBtns = [];
+            Cfg.filterItem.forEach((item) => {
+              this.operMenuBtns.push({
+                title: (dir == 1 ? "生成" : "消耗") + item.name,
+                image: ItemsUtil.getItemImage(item.id),
+                style: d.itemId === item.id ? "border:2px solid #80a7dd" : null,
+                handler: () => {
+                  this.dspGraph.changeNodeItemId(d, item.id);
+                },
+              });
+            });
+          },
+        });
+      }
+      if ([Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
+        // 信号输出、信号输入 切换标记id
+        this.operMenuBtns.push({
+          title: "切换标记",
+          icon: "el-icon-info",
+          handler: (event) => {
+            // 阻止关闭窗口
+            event.stopPropagation();
+            // 切换菜单选项为物品列表
+            this.operMenuBtns = [];
+            Cfg.signalIds.forEach((signalId) => {
+              this.operMenuBtns.push({
+                title: "切换标记",
+                image: ItemsUtil.getSignalImage(signalId),
+                style: d.signalId === signalId ? "border:2px solid #80a7dd" : null,
+                handler: () => {
+                  this.dspGraph.changeNodeSignalId(d, signalId);
+                },
+              });
+            });
+            if (d.signalId) {
+              this.operMenuBtns.push({
+                title: "取消标记",
+                icon: "el-icon-close",
+                handler: () => {
+                  this.dspGraph.changeNodeSignalId(d, null);
+                },
+              });
+            }
+          },
         });
       }
       this.showOperMenu(event.offsetX, event.offsetY);
@@ -594,8 +639,10 @@ export default {
           Cfg.filterItem.forEach((item) => {
             this.operMenuBtns.push({
               title: "过滤" + item.name,
-              icon: "el-icon-circle-plus",
-              style: `color:${item.color};text-shadow:0 0 1px #5a5a5a`,
+              // icon: "el-icon-circle-plus",
+              // style: `color:${item.color};text-shadow:0 0 1px #5a5a5a`,
+              image: ItemsUtil.getItemImage(item.id),
+              style: d.filterId === item.id ? "border:2px solid #80a7dd" : null,
               handler: () => {
                 this.dspGraph.changeSlotFilter(d, item.id);
               },
@@ -928,8 +975,17 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
             overflow: hidden;
             border-radius: 4px;
             cursor: pointer;
+            box-sizing: border-box;
             &:hover {
               background: #ecf5ff;
+            }
+            img {
+              width: 100%;
+              height: 100%;
+              transform: scale(0.8);
+              transform-origin: center;
+              background: #ced6e1;
+              border-radius: 5px;
             }
           }
         }
@@ -972,7 +1028,8 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
       border: 1px solid #aaa;
       color: #555;
       box-sizing: border-box;
-      .num{
+      white-space: nowrap;
+      .num {
         font-size: 12px;
         color: #999;
       }

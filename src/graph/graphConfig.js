@@ -17,6 +17,11 @@ export const strokeW = {
 };
 export const nodeSize = 60; // 节点默认宽高
 export const pointSize = 7; // 节点插槽圆点大小
+export const signalSize = 20; // 图标标记大小
+export const signalIds = [
+  600, 601, 602, 603, 604, 605, 606, 607, 608, 609, 401, 402, 403, 404, 405, 406, 501, 502, 503,
+  504, 506, 507, 508, 509, 510, 511, 512, 513, 514, 515, 516, 517,
+]; // 图标id
 export const defaultText = "双击修改文本"; // 默认文本
 export const fontSize = 15; // 字体大小
 export const lineHeight = 15; // 行高

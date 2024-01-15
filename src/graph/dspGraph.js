@@ -4,6 +4,7 @@ import * as Mapper from "./dataMapper.js";
 import * as Util from "./graphUtil.js";
 import * as Watermark from "@/utils/watermark.js";
 import * as BuildingUtil from "@/utils/buildingUtil.js";
+import * as ItemsUtil from "@/utils/itemsUtil.js";
 export default class Graph {
   /** 图谱名称 @type {string} */ graphName;
   /** 画布位移、缩放 @type {{x, y, k}} */ transform = { x: 0, y: 0, k: 1 };
@@ -316,7 +317,6 @@ export default class Graph {
     // 设置画布位移、缩放
     if (isTransform) this.setTransform(_header._transform);
     // 载入生成布局
-    console.log(_header._layout, "_header._layout");
     if (_header._layout instanceof Object) {
       Object.keys(_header._layout).forEach((key) => {
         let _lay = _header._layout[key];
@@ -435,7 +435,15 @@ export default class Graph {
    */
   createNode(modelId, offset = [0, 0]) {
     const coord = Util.offsetToCoord(offset, this.transform);
-    const newNode = Mapper.modelIdToNode(modelId, ++this._maxId, null, coord); // 模型Id 转 节点对象
+    const other = {};
+    if (modelId == Cfg.ModelId.output) {
+      // 输出默认标记 黄色三角感叹号
+      other.signalId = 402;
+    } else if (modelId == Cfg.ModelId.input) {
+      // 输入默认标记 红色三角感叹号
+      other.signalId = 403;
+    }
+    const newNode = Mapper.modelIdToNode(modelId, ++this._maxId, other, coord); // 模型Id 转 节点对象
     if (this.gridAlignment) {
       // 网格对齐
       const ga = Util.gridAlignment(newNode.x, newNode.y);
@@ -776,10 +784,34 @@ export default class Graph {
     if (![Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) return; // 不是流速器、信号输出、信号输入
     node.itemId = itemId;
     // 重绘节点颜色
-    d3.select(`#${this.uniqueTag}_node-bg-${node.id}`).style(
-      "fill",
-      Cfg.filterItemMap.get(itemId)?.color ?? Cfg.color.item_default
-    );
+    if (modelId === Cfg.ModelId.monitor) {
+      d3.select(`#${this.uniqueTag}_node-bg-${node.id}`).style(
+        "fill",
+        Cfg.filterItemMap.get(itemId)?.color ?? Cfg.color.item_default
+      );
+    } else {
+      d3.select(`#${this.uniqueTag}_node-bg-${node.id}`)
+        .select("circle")
+        .style("fill", Cfg.filterItemMap.get(itemId)?.color ?? Cfg.color.item_default);
+    }
+
+    // 记录操作
+    this.recordUndo();
+  }
+
+  /**
+   * 切换流速器生成/消耗物品id 标记id
+   * @param {Mapper.GraphNode} node 节点对象
+   * @param {number} signalId 标记id
+   */
+  changeNodeSignalId(node, signalId) {
+    const modelId = node?.modelId;
+    if (![Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) return; // 不是流速器、信号输出、信号输入
+    node.signalId = signalId;
+    // 重绘节点颜色
+    d3.select(`#${this.uniqueTag}_node-bg-${node.id}`)
+      .select("image")
+      .attr("xlink:href", ItemsUtil.getSignalImage(signalId));
     // 记录操作
     this.recordUndo();
   }
@@ -1031,9 +1063,8 @@ export default class Graph {
         _this.createTspan(bg, Util.splitLines(d.text));
       } else if (d.modelId === Cfg.ModelId.output || d.modelId === Cfg.ModelId.input) {
         // 信号输出、信号输入模型
-        bg = d3
-          .select(this)
-          .insert("circle", ".node-slot") // 在插槽前插入
+        bg = d3.select(this).insert("g", ".node-slot"); // 在插槽前插入
+        bg.append("circle")
           .attr("r", d.w / 2)
           .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default)
           .style(
@@ -1043,6 +1074,12 @@ export default class Graph {
               : Cfg.color.priorityInStroke
           )
           .style("stroke-width", Cfg.strokeW.bold);
+        bg.append("image")
+          .attr("xlink:href", ItemsUtil.getSignalImage(d.signalId))
+          .attr("x", d.w / 2 - Cfg.signalSize / 2)
+          .attr("y", d.h / 2 - Cfg.signalSize / 2)
+          .attr("width", Cfg.signalSize)
+          .attr("height", Cfg.signalSize);
       } else {
         // 其他模型：矩形
         let fill = Cfg.color.nodeFill;
