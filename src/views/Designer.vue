@@ -23,6 +23,7 @@
             <el-button type="primary" icon="el-icon-scissors" title="剪切(Ctrl+X)" @click="dspGraph.handleCut()"></el-button>
             <el-button type="primary" icon="el-icon-delete" title="删除(Delete)" @click="dspGraph.handleDelete()"></el-button>
             <el-divider direction="vertical"></el-divider>
+            <el-button type="primary" icon="el-icon-location-information" title="重置画布定位" @click="dspGraph.resetPosition(true)"></el-button>
             <el-button type="primary" icon="if-icon-grid" :key="gridAlignment?'on':'off'" :title="(gridAlignment?'取消':'')+'网格对齐'" :plain="gridAlignment" @click="gridAlignment=!gridAlignment"></el-button>
           </div>
         </el-scrollbar>
@@ -1015,7 +1016,7 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
     position: relative;
     overflow: hidden;
     background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAAAXNSR0IArs4c6QAAAKhJREFUaEPt1TEOgCAUREHp9f4H1QMYEzzAFDTkWX8hjOsyjvXPNbe4V241Vi4+1+4ggtwXAa2iBVhH0QKtogVYRUuwipZo1VqgVbQAq9YSrKIlWrUWaBUtwKq1BKtoidbXWr+YvCez5xx+5CWd3eogenid7x8RsW520CpagNXNLlhFS7RqLdAqWoBVawlW0RKtWgu0ihZg1VqCVbREq9YCraIFWPu01gthgjJN1EEqQwAAAABJRU5ErkJggg==);
-    background-position: -7px 22px;
+    background-position: -8px -13px;
     background-size: 25px 25px;
     .item {
       user-select: none;

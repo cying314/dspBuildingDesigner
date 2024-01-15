@@ -120,7 +120,7 @@ export function getDefaultLayout() {
   return {
     fdirLayout: {
       name: "四向分流器",
-      start: { x: 0, y: 3 }, // 布局起点
+      start: { x: 0, y: 0 }, // 布局起点
       maxW: 20, // 最大宽度（纬线方向）
       maxH: 20, // 最大长度（经线方向）
       maxD: 10, // 最大高度
@@ -129,8 +129,8 @@ export function getDefaultLayout() {
     },
     inserterLayout: {
       name: "分拣器",
-      start: { x: -1, y: 2 },
-      maxW: 10,
+      start: { x: -1, y: -1 },
+      maxW: 15,
       maxH: 10,
       maxD: 10,
       dir: 3, // 左下
@@ -138,8 +138,8 @@ export function getDefaultLayout() {
     },
     monitorLayout: {
       name: "流速器-回收",
-      start: { x: -1, y: 3 },
-      maxW: 10,
+      start: { x: -1, y: 0 },
+      maxW: 15,
       maxH: 10,
       maxD: 10,
       dir: 0, // 左上
@@ -147,20 +147,20 @@ export function getDefaultLayout() {
     },
     outputLayout: {
       name: "流速器-信号输出",
-      start: { x: 0, y: 0 },
-      maxW: 20,
+      start: { x: 0, y: -1 },
+      maxW: 30,
       maxH: 2,
       maxD: 1,
-      dir: 1, // 右上
+      dir: 2, // 右下
       previewBoxColor: "rgba(247, 155, 164, 0.3)",
     },
     inputLayout: {
       name: "流速器-信号输入",
-      start: { x: 0, y: -3 },
-      maxW: 20,
+      start: { x: 0, y: -4 },
+      maxW: 30,
       maxH: 2,
       maxD: 1,
-      dir: 1, // 右上
+      dir: 2, // 右下
       previewBoxColor: "rgba(118, 221, 68, 0.3)",
     },
   };
