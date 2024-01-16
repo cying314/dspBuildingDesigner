@@ -402,6 +402,16 @@ export default {
           },
         },
         {
+          title: "组合封装选中节点",
+          icon: "el-icon-takeaway-box",
+          handler: () => {
+            // 所有选中节点置于底层
+            let packageName = "封装模块" + (this.dspGraph.packageMap.size + 1);
+            packageName = prompt("请输入模块名");
+            this.dspGraph.handlePackageComponent(packageName);
+          },
+        },
+        {
           title: "置于顶层",
           icon: "el-icon-top",
           handler: () => {

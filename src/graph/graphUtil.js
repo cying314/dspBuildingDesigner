@@ -2,6 +2,7 @@ import * as Cfg from "./graphConfig.js";
 import { Notification, Message } from "element-ui";
 import { saveAs } from "file-saver";
 import * as Parser from "@/utils/parser";
+import crypto from "crypto";
 
 /**
  * @typedef {import("./dataMapper.js").GraphData} GraphData
@@ -309,6 +310,67 @@ export function getInitGraphData() {
       nodes: [],
     },
   };
+}
+
+/**
+ * 提取图谱数据特征，创建hash值（剔除多余信息，只保留蓝图建筑关键信息）
+ * @param {GraphData} graphData
+ * @return {string}
+ */
+export function getGraphDataHash(graphData) {
+  const nodes = graphData.data.nodes ?? [];
+  const lines = graphData.data.lines ?? [];
+  // 节点特征
+  let feature = "n[";
+  let firstNode = true;
+  for (let n of nodes) {
+    // 剔除文本节点
+    if (n.modelId == Cfg.ModelId.text) continue;
+    if (firstNode) {
+      firstNode = false;
+    } else {
+      feature += "|";
+    }
+    feature += n.id + "," + n.modelId; // 节点id,模型id
+    if (n.itemId) {
+      feature += "," + n.itemId; // 生成/消耗物品id
+    }
+    // 插槽
+    if (n.slots?.length > 0) {
+      feature += ",s[";
+      var firstSlot = true;
+      for (let s of n.slots) {
+        if (firstSlot) {
+          firstSlot = false;
+        } else {
+          feature += "|";
+        }
+        feature += s.dir; // 插槽方向
+        if (s.priority) {
+          feature += "," + s.priority; // 是否优先插槽
+        }
+        if (s.filterId) {
+          feature += "," + s.filterId; // 过滤优先输出物品id
+        }
+      }
+      feature += "]";
+    }
+  }
+  feature += "]";
+  // 边特征
+  feature += ",l[";
+  let firstLine = true;
+  for (let l of lines) {
+    if (firstLine) {
+      firstLine = false;
+    } else {
+      feature += "|";
+    }
+    feature += l.startId + "-" + l.startSlot + "," + l.endId + "-" + l.endSlot;
+  }
+  feature += "]";
+  // 使用SHA-256哈希函数生成哈希值
+  return crypto.createHash("sha256").update(feature).digest("hex");
 }
 
 /**

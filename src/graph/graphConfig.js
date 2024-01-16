@@ -76,8 +76,9 @@ export const ModelId = {
   /** 普通文本 */ text: -1,
   /** 四向 */ fdir: 0,
   /** 流速器 */ monitor: 1,
-  /** 信号输出口 */ output: 2,
-  /** 信号输入口 */ input: 3,
+  /** 信号输出口(生成) */ output: 2,
+  /** 信号输入口(消耗) */ input: 3,
+  /** 封装模块节点 */ package: 4,
 };
 /**
  * @typedef {Object} NodeModelConfig
@@ -118,6 +119,7 @@ export const nodeModels = [
 ];
 /**
  * @typedef {Object} BuildingLayout 建筑布局信息
+ * @property {string} name - 建筑名称
  * @property {{x,y}} start - 布局起点 {x,y}
  * @property {number} maxW - 最大宽度（纬线方向）
  * @property {number} maxH - 最大长度（经线方向）

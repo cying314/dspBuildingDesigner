@@ -47,6 +47,9 @@ export default class Graph {
   /** 撤回列表 @type {Mapper.GraphData[]} */ _undoList = [];
   /** 重做列表 @type {Mapper.GraphData[]} */ _redoList = [];
 
+  /** 封装节点映射 hash->PackageModel @type {Map<string, Mapper.PackageModel>} */ packageMap =
+    new Map();
+
   /** 画布空白位置双击事件 */ handleDblclick;
   /** 右键点击节点事件 */ handleRclickNode;
   /** 右键点击插槽事件 */ handleRclickSlot;
@@ -305,21 +308,22 @@ export default class Graph {
    * @param {boolean} isTransform 是否更新视图位置
    */
   resetGraphData(graphData, isTransform = true) {
-    const { _header, _nodes, _edges, _maxId, _nodeMap } = Mapper.graphDataParse(graphData, 0);
-    this._nodes = _nodes;
-    this._edges = _edges;
-    this._maxId = _maxId;
-    this._nodeMap = _nodeMap;
+    const graphParse = Mapper.graphDataParse(graphData, 0);
+    this._nodes = graphParse.nodes;
+    this._edges = graphParse.edges;
+    this._maxId = graphParse.maxId;
+    this._nodeMap = graphParse.nodeMap;
     this._selection.nodeMap.clear();
 
+    const header = graphParse.header;
     // 图谱名称
-    this.graphName = _header._graphName;
+    this.graphName = header.graphName;
     // 设置画布位移、缩放
-    if (isTransform) this.setTransform(_header._transform);
+    if (isTransform) this.setTransform(header.transform);
     // 载入生成布局
-    if (_header._layout instanceof Object) {
-      Object.keys(_header._layout).forEach((key) => {
-        let _lay = _header._layout[key];
+    if (header.layout instanceof Object) {
+      Object.keys(header.layout).forEach((key) => {
+        let _lay = header.layout[key];
         if (Object.hasOwnProperty.call(Cfg.layoutSetting, key)) {
           let _cfgLay = Cfg.layoutSetting[key];
           let { x = 0, y = 0 } = _lay.start ?? {};
@@ -329,6 +333,14 @@ export default class Graph {
           _cfgLay.maxD = _lay.maxD ?? 0;
           _cfgLay.dir = _lay.dir ?? 0;
         }
+      });
+    }
+
+    // 重置引用封装模块列表
+    this.packageMap.clear();
+    if (graphParse.packages?.length > 0) {
+      graphParse.packages.forEach((p) => {
+        this.packageMap.set(p.hash, p);
       });
     }
 
@@ -360,18 +372,27 @@ export default class Graph {
     } else {
       bboxOffset = [-minX - w / 2 + coord[0], -minY - h / 2 + coord[1]];
     }
-    const { _nodes, _edges, _maxId, _nodeMap } = Mapper.graphDataParse(
+    const { nodes, edges, maxId, nodeMap, packages } = Mapper.graphDataParse(
       graphData,
       this._maxId,
       bboxOffset // 整体偏移
     );
-    this._nodes.push(..._nodes);
-    this._edges.push(..._edges);
-    this._maxId = _maxId;
-    _nodeMap.forEach((n, nid) => {
+    this._nodes.push(...nodes);
+    this._edges.push(...edges);
+    this._maxId = maxId;
+    nodeMap.forEach((n, nid) => {
       this._nodeMap.set(nid, n);
     });
-    this._selection.nodeMap = _nodeMap; // 选中粘贴的节点
+    this._selection.nodeMap = nodeMap; // 选中粘贴的节点
+
+    // 追加引用封装模块列表
+    if (packages?.length > 0) {
+      packages.forEach((p) => {
+        if (!this.packageMap.has(p.hash)) {
+          this.packageMap.set(p.hash, p);
+        }
+      });
+    }
 
     // 重绘节点
     this.buildNode();
@@ -432,16 +453,23 @@ export default class Graph {
    * 创建节点
    * @param {number} modelId 模型ID
    * @param {number[]} offset 相对画布坐标 [ox,oy]
+   * @param {string} packageHash 封装模块hash
    */
-  createNode(modelId, offset = [0, 0]) {
+  createNode(modelId, offset = [0, 0], packageHash) {
     const coord = Util.offsetToCoord(offset, this.transform);
     const other = {};
-    if (modelId == Cfg.ModelId.output) {
+    if (modelId === Cfg.ModelId.output) {
       // 输出默认标记 黄色三角感叹号
       other.signalId = 402;
-    } else if (modelId == Cfg.ModelId.input) {
+    } else if (modelId === Cfg.ModelId.input) {
       // 输入默认标记 红色三角感叹号
       other.signalId = 403;
+    } else if (modelId === Cfg.ModelId.package) {
+      // 封装模块节点
+      if (packageHash == null) throw "封装模块hash不能为空！";
+      let packageModel = this.packageMap.get(packageHash);
+      if (packageModel == null) throw "找不到该封装模块数据！packageHash:" + packageHash;
+      Object.assign(other, packageModel.initNodeData);
     }
     const newNode = Mapper.modelIdToNode(modelId, ++this._maxId, other, coord); // 模型Id 转 节点对象
     if (this.gridAlignment) {
@@ -1847,6 +1875,38 @@ export default class Graph {
   }
 
   /**
+   * 将当前图谱数据转换为持久化数据
+   */
+  getGraphData() {
+    return Mapper.toGraphData(
+      this._nodes,
+      this._edges,
+      {
+        transform: this.transform,
+        graphName: this.graphName,
+      },
+      Array.from(this.packageMap.values()),
+      false
+    );
+  }
+
+  /**
+   * 将当前选中节点数据转换为持久化数据
+   */
+  getSelectionGraphData(graphName = this.graphName) {
+    return Mapper.toGraphData(
+      Array.from(this._selection.nodeMap.values()), // 选中节点集合
+      Util.getEdgesByNodeMap(this._selection.nodeMap), // 通过节点映射获取边集
+      {
+        transform: this.transform,
+        graphName,
+      },
+      Array.from(this.packageMap.values()),
+      true
+    );
+  }
+
+  /**
    * 复制
    */
   handleCopy(showSuccess = true) {
@@ -1855,14 +1915,7 @@ export default class Graph {
       Util._warn("请先框选节点后进行复制！");
       return false;
     }
-    const graphData = Mapper.toGraphData(
-      Array.from(this._selection.nodeMap.values()), // 选中节点集合
-      Util.getEdgesByNodeMap(this._selection.nodeMap), // 通过节点映射获取边集
-      {
-        transform: this.transform,
-        graphName: this.graphName,
-      }
-    );
+    const graphData = this.getSelectionGraphData();
     window.localStorage.setItem("copyGraphData", JSON.stringify(graphData));
     if (showSuccess) Util._success("复制成功！");
     return true;
@@ -1929,10 +1982,7 @@ export default class Graph {
     // 记录撤回间隔防抖
     clearTimeout(this._recordUndoTimer);
     this._recordUndoTimer = setTimeout(() => {
-      const graphData = Mapper.toGraphData(this._nodes, this._edges, {
-        transform: this.transform,
-        graphName: this.graphName,
-      });
+      const graphData = this.getGraphData();
       this._undoList.push(graphData);
       this._redoList = []; // 重置重做列表
       // 超过记录的撤回次数
@@ -1981,10 +2031,7 @@ export default class Graph {
    */
   handleSave() {
     try {
-      const graphData = Mapper.toGraphData(this._nodes, this._edges, {
-        transform: this.transform,
-        graphName: this.graphName,
-      });
+      const graphData = this.getGraphData();
       window.localStorage.setItem("cacheGraphData", JSON.stringify(graphData));
       Util._success("已保存至浏览器缓存！");
     } catch (e) {
@@ -2001,10 +2048,7 @@ export default class Graph {
       return false;
     }
     try {
-      const graphData = Mapper.toGraphData(this._nodes, this._edges, {
-        transform: this.transform,
-        graphName: this.graphName,
-      });
+      const graphData = this.getGraphData();
       Util.saveGraphDataAsJson(graphData);
       Util._success("导出成功！");
     } catch (e) {
@@ -2032,14 +2076,115 @@ export default class Graph {
    */
   generateBlueprint() {
     try {
-      const blueprint = BuildingUtil.generateBlueprint(this._nodes, this._edges, this.graphName);
+      const graphData = this.getGraphData();
+      const blueprint = BuildingUtil.generateBlueprint(graphData);
       Util.saveBlueprintAsTxt(blueprint);
       Util._success("生成蓝图成功！");
       return true;
     } catch (e) {
-      console.error(e);
-      Util._err("生成蓝图失败：" + e);
+      Util._err("生成蓝图失败：" + (e?.message || e));
       return false;
+    }
+  }
+
+  /**
+   * 封装框选建筑事件处理
+   */
+  handlePackageComponent(packageName) {
+    if (this._selection.nodeMap.size == 0) {
+      Util._warn("请先框选节点后进行封装！");
+      return false;
+    }
+    try {
+      const graphData = this.getSelectionGraphData(packageName);
+      const packageModel = this.packageComponent(graphData);
+      // 粘贴一个组件到当前视图中央
+      let offset = [this.width / 2, this.height / 2];
+      this.createNode(Cfg.ModelId.package, offset, packageModel.hash);
+      return true;
+    } catch (e) {
+      Util._err("封装失败：" + e);
+      return false;
+    }
+  }
+
+  /**
+   * 封装框选建筑
+   * @param {Mapper.GraphData} graphData
+   * @return {Mapper.PackageModel}
+   */
+  packageComponent(graphData) {
+    const graphDataHash = Util.getGraphDataHash(graphData);
+    graphData.header.hash = graphDataHash;
+    if (this.packageMap.has(graphDataHash)) {
+      // 获取已有的封装
+      let packageModel = this.packageMap.get(graphDataHash);
+      return packageModel;
+    } else {
+      /** @type {Mapper.PackageModel} */
+      const packageModel = {
+        hash: graphDataHash,
+        graphData,
+        packageName: graphData.header.graphName,
+        initNodeData: {
+          modelId: Cfg.ModelId.package,
+          packageHash: graphDataHash,
+          text: graphData.header.graphName, // 节点文本-package名称
+          slots: [],
+        },
+        outsideNodeMap: new Map(),
+      };
+      // 遍历节点创建输入输出插槽
+      const inputSlots = [];
+      const outputSlots = [];
+      graphData.data.nodes.forEach((n) => {
+        if (n.modelId === Cfg.ModelId.input) {
+          // 信号输入口
+          packageModel.outsideNodeMap.set(n.id, n);
+          /** @type {Mapper.NodeSlotData} */
+          const slot = {
+            packageId: n.id, // 对应package中原输入输出节点id
+            itemId: n.itemId, // 生成/消耗物品id
+            signalId: n.signalId, // 标记id
+            dir: 1, // 外部插槽需要倒置输入输出
+          };
+          packageModel.initNodeData.slots.push(slot);
+          inputSlots.push(slot);
+        } else if (n.modelId === Cfg.ModelId.output) {
+          // 信号输出口
+          packageModel.outsideNodeMap.set(n.id, n);
+          const slot = {
+            packageId: n.id,
+            itemId: n.itemId,
+            signalId: n.signalId,
+            dir: -1, // 倒置为输入
+          };
+          packageModel.initNodeData.slots.push(slot);
+          outputSlots.push(slot);
+        }
+      });
+      if (inputSlots.length == 0 || outputSlots.length == 0) {
+        throw "所要封装的节点里，需要包含至少一个输入及输出节点！";
+      }
+      // 根据插槽数量决定盒子大小
+      const W = ((Math.max(inputSlots.length, outputSlots.length) + 1) * Cfg.nodeSize) / 2;
+      const H = Cfg.nodeSize;
+      packageModel.initNodeData.w = W;
+      packageModel.initNodeData.h = H;
+
+      // 插槽布局（横向等距排列，输出口在上边缘，输入口在下边缘，高度不变）
+      const iptDis = W / (inputSlots.length + 1);
+      const optDis = W / (outputSlots.length + 1);
+      inputSlots.forEach((s, si) => {
+        s.ox = -W / 2 + (si + 1) * iptDis;
+        s.oy = H / 2;
+      });
+      outputSlots.forEach((s, si) => {
+        s.ox = -W / 2 + (si + 1) * optDis;
+        s.oy = -H / 2;
+      });
+      this.packageMap.set(graphDataHash, packageModel);
+      return packageModel;
     }
   }
 }

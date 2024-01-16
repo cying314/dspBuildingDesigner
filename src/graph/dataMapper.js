@@ -8,9 +8,11 @@ import * as Util from "./graphUtil.js";
  *   nodes: NodeData[],
  *   lines: LineData[]
  * }} data - 节点连接信息
+ * @property {PackageModel[]} packages - 引用封装模块列表
  */
 /**
  * @typedef {Object} HeaderData 头部信息
+ * @property {string} hash - 图谱数据hash值（仅在封装模块packages中输出）
  * @property {string} version - 数据对应工具版本
  * @property {number} timestramp - 数据导出时间戳
  * @property {string} graphName - 蓝图名
@@ -19,11 +21,30 @@ import * as Util from "./graphUtil.js";
  * @property {object} layout - 生成蓝图布局 { fdirLayout: { start: { x, y }, maxW, maxH, maxD }, ...}
  */
 /**
+ * @typedef {Object} PackageModel 封装节点
+ * @property {string} hash - 图谱数据hash值
+ * @property {string} packageName - 封装模块名称
+ * @property {GraphData} graphData - 图谱数据
+ * @property {NodeData} initNodeData - 封装节点初始化数据（需dataToNode创建）
+ * @property {Map<packageId, NodeData>} outsideNodeMap - 输入输出节点（不持久化）
+ */
+
+/**
+ * @typedef {Object} GraphDataParse 图谱解析返回值 {_header:{_graphName, _transform, _boundingBox, _layout}, _nodes, _edges, _maxId, _nodeMap, _nodeMapByOriginId}
+ * @property {HeaderData} header - 头部信息
+ * @property {GraphNode[]} nodes - 节点对象集合
+ * @property {GraphEdge[]} edges - 连接线集合
+ * @property {PackageModel[]} packages - 引用封装模块列表
+ * @property {number} maxId - 当前点集中最大节点id
+ * @property {Map<number,GraphNode>} nodeMap 节点id->节点对象
+ * @property {Map<number,GraphNode>} _nodeMapByOriginId 节点导入原id->节点对象
+ */
+/**
  * 解析图谱持久化数据
- * @param {GraphData} graphData 图谱持久化数据 { header:{boundingBox}, data:{nodes,lines} }
+ * @param {GraphData} graphData 图谱持久化数据
  * @param startId 起始id(默认0)
  * @param offset 整体偏移 [x,y]
- * @return 图谱对象 {_header:{_graphName, _transform, _boundingBox, _layout}, _nodes, _edges, _maxId, _nodeMap}
+ * @return {GraphDataParse} 图谱解析对象
  */
 export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
   Util.checkGraphData(graphData, true, true);
@@ -32,7 +53,7 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
     const lines = graphData.data.lines;
 
     let _maxId = startId;
-    const nodeMap = new Map(); // 导入id映射节点：dataId -> node
+    const nodeMapByOriginId = new Map(); // 导入id映射节点：dataId -> node
     const _nodeMap = new Map(); // 自增id映射节点：nodeId -> node
 
     // 解析节点数据
@@ -40,9 +61,9 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
     nodes.forEach((d) => {
       if (d == null) return console.warn("存在空节点对象！已忽略");
       if (d.id == null) return console.warn("存在节点id为空！已忽略");
-      if (nodeMap.has(d.id)) return console.warn("存在重复节点id:" + d.id);
+      if (nodeMapByOriginId.has(d.id)) return console.warn("存在重复节点id:" + d.id);
       const node = dataToNode(d, ++_maxId, offset);
-      nodeMap.set(d.id, node);
+      nodeMapByOriginId.set(d.id, node);
       _nodeMap.set(node.id, node);
       _nodes.push(node);
     });
@@ -51,18 +72,30 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
     const _edges = [];
     lines.forEach((line) => {
       if (line == null) return console.warn("存在空连接线对象！已忽略");
-      const edge = dataToEdge(line, nodeMap);
+      const edge = dataToEdge(line, nodeMapByOriginId);
       if (edge instanceof Error) return console.warn(edge.message);
       _edges.push(edge);
     });
 
+    // 引用封装模块列表
+    let _packages;
+    if (graphData.packages instanceof Array) {
+      graphData.packages.forEach((p) => {
+        // 设置输入输出口节点Map
+        setOutsideNodeMap(p);
+      });
+      _packages = graphData.packages;
+    } else {
+      _packages = [];
+    }
+
     const { minX = 0, minY = 0, maxX = 0, maxY = 0, w = 0, h = 0 } = graphData.header.boundingBox;
     const { x = 0, y = 0, k = 1 } = graphData.header.transform;
     return {
-      _header: {
-        _graphName: graphData.header.graphName,
-        _transform: { x, y, k },
-        _boundingBox: {
+      header: {
+        graphName: graphData.header.graphName,
+        transform: { x, y, k },
+        boundingBox: {
           minX: minX + offset[0],
           minY: minY + offset[1],
           maxX: maxX + offset[0],
@@ -70,12 +103,14 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
           w: w,
           h: h,
         },
-        _layout: graphData.header.layout,
+        layout: graphData.header.layout,
       },
-      _nodes,
-      _edges,
-      _maxId,
-      _nodeMap,
+      nodes: _nodes,
+      edges: _edges,
+      packages: _packages,
+      maxId: _maxId,
+      nodeMap: _nodeMap,
+      _nodeMapByOriginId: nodeMapByOriginId,
     };
   } catch (e) {
     Util._err("载入数据失败：" + e);
@@ -87,14 +122,19 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
  * 点边数据 转换为 图谱持久化数据
  * @param {GraphNode[]} nodes 节点数据
  * @param {GraphEdge[]} edges 边数据
- * @param header 图谱相关信息 header:{transform, graphName}
- * @return 图谱持久化数据 { header, data:{nodes,lines} }
+ * @param {HeaderData} header 图谱相关信息 header:{transform, graphName}
+ * @param {PackageModel[]} packages 引用封装模块列表
+ * @param {boolean} weedOutUnusedPackage 是否剔除未引用的封装模块（默认否）
+ * @return {GraphData} 图谱持久化数据 { header, data:{nodes,lines} }
  */
 export function toGraphData(
   nodes,
   edges,
-  { transform: { x = 0, y = 0, k = 1 } = {}, graphName = Cfg.defaultGraphName } = {}
+  { transform: { x = 0, y = 0, k = 1 } = {}, graphName = Cfg.defaultGraphName } = {},
+  packages,
+  weedOutUnusedPackage = false
 ) {
+  let usedPackagesHash = new Set();
   const graphData = {
     header: {
       version: Cfg.version,
@@ -105,10 +145,27 @@ export function toGraphData(
       layout: Cfg.layoutSetting,
     },
     data: {
-      nodes: nodes.map((n) => nodeToData(n)),
+      nodes: nodes.map((n) => {
+        if (n.modelId === Cfg.ModelId.package) {
+          usedPackagesHash.add(n.packageHash); // 记录使用的封装模块Hash
+        }
+        return nodeToData(n);
+      }),
       lines: edges.map((e) => edgeToData(e)),
     },
   };
+  const _packages = [];
+  if (packages?.length > 0) {
+    packages.forEach((p) => {
+      // 剔除未使用的封装模块
+      if (!weedOutUnusedPackage || usedPackagesHash.has(p.hash)) {
+        let { hash, packageName, graphData, initNodeData } = p;
+        _packages.push({ hash, graphData, initNodeData });
+      }
+    });
+  }
+  graphData.packages = _packages;
+
   const _lay = (graphData.header.layout = {});
   Object.keys(Cfg.layoutSetting).forEach((key) => {
     let {
@@ -126,6 +183,7 @@ export function toGraphData(
 /**
  * @typedef {Object} GraphNode 图谱节点对象
  * @property {number} modelId - 模型id
+ * @property {string} packageHash - 封装模块hash
  * @property {number} id - 节点id
  * @property {number} x - 节点x偏移
  * @property {number} y - 节点y偏移
@@ -146,6 +204,9 @@ export function toGraphData(
  * @property {number} dir - 输入输出方向 (1:输出, -1:输入)
  * @property {number} priority - 是否优先插槽 (1:是, -1:否) [当模型为四向时生效]
  * @property {number} filterId - 过滤优先输出物品id [当模型为四向时生效]
+ * @property {number} packageId - 封装模块插槽-对应package中原输入输出节点id
+ * @property {number} itemId - 封装模块插槽-生成/消耗物品id
+ * @property {number} signalId - 封装模块插槽-插槽标记id
  */
 /**
  * 初始化一个基本的节点对象
@@ -167,6 +228,10 @@ export function initGraphNode(d) {
     text: _toStr(d.text, d.modelId == Cfg.ModelId.text ? Cfg.defaultText : null),
     slots: [],
   };
+  if (node.modelId === Cfg.ModelId.package) {
+    // 封装模块节点
+    node.packageHash = _toStr(d.packageHash); // 封装模块hash
+  }
   d.slots?.forEach((s, si) => {
     /** @type {GraphNodeSlot} */
     const slot = {
@@ -185,6 +250,11 @@ export function initGraphNode(d) {
       } else {
         slot.priority = 0;
       }
+    } else if (node.modelId === Cfg.ModelId.package) {
+      // 封装模块
+      slot.packageId = _toInt(s.packageId); // 对应package中原输入输出节点id
+      slot.itemId = _toInt(s.itemId); // 生成/消耗物品id
+      slot.signalId = _toInt(s.signalId); // 插槽标记id
     }
     node.slots.push(slot);
   });
@@ -255,6 +325,14 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
         }
       }
       break;
+    case Cfg.ModelId.package: // 封装模块节点
+      // if (d.packageHash == null) throw "封装模块hash不能为空！";
+      // if (other.slots?.length > 0) {
+      //   for (const s of other.slots) {
+      //     if (s.packageId == null) throw "封装模块插槽原输入输出节点id丢失！";
+      //   }
+      // }
+      break;
   }
   return initGraphNode(d);
 }
@@ -275,6 +353,7 @@ export function dataToNode(data, nodeId, offset) {
 /**
  * @typedef {Object} NodeData 节点 持久化数据
  * @property {number} modelId - 模型id
+ * @property {string} packageHash - 封装模块hash
  * @property {number} id - 节点id
  * @property {number} x - 节点x偏移
  * @property {number} y - 节点y偏移
@@ -290,8 +369,11 @@ export function dataToNode(data, nodeId, offset) {
  * @property {number} ox - 节点内x偏移
  * @property {number} oy - 节点内y偏移
  * @property {number} dir - 输入输出方向 (1:输出, -1:输入)
- * @property {number} priority - 是否优先插槽 (1:是, -1:否) [当modelId=0时生效]
- * @property {number} filterId - 过滤优先输出物品id [当modelId=0时生效]
+ * @property {number} priority - 四向插槽-是否优先 (1:是, -1:否)
+ * @property {number} filterId - 四向插槽-过滤优先输出物品id
+ * @property {number} packageId - 封装模块插槽-对应package中原输入输出节点id
+ * @property {number} itemId - 封装模块插槽-生成/消耗物品id
+ * @property {number} signalId - 封装模块插槽-插槽标记id
  */
 /**
  * 节点图谱对象 转 持久化数据
@@ -335,6 +417,20 @@ export function nodeToData(node) {
       node.slots?.map((s) => ({
         // 固定插槽，不保存偏移
         dir: s.dir, // 1:输出口 -1:输入口
+      })) || [];
+  } else if (modelId === Cfg.ModelId.package) {
+    // 封装模块节点
+    data.w = node.w;
+    data.h = node.h;
+    data.packageHash = node.packageHash; // 封装模块hash
+    data.slots =
+      node.slots?.map((s) => ({
+        ox: s.ox,
+        oy: s.oy,
+        dir: s.dir, // 1:输出口 -1:输入口
+        packageId: s.packageId, // 对应package中原输入输出节点id
+        itemId: s.itemId, // 生成/消耗物品id
+        signalId: s.signalId, // 插槽标记id
       })) || [];
   } else {
     // TODO:其他模型
@@ -414,6 +510,24 @@ export function edgeToData(edge) {
     endId: edge.target.id,
     endSlot: edge.targetSlot.index,
   };
+}
+
+/**
+ * 遍历封装数据节点集合，提取设置输入输出口节点Map
+ * @param {PackageModel} packageModel
+ */
+export function setOutsideNodeMap(packageModel) {
+  Util.checkGraphData(packageModel.graphData, true, false);
+  if (!(packageModel.outsideNodeMap instanceof Map)) {
+    packageModel.outsideNodeMap = new Map();
+  }
+  packageModel.graphData.data.nodes.forEach((n) => {
+    if (n.modelId === Cfg.ModelId.input || n.modelId === Cfg.ModelId.output) {
+      // 输入输出口
+      packageModel.outsideNodeMap.set(n.id, n);
+    }
+  });
+  return packageModel;
 }
 
 function _toInt(num, def) {

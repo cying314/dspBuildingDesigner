@@ -1,9 +1,11 @@
 import * as Cfg from "@/graph/graphConfig.js";
-/** @typedef {import("@/graph/dataMapper").GraphNode} GraphNode */
-/** @typedef {import("@/graph/dataMapper").GraphEdge} GraphEdge */
+import * as Util from "@/graph/graphUtil.js";
+/** @typedef {import("@/graph/dataMapper").GraphData} GraphData */
+/** @typedef {import("@/graph/dataMapper").NodeData} NodeData */
+/** @typedef {import("@/graph/dataMapper").LineData} LineData */
 /**
  * @typedef {Object} BuildingItem
- * @property {number} index - 索引
+ * @property {number} index - 建筑索引
  * @property {[{x,y,z},{x,y,z}]} localOffset - 建筑偏移
  * @property {number} outputObjIdx - 输出对象索引
  * @property {number} outputToSlot - 输出对象插槽索引
@@ -28,19 +30,18 @@ const inserterSize = { w: 1, h: 2, d: 1, cx: 0.5, cy: 1.5 };
 
 /**
  * 生成蓝图数据
- * @param {GraphNode[]} nodes 节点集
- * @param {GraphEdge[]} edges 边集
- * @param {string} graphName 蓝图名
- * @return blueprint
+ * @param {GraphData} graphData 图谱数据
+ * @return {object} blueprint
  */
-export function generateBlueprint(nodes, edges, graphName) {
+export function generateBlueprint(graphData) {
   const blueprint = {
     header: {
       layout: 10,
       icons: [0, 0, 0, 0, 0],
       time: new Date(),
-      shortDesc: graphName,
-      desc: "通过DSP超距电路蓝图设计器生成的蓝图，作者b站id：晨隐_",
+      gameVersion: 0,
+      shortDesc: graphData.header.graphName,
+      desc: "本蓝图通过 DSP超距电路蓝图设计器 生成！\n作者b站id：晨隐_",
     },
     version: 1,
     cursorOffset: { x: 0, y: 0 },
@@ -58,23 +59,23 @@ export function generateBlueprint(nodes, edges, graphName) {
       },
     ],
   };
-  blueprint.buildings = createbuildings(nodes, edges);
+  blueprint.buildings = createbuildings(graphData);
   return blueprint;
 }
 
 /**
  * 生成蓝图建筑列表
- * @param {GraphNode[]} nodes 节点集
- * @param {GraphEdge[]} edges 边集
+ * @param {GraphData} graphData 图谱数据
  * @return {BuildingItem[]}
  */
-export function createbuildings(nodes, edges) {
+export function createbuildings(graphData) {
+  Util.checkGraphData(graphData);
   let resList = [];
   let fdirList = []; // 四向节点
   let monitorList = []; // 流速器节点
   let outputList = []; // 信号输出
   let inputList = []; // 信号输入
-  nodes.forEach((n) => {
+  graphData.data.nodes.forEach((n) => {
     switch (n.modelId) {
       case Cfg.ModelId.fdir: // 四向
         fdirList.push(n);
@@ -99,7 +100,7 @@ export function createbuildings(nodes, edges) {
     fdirSize,
     fdirLayout,
     fdirOffset,
-    "四向"
+    fdirLayout.name
   );
   /** 节点id映射插槽传送带对象 @type {Map<number,BuildingItem[]>} */
   const nodeId2SlotBeltsMap = new Map();
@@ -125,7 +126,7 @@ export function createbuildings(nodes, edges) {
     monitorSize,
     monitorLayout,
     monitorOffset,
-    "流速器"
+    monitorLayout.name
   );
   monitorList.forEach((n, ni) => {
     //  创建流速器组（带两节传送带）
@@ -141,7 +142,7 @@ export function createbuildings(nodes, edges) {
     monitorSize,
     outputLayout,
     startOffset,
-    "信号输入流速器"
+    outputLayout.name
   );
   outputList.forEach((n, ni) => {
     //  创建流速器组（带两节传送带）
@@ -157,7 +158,7 @@ export function createbuildings(nodes, edges) {
     monitorSize,
     inputLayout,
     endOffset,
-    "信号输入流速器"
+    inputLayout.name
   );
   inputList.forEach((n, ni) => {
     //  创建流速器组（带两节传送带）
@@ -169,26 +170,26 @@ export function createbuildings(nodes, edges) {
   const inserterLayout = Cfg.layoutSetting.inserterLayout;
   let inserterOffset = [inserterLayout.start.x, inserterLayout.start.y, 0];
   let inserterLayoutCoords = centralCubeLayout(
-    edges.length,
+    graphData.data.lines.length,
     inserterSize,
     inserterLayout,
     inserterOffset,
-    "分拣器"
+    inserterLayout.name
   );
-  edges.forEach((e, ei) => {
+  graphData.data.lines.forEach((l, li) => {
     let outputObjIdx = -1;
     let inputObjIdx = -1;
-    let targetSlotsBelts = nodeId2SlotBeltsMap.get(e.target.id);
-    let sourceSlotsBelts = nodeId2SlotBeltsMap.get(e.source.id);
-    if (targetSlotsBelts && targetSlotsBelts[e.targetSlot.index]) {
-      outputObjIdx = targetSlotsBelts[e.targetSlot.index].index;
+    let targetSlotsBelts = nodeId2SlotBeltsMap.get(l.endId);
+    let sourceSlotsBelts = nodeId2SlotBeltsMap.get(l.startId);
+    if (targetSlotsBelts && targetSlotsBelts[l.endSlot]) {
+      outputObjIdx = targetSlotsBelts[l.endSlot].index;
     }
-    if (sourceSlotsBelts && sourceSlotsBelts[e.sourceSlot.index]) {
-      inputObjIdx = sourceSlotsBelts[e.sourceSlot.index].index;
+    if (sourceSlotsBelts && sourceSlotsBelts[l.startSlot]) {
+      inputObjIdx = sourceSlotsBelts[l.startSlot].index;
     }
     const inserter = createInserter({
       index: resList.length,
-      offset: inserterLayoutCoords[ei],
+      offset: inserterLayoutCoords[li],
       outputObjIdx,
       inputObjIdx,
     });
@@ -201,7 +202,7 @@ export function createbuildings(nodes, edges) {
  * 创建 四向带4个短垂直带 结构
  * @param {number} opt.startIndex 起始索引
  * @param {number[]} opt.offset 偏移 [ox,oy,oz]
- * @param {GraphNode} node 节点
+ * @param {NodeData} node 节点
  * @param {object[]} list 建筑列表
  * @param {number} opt.inputObjIdx 四向底座的索引
  * @return {{_fdir:BuildingItem, _slotsBelts: BuildingItem[]}} 四向建筑对象（_slotsBelts属性为插槽外接传送带建筑对象）
@@ -387,7 +388,7 @@ export function createBelt({
  * 创建流速器组（带两节传送带）
  * @param {number} startIndex 起始索引
  * @param {number[]} offset 偏移 [ox,oy,oz]
- * @param {GraphNode} node 节点
+ * @param {NodeData} node 节点
  * @param {object[]} list 建筑列表
  * @return {{_monitor:BuildingItem, _slotsBelts: BuildingItem[]}} 流速器组对象（_slotsBelts属性为插槽外接传送带建筑对象）
  */
@@ -457,7 +458,6 @@ export function createMonitorGroup(
   // 记录外接传送带建筑对象
   // const _slotsBelts = [belt2_building];
   const _slotsBelts = [belt1_building]; // 直接接在流速器下面那个传送带上，提高初始化速度
-  console.log(_monitor)
   return { _monitor, _slotsBelts };
 }
 
