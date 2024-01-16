@@ -116,17 +116,28 @@ export const nodeModels = [
     icon: "if-icon-end",
   },
 ];
+/**
+ * @typedef {Object} BuildingLayout 建筑布局信息
+ * @property {{x,y}} start - 布局起点 {x,y}
+ * @property {number} maxW - 最大宽度（纬线方向）
+ * @property {number} maxH - 最大长度（经线方向）
+ * @property {number} maxD - 最大高度
+ * @property {number} dir - 展开方向 (0:左上, 1:右上, 2:右下, 3:左下)
+ * @property {string} previewBoxColor - 布局配置预览区域颜色
+ */
 export function getDefaultLayout() {
   return {
+    /** @type {BuildingLayout} 四向分流器 生成布局配置 */
     fdirLayout: {
       name: "四向分流器",
-      start: { x: 0, y: 0 }, // 布局起点
-      maxW: 20, // 最大宽度（纬线方向）
-      maxH: 20, // 最大长度（经线方向）
-      maxD: 10, // 最大高度
-      dir: 1, // 展开方向 (0:左上, 1:右上, 2:右下, 3:左下)
-      previewBoxColor: "rgba(205, 192, 229, 0.3)", // 布局配置预览区域颜色
+      start: { x: 0, y: 0 },
+      maxW: 20,
+      maxH: 20,
+      maxD: 10,
+      dir: 1,
+      previewBoxColor: "rgba(205, 192, 229, 0.3)",
     },
+    /** @type {BuildingLayout} 分拣器 生成布局配置 */
     inserterLayout: {
       name: "分拣器",
       start: { x: -1, y: -1 },
@@ -136,6 +147,7 @@ export function getDefaultLayout() {
       dir: 3, // 左下
       previewBoxColor: "rgba(255, 225, 137, 0.3)",
     },
+    /** @type {BuildingLayout} 流速器-回收 生成布局配置 */
     monitorLayout: {
       name: "流速器-回收",
       start: { x: -1, y: 0 },
@@ -145,6 +157,7 @@ export function getDefaultLayout() {
       dir: 0, // 左上
       previewBoxColor: "rgba(120, 195, 255, 0.3)",
     },
+    /** @type {BuildingLayout} 流速器-信号输出 生成布局配置 */
     outputLayout: {
       name: "流速器-信号输出",
       start: { x: 0, y: -1 },
@@ -154,6 +167,7 @@ export function getDefaultLayout() {
       dir: 2, // 右下
       previewBoxColor: "rgba(247, 155, 164, 0.3)",
     },
+    /** @type {BuildingLayout} 流速器-信号输入 生成布局配置 */
     inputLayout: {
       name: "流速器-信号输入",
       start: { x: 0, y: -4 },

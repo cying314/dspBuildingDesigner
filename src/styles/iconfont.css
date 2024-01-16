@@ -26,6 +26,18 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.if-icon-arrow-tb:before {
+  content: "\ea58";
+}
+
+.if-icon-arrow-lr:before {
+  content: "\ea61";
+}
+
+.if-icon-line:before {
+  content: "\e60c";
+}
+
 .if-icon-redo:before {
   content: "\e7cf";
 }

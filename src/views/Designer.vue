@@ -116,56 +116,12 @@
       </div>
     </div>
     <!-- 生成布局调整 -->
-    <el-dialog title="生成布局调整" :visible.sync="showLayoutSetting" width="700px">
-      <el-table v-if="showLayoutSetting" class="layoutSettingTable" :data="layoutSettingList" size="mini" border :header-cell-style="layoutTableHeaderCellStyle" :row-style="layoutTableRowStyle">
-        <el-table-column prop="name" label="组件" align="center" width="120px"></el-table-column>
-        <el-table-column label="布局起点 (X, Y)" align="center">
-          <template slot-scope="{ row }">
-            <el-input-number v-model="row.start.x" :min="-9999" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
-          </template>
-        </el-table-column>
-        <el-table-column label="布局起点Y" align="center">
-          <template slot-scope="{ row }">
-            <el-input-number v-model="row.start.y" :min="-9999" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
-          </template>
-        </el-table-column>
-        <el-table-column label="最大宽长高 (W, H, T)" align="center">
-          <template slot-scope="{ row }">
-            <el-input-number v-model="row.maxW" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
-          </template>
-        </el-table-column>
-        <el-table-column label="最大长H" align="center">
-          <template slot-scope="{ row }">
-            <el-input-number v-model="row.maxH" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
-          </template>
-        </el-table-column>
-        <el-table-column label="最大高T" align="center">
-          <template slot-scope="{ row }">
-            <el-input-number v-model="row.maxD" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
-          </template>
-        </el-table-column>
-        <el-table-column label="展开方向" align="center" width="100">
-          <template slot-scope="{ row }">
-            <el-select v-model="row.dir" size="mini">
-              <el-option label="左上" :value="0"></el-option>
-              <el-option label="右上" :value="1"></el-option>
-              <el-option label="右下" :value="2"></el-option>
-              <el-option label="左下" :value="3"></el-option>
-            </el-select>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div class="layoutBox">
-        <div class="item" v-for="item,index in layoutSettingList" :key="index" :style="layoutBoxItemStyle(item)">
-          <span class="num">{{item.maxD}}T</span>
-          <div class="anchor" :class="'dir_'+item.dir" :style="{background:item.previewBoxColor}"></div>
-        </div>
-      </div>
-      <div class="layoutSettingBtns">
+    <el-dialog title="生成布局调整" custom-class="layoutSettingDialog" :visible.sync="showLayoutSetting" width="700px" top="5vh" v-dialogDrag>
+      <LayoutSetting ref="layoutSettingRef" v-if="showLayoutSetting">
         <el-button size="small" @click="showLayoutSetting = false">关 闭</el-button>
-        <el-button size="small" @click="resetLayout">重置布局</el-button>
+        <el-button size="small" @click="$refs.layoutSettingRef.resetLayout()">重置布局</el-button>
         <el-button size="small" type="primary" @click="generateBlueprintDone">生 成</el-button>
-      </div>
+      </LayoutSetting>
     </el-dialog>
   </div>
 </template>
@@ -175,8 +131,12 @@ import DspGraph from "@/graph/dspGraph.js";
 import * as Cfg from "@/graph/graphConfig.js";
 import * as Util from "@/graph/graphUtil.js";
 import * as ItemsUtil from "@/utils/itemsUtil.js";
+import LayoutSetting from "@/components/LayoutSetting.vue";
 export default {
-  name: "test",
+  name: "Designer",
+  components: {
+    LayoutSetting,
+  },
   data() {
     return {
       /**
@@ -210,9 +170,8 @@ export default {
       uploadModels: [],
       // 勾选组件
       selectModel: "node_1", // 默认选择四向
-      // 布局调整
+      // 生成布局调整
       showLayoutSetting: false,
-      layoutSettingList: Cfg.layoutSettingList,
       generateBlueprintDoneFun: null,
     };
   },
@@ -266,74 +225,6 @@ export default {
     beforeGenerateBlueprint(done) {
       this.showLayoutSetting = true;
       this.generateBlueprintDoneFun = done;
-    },
-    // 重置布局
-    resetLayout() {
-      Cfg.resetLayout();
-    },
-    // 布局预览盒子样式
-    layoutBoxItemStyle(item) {
-      let scale = 5;
-      let w = item.maxW;
-      let h = item.maxH;
-      let ox;
-      let oy;
-      switch (item.dir) {
-        case 0: // 左上
-          // 锚点右下角
-          ox = item.start.x - w;
-          oy = -item.start.y - h;
-          break;
-        case 1: // 右上
-          // 锚点左下角
-          ox = item.start.x;
-          oy = -item.start.y - h;
-          break;
-        case 2: // 右下
-          // 锚点左上角
-          ox = item.start.x;
-          oy = -item.start.y;
-          break;
-        case 3: // 左下
-          // 锚点右上角
-          ox = item.start.x - w;
-          oy = -item.start.y;
-          break;
-      }
-      return {
-        transform: `translate(${scale * ox}px, ${scale * oy}px)`,
-        // top: (item.start.y ?? 0) + "px",
-        // left: (item.start.x ?? 0) + "px",
-        background: item.previewBoxColor,
-        width: scale * w + "px",
-        height: scale * h + "px",
-      };
-    },
-    // 布局配置表格 行样式
-    layoutTableRowStyle({ row }) {
-      return {
-        background: row.previewBoxColor,
-      };
-    },
-    // 布局配置表格 合并表头样式
-    layoutTableHeaderCellStyle({ column, rowIndex, columnIndex }) {
-      // 将第2列(起始y)，第4/5列(最大h,d)隐去
-      if ((columnIndex == 2) | (columnIndex == 4) | (columnIndex == 5)) {
-        return { display: "none" };
-      }
-      if ((rowIndex == 0) & (columnIndex == 1)) {
-        this.$nextTick(() => {
-          // 第1列(起始x) 改为占据三列
-          document.querySelector(`.${column.id}`).setAttribute("colspan", "2");
-        });
-      }
-      if ((rowIndex == 0) & (columnIndex == 3)) {
-        this.$nextTick(() => {
-          // 第3列(最大w) 改为占据三列
-          document.querySelector(`.${column.id}`).setAttribute("colspan", "3");
-        });
-      }
-      return { fontSize: "14px", height: "30px", lineHeight: "30px", background: "#fafafa" };
     },
     // 获取当前url参数
     getUrlParams() {
@@ -993,81 +884,13 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
       }
     }
   }
-  .layoutSettingTable {
-    .el-input-number,
-    .el-select {
-      width: 100%;
-      ::v-deep .el-input {
-        line-height: 24px;
-        padding: 2px 0;
-        input {
-          padding: 0 10px;
-          text-align: left;
-          height: 24px;
-          line-height: 24px;
-        }
-      }
-    }
-  }
-  .layoutBox {
-    width: 100%;
-    height: 220px;
-    background: #fdfdfd;
-    position: relative;
-    overflow: hidden;
-    background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAAAXNSR0IArs4c6QAAAKhJREFUaEPt1TEOgCAUREHp9f4H1QMYEzzAFDTkWX8hjOsyjvXPNbe4V241Vi4+1+4ggtwXAa2iBVhH0QKtogVYRUuwipZo1VqgVbQAq9YSrKIlWrUWaBUtwKq1BKtoidbXWr+YvCez5xx+5CWd3eogenid7x8RsW520CpagNXNLlhFS7RqLdAqWoBVawlW0RKtWgu0ihZg1VqCVbREq9YCraIFWPu01gthgjJN1EEqQwAAAABJRU5ErkJggg==);
-    background-position: -8px -13px;
-    background-size: 25px 25px;
-    .item {
-      user-select: none;
-      position: absolute;
-      left: 330px;
-      top: 150px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      border: 1px solid #aaa;
-      color: #555;
-      box-sizing: border-box;
-      white-space: nowrap;
-      .num {
-        font-size: 12px;
-        color: #999;
-      }
-      .anchor {
-        position: absolute;
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        border: 1px solid #999;
-        box-sizing: border-box;
-        &.dir_0 {
-          // 右下锚点
-          right: -3px;
-          bottom: -3px;
-        }
-        &.dir_1 {
-          // 左下锚点
-          left: -3px;
-          bottom: -3px;
-        }
-        &.dir_2 {
-          // 左上锚点
-          left: -3px;
-          top: -3px;
-        }
-        &.dir_3 {
-          // 右上锚点
-          right: -3px;
-          top: -3px;
-        }
-      }
-    }
-  }
-  .layoutSettingBtns {
-    margin-top: 10px;
-    display: flex;
-    justify-content: flex-end;
+}
+</style>
+
+<style lang="scss">
+.layoutSettingDialog {
+  .el-dialog__body {
+    padding-top: 10px;
   }
 }
 </style>

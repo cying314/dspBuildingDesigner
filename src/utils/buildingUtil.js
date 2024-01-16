@@ -11,13 +11,20 @@ import * as Cfg from "@/graph/graphConfig.js";
  * @property {number} inputFromSlot - 输入对象插槽索引
  * @property {number} filterId - 过滤物品id
  */
-
-// 四向宽长高
-const fdirSize = { w: 2, h: 2, d: 2 };
-// 流速器宽长高
-const monitorSize = { w: 1, h: 2, d: 1 };
-// 分拣器宽长高
-const inserterSize = { w: 1, h: 2, d: 1 };
+/**
+ * @typedef {Object} BuildingSize 建筑大小信息
+ * @property {number} w - 宽（经线方向）
+ * @property {number} h - 长（纬线方向）
+ * @property {number} d - 高
+ * @property {number} cx - 锚点坐标x（从左下角计(0,0)）
+ * @property {number} cy - 锚点坐标y
+ */
+/** 四向大小 @type {BuildingSize} */
+const fdirSize = { w: 2, h: 2, d: 2, cx: 1, cy: 1 };
+/** 流速器组大小 @type {BuildingSize} */
+const monitorSize = { w: 1, h: 2, d: 1, cx: 0.5, cy: 1.5 };
+/** 分拣器大小 @type {BuildingSize} */
+const inserterSize = { w: 1, h: 2, d: 1, cx: 0.5, cy: 1.5 };
 
 /**
  * 生成蓝图数据
@@ -570,8 +577,8 @@ export function createInserter({
  * 求中心扩散布局坐标（优先叠满层，再原点扩散布局）
  * @description 优先叠满层，水平方向再从原点往外扩展
  * @param {number} n 建筑数量
- * @param {{w, h, d}} size 建筑宽（经线方向）、长（纬线方向）、高
- * @param {{maxW, maxH, maxD, dir}} layout maxW,maxH,maxD:最大布局宽长高度；dir:展开方向 (0:左上, 1:右上, 2:右下, 3:左下)
+ * @param {BuildingSize} size 建筑大小信息
+ * @param {Cfg.BuildingLayout} layout 建筑布局信息
  * @param {number[]} start 起始点 [ox,oy,oz]
  * @param {number} dir
  * @param {string} title 建筑名（用于异常提示）
@@ -579,14 +586,35 @@ export function createInserter({
  */
 export function centralCubeLayout(
   n,
-  { w = 0, h = 0, d = 0 },
+  { w = 0, h = 0, d = 0, cx = 0, cy = 0 },
   { maxW = 0, maxH = 0, maxD = 0, dir = 1 },
   [ox = 0, oy = 0, oz = 0] = [],
   title = "建筑"
 ) {
   // 展开方向
-  let xDir = dir === 1 || dir === 2 ? 1 : -1;
-  let yDir = dir === 0 || dir === 1 ? 1 : -1;
+  let xDir, yDir;
+  if (dir == 0) {
+    // 左上
+    xDir = -1;
+    yDir = 1;
+    cx = cx - w;
+  } else if (dir == 2) {
+    // 右下
+    xDir = 1;
+    yDir = -1;
+    cy = cy - h;
+  } else if (dir == 3) {
+    // 左下
+    xDir = -1;
+    yDir = -1;
+    cx = cx - w;
+    cy = cy - h;
+  } else {
+    // 默认右上 1
+    dir = 1;
+    xDir = 1;
+    yDir = 1;
+  }
   // 计算每行、每列和每层可以放置的建筑数量
   let maxRow = Math.floor(maxW / w);
   let maxCol = Math.floor(maxH / h);
@@ -624,8 +652,8 @@ export function centralCubeLayout(
     let layer = i % maxLayer;
 
     // 计算建筑的坐标
-    let x = ox + xDir * (w / 2 + row * w);
-    let y = oy + yDir * (h / 2 + col * h);
+    let x = ox + cx + xDir * row * w;
+    let y = oy + cy + yDir * col * h;
     let z = oz + layer * d; // z轴锚点在建筑底部
     cubes.push([x, y, z]);
   }
@@ -636,22 +664,43 @@ export function centralCubeLayout(
  * 求依次排列布局坐标（层、列、行）
  * @description 依次优先填充摆放 层、列、行（z、x、y）
  * @param {number} n 建筑数量
- * @param {{w, h, d}} size 建筑宽（经线方向）、长（纬线方向）、高
- * @param {{maxW, maxH, maxD, dir}} layout maxW,maxH,maxD:最大布局宽长高度；dir:展开方向 (0:左上, 1:右上, 2:右下, 3:左下)
+ * @param {BuildingSize} size 建筑大小信息
+ * @param {Cfg.BuildingLayout} layout 建筑布局信息
  * @param {number[]} start 起始点 [ox,oy,oz]
  * @param {string} title 建筑名（用于异常提示）
  * @return {[x,y,z][]} 坐标数组
  */
 export function sequentialCubeLayout(
   n,
-  { w = 0, h = 0, d = 0 },
+  { w = 0, h = 0, d = 0, cx = 0, cy = 0 },
   { maxW = 0, maxH = 0, maxD = 0, dir = 1 },
   [ox = 0, oy = 0, oz = 0] = [],
   title = "建筑"
 ) {
   // 展开方向
-  let xDir = dir === 1 || dir === 2 ? 1 : -1;
-  let yDir = dir === 0 || dir === 1 ? 1 : -1;
+  let xDir, yDir;
+  if (dir == 0) {
+    // 左上
+    xDir = -1;
+    yDir = 1;
+    cx = cx - w;
+  } else if (dir == 2) {
+    // 右下
+    xDir = 1;
+    yDir = -1;
+    cy = cy - h;
+  } else if (dir == 3) {
+    // 左下
+    xDir = -1;
+    yDir = -1;
+    cx = cx - w;
+    cy = cy - h;
+  } else {
+    // 默认右上 1
+    dir = 1;
+    xDir = 1;
+    yDir = 1;
+  }
   // 计算每行、每列和每层可以放置的建筑数量
   let maxRow = Math.floor(maxW / w);
   let maxCol = Math.floor(maxH / h);
@@ -676,8 +725,8 @@ export function sequentialCubeLayout(
     let layer = xzNum % maxLayer;
 
     // 计算建筑的坐标
-    let x = ox + xDir * (w / 2 + row * w);
-    let y = oy + yDir * (h / 2 + col * h);
+    let x = ox + cx + xDir * row * w;
+    let y = oy + cy + yDir * col * h;
     let z = oz + layer * d; // z轴锚点在建筑底部
     cubes.push([x, y, z]);
   }

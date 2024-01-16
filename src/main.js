@@ -1,12 +1,16 @@
 import Vue from "vue";
-import ElementUI from "element-ui";
-import "element-ui/lib/theme-chalk/index.css";
-import "./styles/iconfont.css";
 import App from "./App.vue";
 
-Vue.config.productionTip = false;
+import "./styles/iconfont.css";
 
+import "element-ui/lib/theme-chalk/index.css";
+import ElementUI from "element-ui";
 Vue.use(ElementUI);
+
+import directive from "./directive"; //自定义指令
+Vue.use(directive);
+
+Vue.config.productionTip = false;
 
 new Vue({
   render: (h) => h(App),
