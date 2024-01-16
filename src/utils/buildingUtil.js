@@ -400,10 +400,14 @@ export function createMonitorGroup(
   let spawnItemOperator = 1; // 0:不勾选 1:生成货物 2:消耗货物
   let passColorId = 1;
   let failColorId = 1;
+  let targetCargoAmount = 30; // 目标流量(单位：0.1个)
   if (node.modelId === Cfg.ModelId.output || node.modelId === Cfg.ModelId.input) {
-    // 只有开始和结束节点才点亮流速器
+    // 只有 信号输出、信号输入 才点亮流速器
     passColorId = 113;
     failColorId = 13;
+  } else if (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1) {
+    // 非开始和结束节点的生成货物流速器 速度改为6/s，匹配黄带满带(用于提速初始化)
+    targetCargoAmount = 60;
   }
   const beltDistance = 0.7;
   // 接流速器
@@ -442,6 +446,7 @@ export function createMonitorGroup(
     cargoFilter: node.itemId,
     passColorId,
     failColorId,
+    targetCargoAmount,
   });
   buildList.push(_monitor);
   // 创建底下传送带
@@ -449,7 +454,10 @@ export function createMonitorGroup(
   const belt2_building = createBelt(belt2);
   buildList.push(belt1_building);
   buildList.push(belt2_building);
-  const _slotsBelts = [belt2_building]; // 记录外接传送带建筑对象
+  // 记录外接传送带建筑对象
+  // const _slotsBelts = [belt2_building];
+  const _slotsBelts = [belt1_building]; // 直接接在流速器下面那个传送带上，提高初始化速度
+  console.log(_monitor)
   return { _monitor, _slotsBelts };
 }
 
@@ -462,6 +470,7 @@ export function createMonitorGroup(
  * @param {number} opt.cargoFilter 生成/消耗物品id
  * @param {number} opt.passColorId 	满足条件颜色索引(默认绿色113)（0 - 255）
  * @param {number} opt.failColorId 	不满足条件颜色索引(默认红色13)（0 - 255）
+ * @param {number} opt.targetCargoAmount 	目标流量(单位：0.1个)
  * @return {BuildingItem}
  */
 export function createMonitor({
@@ -471,6 +480,7 @@ export function createMonitor({
   cargoFilter = 6002,
   passColorId = 113,
   failColorId = 13,
+  targetCargoAmount = 30,
 } = {}) {
   return {
     index: index,
@@ -495,7 +505,7 @@ export function createMonitor({
     parameters: {
       targetBeltId: 23343,
       offset: 0,
-      targetCargoAmount: 30,
+      targetCargoAmount,
       periodTicksCount: 60,
       passOperator: 0,
       passColorId,

@@ -15,8 +15,8 @@
             <el-button type="primary" icon="if-icon-json" title="保存为JSON文件(Ctrl+D)" @click="dspGraph.handleSaveAsJson()"></el-button>
             <el-button type="primary" icon="if-icon-blueprint" title="导出蓝图(Ctrl+B)" @click="dspGraph.handleGenerateBlueprint()"></el-button>
             <el-divider direction="vertical"></el-divider>
-            <el-button type="primary" icon="if-icon-undo" title="撤回(Ctrl+Z)" @click="dspGraph.handleUndo()"></el-button>
-            <el-button type="primary" icon="if-icon-redo" title="重做(Ctrl+Shift+Z)" @click="dspGraph.handleRedo()"></el-button>
+            <el-button type="primary" icon="if-icon-undo" title="撤回(Ctrl+Z)" :disabled="!(dspGraph?._undoList?.length>1)" @click="dspGraph.handleUndo()"></el-button>
+            <el-button type="primary" icon="if-icon-redo" title="重做(Ctrl+Shift+Z)" :disabled="!(dspGraph?._redoList?.length>0)" @click="dspGraph.handleRedo()"></el-button>
             <el-divider direction="vertical"></el-divider>
             <el-button type="primary" icon="el-icon-document-copy" title="复制(Ctrl+C)" @click="dspGraph.handleCopy()"></el-button>
             <el-button type="primary" icon="if-icon-paste" title="粘贴(Ctrl+V)" @click="dspGraph.handlePaste()"></el-button>
