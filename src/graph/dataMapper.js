@@ -207,6 +207,8 @@ export function toGraphData(
  * @property {number} packageId - 封装模块插槽-对应package中原输入输出节点id
  * @property {number} itemId - 封装模块插槽-生成/消耗物品id
  * @property {number} signalId - 封装模块插槽-插槽标记id
+ * @property {number} count - 封装模块插槽-插槽标记数
+ * @property {string} text - 封装模块插槽-插槽文本
  */
 /**
  * 初始化一个基本的节点对象
@@ -255,6 +257,8 @@ export function initGraphNode(d) {
       slot.packageId = _toInt(s.packageId); // 对应package中原输入输出节点id
       slot.itemId = _toInt(s.itemId); // 生成/消耗物品id
       slot.signalId = _toInt(s.signalId); // 插槽标记id
+      slot.count = _toInt(s.count); // 插槽标记数
+      slot.text = _toStr(s.text); // 插槽文本
     }
     node.slots.push(slot);
   });
@@ -374,6 +378,8 @@ export function dataToNode(data, nodeId, offset) {
  * @property {number} packageId - 封装模块插槽-对应package中原输入输出节点id
  * @property {number} itemId - 封装模块插槽-生成/消耗物品id
  * @property {number} signalId - 封装模块插槽-插槽标记id
+ * @property {number} count - 封装模块插槽-插槽标记数
+ * @property {string} text - 封装模块插槽-插槽文本
  */
 /**
  * 节点图谱对象 转 持久化数据
@@ -431,6 +437,8 @@ export function nodeToData(node) {
         packageId: s.packageId, // 对应package中原输入输出节点id
         itemId: s.itemId, // 生成/消耗物品id
         signalId: s.signalId, // 插槽标记id
+        count: s.count, // 插槽标记数
+        text: s.text, // 插槽文本
       })) || [];
   } else {
     // TODO:其他模型

@@ -496,16 +496,6 @@ export default {
           },
         },
         {
-          title: "组合封装选中节点",
-          icon: "el-icon-takeaway-box",
-          handler: () => {
-            // 所有选中节点置于底层
-            let packageName = "封装模块" + (this.dspGraph.packageMap.size + 1);
-            packageName = prompt("请输入模块名");
-            this.dspGraph.handlePackageComponent(packageName);
-          },
-        },
-        {
           title: "置于顶层",
           icon: "el-icon-top",
           handler: () => {
@@ -522,6 +512,16 @@ export default {
           },
         },
       ];
+      if (this.dspGraph._selection.nodeMap.size > 1) {
+        this.operMenuBtns.push({
+          title: "组合封装选中节点",
+          icon: "el-icon-takeaway-box",
+          handler: () => {
+            // 组合封装选中节点
+            this.dspGraph.handlePackageComponent();
+          },
+        });
+      }
       if ([Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
         // 流速器、信号输出、信号输入 切换生成/消耗物品id
         const dir = d.slots[0]?.dir ?? 1;
@@ -579,7 +579,10 @@ export default {
           },
         });
       }
-      this.showOperMenu(event.offsetX, event.offsetY);
+      if (this.operMenuBtns.length > 0) {
+        // 有操作按钮才打开
+        this.showOperMenu(event.offsetX, event.offsetY);
+      }
     },
     // 右键插槽
     handleRclickSlot(event, d) {
@@ -655,7 +658,13 @@ export default {
           }
         }
       }
-      this.showOperMenu(event.offsetX, event.offsetY);
+      if (this.operMenuBtns.length > 0) {
+        // 有操作按钮才打开
+        this.showOperMenu(event.offsetX, event.offsetY);
+      } else {
+        // 没有插槽按钮，映射到节点右键事件
+        this.handleRclickNode(event, d.node);
+      }
     },
     showOperMenu(offsetX, offsetY) {
       this.operMenuVisible = true;

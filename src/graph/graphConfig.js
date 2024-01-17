@@ -17,6 +17,8 @@ export const strokeW = {
 };
 export const nodeSize = 60; // 节点默认宽高
 export const pointSize = 7; // 节点插槽圆点大小
+export const packageSlotSize = 20; // 封装模块插槽大小
+export const packageSlotSpace = 20; // 封装模块插槽间隔
 export const signalSize = 20; // 图标标记大小
 export const signalIds = [
   600, 601, 602, 603, 604, 605, 606, 607, 608, 609, 401, 402, 403, 404, 405, 406, 501, 502, 503,
@@ -28,7 +30,7 @@ export const lineHeight = 15; // 行高
 export const lineWordNum = 6; // 一行文本的字数（非中文算0.5个字符）
 export const selectionMargin = 5; // 节点选中框与元素间距
 export const nodeCornerWidth = 5; // 节点选中角框长度
-export const gridStep = nodeSize / 4; // 网格对齐间距
+export const gridStep = 10; // 网格对齐间距
 export const undoNum = 10; // 记录可撤回的次数
 export const undoInterval = 500; // 记录撤回的时间间隔（单位:ms）
 export const undoRebuildInterval = 200; // 撤回、重做重绘画布的事件间隔（单位:ms）
@@ -39,6 +41,8 @@ export const color = {
 
   nodeFill: "rgb(224, 224, 224)", // 节点
   nodeStroke: "rgb(51, 51, 51)",
+  packageNodeFill: "rgb(253, 243, 227)", // 封装节点
+  packageNodeStroke: "rgb(100, 0, 0)",
   text: "#333",
   emptyText: "#ccc",
 

@@ -315,6 +315,7 @@ export function getInitGraphData() {
 export function getGraphDataHash(graphData) {
   const nodes = graphData.data.nodes ?? [];
   const lines = graphData.data.lines ?? [];
+  const packages = graphData.packages ?? [];
   // 节点特征
   let feature = "n[";
   let firstNode = true;
@@ -347,11 +348,15 @@ export function getGraphDataHash(graphData) {
         if (s.filterId) {
           feature += "," + s.filterId; // 过滤优先输出物品id
         }
+        if (s.packageId) {
+          feature += "," + s.packageId; // 封装模块插槽-对应package中原输入输出节点id
+        }
       }
       feature += "]";
     }
   }
   feature += "]";
+
   // 边特征
   feature += ",l[";
   let firstLine = true;
@@ -362,6 +367,19 @@ export function getGraphDataHash(graphData) {
       feature += "|";
     }
     feature += l.startId + "-" + l.startSlot + "," + l.endId + "-" + l.endSlot;
+  }
+  feature += "]";
+
+  // 复制模块特征
+  feature += ",p[";
+  let firstPackage = true;
+  for (let p of packages) {
+    if (firstPackage) {
+      firstPackage = false;
+    } else {
+      feature += "|";
+    }
+    feature += p.hash;
   }
   feature += "]";
   // 使用SHA-256哈希函数生成哈希值

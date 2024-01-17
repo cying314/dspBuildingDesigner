@@ -718,6 +718,10 @@ export default class Graph {
    */
   changeSlotDir(slot) {
     const modelId = slot?.node?.modelId;
+    if (modelId === Cfg.ModelId.package) {
+      // 双击封装模块插槽，断开连接
+      this.deleteEdge(slot.edge);
+    }
     // 只有四向、流速器、信号输出、信号输入 可调转输入输出口
     let legalModelIds = [
       Cfg.ModelId.fdir,
@@ -1105,13 +1109,8 @@ export default class Graph {
           .attr("y", d.h / 2 - Cfg.signalSize / 2)
           .attr("width", Cfg.signalSize)
           .attr("height", Cfg.signalSize);
-      } else {
-        // 其他模型：矩形
-        let fill = Cfg.color.nodeFill;
-        if (d.modelId === Cfg.ModelId.monitor) {
-          // 流速器：生成消耗物品颜色
-          fill = Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default;
-        }
+      } else if (d.modelId === Cfg.ModelId.monitor) {
+        // 流速器模型
         bg = d3
           .select(this)
           .insert("rect", ".node-slot") // 在插槽前插入
@@ -1119,6 +1118,45 @@ export default class Graph {
           .attr("y", -d.h / 2)
           .attr("width", d.w)
           .attr("height", d.h)
+          .attr("rx", 5) // 圆角
+          .attr("ry", 5)
+          .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default) // 生成消耗物品颜色
+          .style("stroke", Cfg.color.nodeStroke)
+          .style("stroke-width", Cfg.strokeW.light);
+      } else if (d.modelId === Cfg.ModelId.package) {
+        // 封装模块节点
+        bg = d3
+          .select(this)
+          .insert("rect", ".node-slot") // 在插槽前插入
+          .attr("x", -d.w / 2)
+          .attr("y", -d.h / 2)
+          .attr("width", d.w)
+          .attr("height", d.h)
+          .attr("rx", 10) // 圆角
+          .attr("ry", 10)
+          .style("fill", Cfg.color.packageNodeFill)
+          .style("stroke", Cfg.color.packageNodeStroke)
+          .style("stroke-width", Cfg.strokeW.light);
+        let nodeText = d3
+          .select(this)
+          .insert("text", ".node-slot") // 在插槽前插入
+          .attr("class", "node-text")
+          .style("font-size", Cfg.fontSize + "px")
+          .attr("text-anchor", "middle");
+        // 创建1行文本
+        _this.createTspan(nodeText, [d.text]);
+      } else {
+        // 其他模型：矩形
+        let fill = Cfg.color.nodeFill;
+        bg = d3
+          .select(this)
+          .insert("rect", ".node-slot") // 在插槽前插入
+          .attr("x", -d.w / 2)
+          .attr("y", -d.h / 2)
+          .attr("width", d.w)
+          .attr("height", d.h)
+          .attr("rx", 10) // 圆角
+          .attr("ry", 10)
           .style("fill", fill)
           .style("stroke", Cfg.color.nodeStroke)
           .style("stroke-width", Cfg.strokeW.light);
@@ -1185,6 +1223,30 @@ export default class Graph {
         return `${this.uniqueTag}_node-slot-${slot.node.id}-${slot.index}`;
       });
 
+    // 封装模块插槽
+    nodeSlotGEnter
+      .filter((d) => d.node.modelId === Cfg.ModelId.package)
+      .each(function (d) {
+        const packageSlot = d3.select(this);
+        const packageSlotBg = packageSlot
+          .append("g")
+          .attr("class", "slot-bg")
+          .style("opacity", 0.6);
+        packageSlotBg
+          .append("circle")
+          .attr("r", Cfg.packageSlotSize / 2)
+          .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default)
+          .style("stroke", d.dir === 1 ? Cfg.color.priorityInStroke : Cfg.color.priorityOutStroke)
+          .style("stroke-width", Cfg.strokeW.light);
+        packageSlotBg
+          .append("image")
+          .attr("xlink:href", ItemsUtil.getSignalImage(d.signalId))
+          .attr("x", Cfg.packageSlotSize / 4)
+          .attr("y", Cfg.packageSlotSize / 4)
+          .attr("width", Cfg.signalSize / 2) // 插槽图标大小减半
+          .attr("height", Cfg.signalSize / 2);
+      });
+
     // 新增 插槽节点
     nodeSlotGEnter
       .append("circle")
@@ -1233,6 +1295,10 @@ export default class Graph {
     // 更新插槽节点相对位置
     nodeSlotUpdate
       .selectAll(".slot-point")
+      .attr("transform", (slot) => `translate(${slot.ox},${slot.oy})`);
+    // 更新插槽节点相对位置
+    nodeSlotUpdate
+      .selectAll(".slot-bg")
       .attr("transform", (slot) => `translate(${slot.ox},${slot.oy})`);
 
     // 更新 插槽+-号
@@ -2113,11 +2179,14 @@ export default class Graph {
   /**
    * 封装框选建筑事件处理
    */
-  handlePackageComponent(packageName) {
-    if (this._selection.nodeMap.size == 0) {
-      Util._warn("请先框选节点后进行封装！");
+  handlePackageComponent() {
+    if (this._selection.nodeMap.size <= 1) {
+      Util._warn("请先框选两个及以上的节点进行封装！");
       return false;
     }
+    let promptRes = prompt("请输入封装模块名");
+    if (promptRes == null) return; // 取消
+    let packageName = promptRes || "封装模块" + (this.packageMap.size + 1);
     try {
       const graphData = this.getSelectionGraphData(packageName);
       const packageModel = this.packageComponent(graphData);
@@ -2140,8 +2209,27 @@ export default class Graph {
     const graphDataHash = Util.getGraphDataHash(graphData);
     graphData.header.hash = graphDataHash;
     if (this.packageMap.has(graphDataHash)) {
-      // 获取已有的封装
       let packageModel = this.packageMap.get(graphDataHash);
+      if (
+        confirm(
+          "存在相同结构的封装，是否覆盖更新封装数据？\n相似模块名：" + packageModel.packageName
+        )
+      ) {
+        // 覆盖更新已有的封装
+        packageModel.graphData = graphData;
+        packageModel.packageName = graphData.header.graphName;
+        packageModel.initNodeData.text = graphData.header.graphName;
+        packageModel.outsideNodeMap.clear();
+        Mapper.setOutsideNodeMap(packageModel);
+        // 更新插槽图标和文本
+        packageModel.initNodeData.slots.forEach((s) => {
+          let originNode = packageModel.outsideNodeMap.get(s.packageId);
+          if (originNode) {
+            s.text = originNode.text;
+            s.signalId = originNode.signalId;
+          }
+        });
+      }
       return packageModel;
     } else {
       /** @type {Mapper.PackageModel} */
@@ -2168,7 +2256,8 @@ export default class Graph {
           const slot = {
             packageId: n.id, // 对应package中原输入输出节点id
             itemId: n.itemId, // 生成/消耗物品id
-            signalId: n.signalId, // 标记id
+            signalId: n.signalId, // 文本标记id
+            text: n.text, // 插槽文本
             dir: 1, // 外部插槽需要倒置输入输出
           };
           packageModel.initNodeData.slots.push(slot);
@@ -2180,6 +2269,7 @@ export default class Graph {
             packageId: n.id,
             itemId: n.itemId,
             signalId: n.signalId,
+            text: n.text,
             dir: -1, // 倒置为输入
           };
           packageModel.initNodeData.slots.push(slot);
@@ -2190,10 +2280,13 @@ export default class Graph {
         throw "所要封装的节点里，需要包含至少一个输入及输出节点！";
       }
       // 根据插槽数量决定盒子大小
-      const W = ((Math.max(inputSlots.length, outputSlots.length) + 1) * Cfg.nodeSize) / 2;
-      const H = Cfg.nodeSize;
-      packageModel.initNodeData.w = W;
-      packageModel.initNodeData.h = H;
+      packageModel.initNodeData.w =
+        Math.max(inputSlots.length, outputSlots.length) *
+          (Cfg.packageSlotSize + Cfg.packageSlotSpace) +
+        Cfg.packageSlotSpace;
+      packageModel.initNodeData.h = Cfg.nodeSize;
+      const W = packageModel.initNodeData.w;
+      const H = packageModel.initNodeData.h;
 
       // 插槽布局（横向等距排列，输出口在上边缘，输入口在下边缘，高度不变）
       const iptDis = W / (inputSlots.length + 1);
