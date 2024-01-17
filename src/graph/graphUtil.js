@@ -1,7 +1,6 @@
 import * as Cfg from "./graphConfig.js";
 import { Notification, Message } from "element-ui";
 import { saveAs } from "file-saver";
-import * as Parser from "@/utils/parser";
 import crypto from "crypto";
 
 /**
@@ -243,29 +242,25 @@ export function readFileToGraphData(file) {
 }
 
 /**
+ * 保存字符串为txt文件
+ * @param {string} content 内容字符串
+ * @param {string} fileName 文件名
+ * @param {string} fileSuffix 文件后缀
+ */
+export function saveAsTxt(content, fileName = "默认", fileSuffix = "txt") {
+  saveAs(new Blob([content], { type: "text/plain;charset=utf-8" }), fileName + "." + fileSuffix);
+}
+
+/**
  * 保存图谱数据为json文件
  * @param {GraphData} graphData
  */
 export function saveGraphDataAsJson(graphData) {
   try {
-    let fileName = (graphData.header.graphName ?? Cfg.defaultGraphName) + ".json";
-    saveAs(new Blob([JSON.stringify(graphData)], { type: "text/plain;charset=utf-8" }), fileName);
+    let fileName = graphData.header.graphName ?? Cfg.defaultGraphName;
+    saveAsTxt(JSON.stringify(graphData), fileName, "json");
   } catch (e) {
     this.warning("导出JSON文件失败！");
-    throw e;
-  }
-}
-
-/**
- * 保存蓝图数据为txt文件
- * @param blueprint
- */
-export function saveBlueprintAsTxt(blueprint) {
-  try {
-    let fileName = (blueprint.header?.shortDesc ?? Cfg.defaultGraphName) + ".txt";
-    saveAs(new Blob([Parser.toStr(blueprint)], { type: "text/plain;charset=utf-8" }), fileName);
-  } catch (e) {
-    this.warning("导出蓝图文件失败！");
     throw e;
   }
 }

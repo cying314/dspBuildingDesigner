@@ -1,8 +1,6 @@
 import * as Cfg from "@/graph/graphConfig.js";
-import * as Util from "@/graph/graphUtil.js";
-/** @typedef {import("@/graph/dataMapper").GraphData} GraphData */
-/** @typedef {import("@/graph/dataMapper").NodeData} NodeData */
-/** @typedef {import("@/graph/dataMapper").LineData} LineData */
+/** @typedef {import("@/graph/dataMapper").GraphNode} GraphNode */
+/** @typedef {import("@/graph/dataMapper").GraphEdge} GraphEdge */
 /**
  * @typedef {Object} BuildingItem
  * @property {number} index - 建筑索引
@@ -30,17 +28,20 @@ const inserterSize = { w: 1, h: 2, d: 1, cx: 0.5, cy: 1.5 };
 
 /**
  * 生成蓝图数据
- * @param {GraphData} graphData 图谱数据
+ * @param {GraphNode[]} nodes 节点集
+ * @param {GraphEdge[]} edges 边集
+ * @param {string} graphName 蓝图名
+ * @param {boolean} onlyEdge 是否只生成分拣器，接到地基上
  * @return {object} blueprint
  */
-export function generateBlueprint(graphData) {
+export function generateBlueprint(nodes, edges, graphName, onlyEdge) {
   const blueprint = {
     header: {
       layout: 10,
       icons: [0, 0, 0, 0, 0],
       time: new Date(),
       gameVersion: 0,
-      shortDesc: graphData.header.graphName,
+      shortDesc: graphName,
       desc: "本蓝图通过 DSP超距电路蓝图设计器 生成！\n作者b站id：晨隐_",
     },
     version: 1,
@@ -59,38 +60,51 @@ export function generateBlueprint(graphData) {
       },
     ],
   };
-  blueprint.buildings = createbuildings(graphData);
+  blueprint.buildings = createbuildings(nodes, edges, onlyEdge);
   return blueprint;
 }
 
 /**
  * 生成蓝图建筑列表
- * @param {GraphData} graphData 图谱数据
+ * @param {GraphNode[]} nodes 节点集
+ * @param {GraphEdge[]} edges 边集
+ * @param {boolean} onlyEdge 是否只生成分拣器，接到地基上
  * @return {BuildingItem[]}
  */
-export function createbuildings(graphData) {
-  Util.checkGraphData(graphData);
+export function createbuildings(nodes, edges, onlyEdge = false) {
   let resList = [];
   let fdirList = []; // 四向节点
   let monitorList = []; // 流速器节点
   let outputList = []; // 信号输出
   let inputList = []; // 信号输入
-  graphData.data.nodes.forEach((n) => {
-    switch (n.modelId) {
-      case Cfg.ModelId.fdir: // 四向
-        fdirList.push(n);
-        break;
-      case Cfg.ModelId.monitor: // 流速器
-        monitorList.push(n);
-        break;
-      case Cfg.ModelId.output: // 信号输出
-        outputList.push(n);
-        break;
-      case Cfg.ModelId.input: // 信号输入
-        inputList.push(n);
-        break;
+  let baseBelt; // 只生成分拣器时，用于挂分拣器的单个传送带
+  if (!onlyEdge) {
+    nodes.forEach((n) => {
+      switch (n.modelId) {
+        case Cfg.ModelId.fdir: // 四向
+          fdirList.push(n);
+          break;
+        case Cfg.ModelId.monitor: // 流速器
+          monitorList.push(n);
+          break;
+        case Cfg.ModelId.output: // 信号输出
+          outputList.push(n);
+          break;
+        case Cfg.ModelId.input: // 信号输入
+          inputList.push(n);
+          break;
+      }
+    });
+  } else {
+    // 只生成分拣器
+    if (Cfg.globalSetting.generateMode === 1) {
+      // 如果配置生成直连模式，将不生成任何建筑
+      return [];
     }
-  });
+    // 生成传送带挂分拣器
+    baseBelt = createBelt({ index: resList.length, offset: [0, 0, -10] });
+    resList.push(baseBelt);
+  }
 
   // 1、四向布局
   const fdirLayout = Cfg.layoutSetting.fdirLayout;
@@ -170,30 +184,63 @@ export function createbuildings(graphData) {
   const inserterLayout = Cfg.layoutSetting.inserterLayout;
   let inserterOffset = [inserterLayout.start.x, inserterLayout.start.y, 0];
   let inserterLayoutCoords = centralCubeLayout(
-    graphData.data.lines.length,
+    edges.length * 2,
     inserterSize,
     inserterLayout,
     inserterOffset,
     inserterLayout.name
   );
-  graphData.data.lines.forEach((l, li) => {
-    let outputObjIdx = -1;
-    let inputObjIdx = -1;
-    let targetSlotsBelts = nodeId2SlotBeltsMap.get(l.endId);
-    let sourceSlotsBelts = nodeId2SlotBeltsMap.get(l.startId);
-    if (targetSlotsBelts && targetSlotsBelts[l.endSlot]) {
-      outputObjIdx = targetSlotsBelts[l.endSlot].index;
+  let i = 0;
+  edges.forEach((e) => {
+    let targetSlotsBelts = nodeId2SlotBeltsMap.get(e.target.id);
+    let sourceSlotsBelts = nodeId2SlotBeltsMap.get(e.source.id);
+    if (Cfg.globalSetting.generateMode === 0) {
+      // 无带流模式 生成分拣器
+      let outputObjIdx = -1;
+      let inputObjIdx = -1;
+      if (onlyEdge) {
+        // 只生成分拣器，接到单个传送带上
+        outputObjIdx = baseBelt.index;
+        inputObjIdx = baseBelt.index;
+      } else {
+        if (targetSlotsBelts && targetSlotsBelts[e.targetSlot.index]) {
+          outputObjIdx = targetSlotsBelts[e.targetSlot.index].index;
+        }
+        if (sourceSlotsBelts && sourceSlotsBelts[e.sourceSlot.index]) {
+          inputObjIdx = sourceSlotsBelts[e.sourceSlot.index].index;
+        }
+      }
+      // 一个传送带配1个分拣器，配速黄带满带
+      const inserter1 = createInserter({
+        index: resList.length,
+        offset: inserterLayoutCoords[i++],
+        outputObjIdx,
+        inputObjIdx,
+      });
+      resList.push(inserter1);
+    } else if (Cfg.globalSetting.generateMode === 1) {
+      // 传送带直连模式 修改传送带输出口到另一个传送带
+      if (
+        targetSlotsBelts &&
+        targetSlotsBelts[e.targetSlot.index] &&
+        sourceSlotsBelts &&
+        sourceSlotsBelts[e.sourceSlot.index]
+      ) {
+        let targetBelt = targetSlotsBelts[e.targetSlot.index];
+        let sourceBelt = sourceSlotsBelts[e.sourceSlot.index];
+        // 取两节传送带最慢的带速
+        if (sourceBelt.itemId > targetBelt.itemId) {
+          sourceBelt.itemId = targetBelt.itemId;
+          sourceBelt.modelIndex = targetBelt.modelIndex;
+        } else {
+          targetBelt.itemId = sourceBelt.itemId;
+          targetBelt.modelIndex = sourceBelt.modelIndex;
+        }
+        // 来源传送带 直接输出到 目标传送带
+        sourceBelt.outputObjIdx = targetBelt.index;
+        sourceBelt.outputToSlot = 1;
+      }
     }
-    if (sourceSlotsBelts && sourceSlotsBelts[l.startSlot]) {
-      inputObjIdx = sourceSlotsBelts[l.startSlot].index;
-    }
-    const inserter = createInserter({
-      index: resList.length,
-      offset: inserterLayoutCoords[li],
-      outputObjIdx,
-      inputObjIdx,
-    });
-    resList.push(inserter);
   });
   return resList;
 }
@@ -202,7 +249,7 @@ export function createbuildings(graphData) {
  * 创建 四向带4个短垂直带 结构
  * @param {number} opt.startIndex 起始索引
  * @param {number[]} opt.offset 偏移 [ox,oy,oz]
- * @param {NodeData} node 节点
+ * @param {GraphNode} node 节点
  * @param {object[]} list 建筑列表
  * @param {number} opt.inputObjIdx 四向底座的索引
  * @return {{_fdir:BuildingItem, _slotsBelts: BuildingItem[]}} 四向建筑对象（_slotsBelts属性为插槽外接传送带建筑对象）
@@ -239,45 +286,79 @@ export function createItem(
 
   /** 插槽外接传送带建筑对象 @type {BuildingItem[]} */
   const _slotsBelts = [];
-  const HorizDistance = 0.3;
-  const VerticalDistance = 0.7; // 四个垂直带至少要放下两个货物，否则四向优先输出逻辑将失效
-  // 创建4个短垂直带
+  const HorizDistance = 0.7; // 传送带距离四向中心的偏移
+  const VerticalDistance = 0.7; // 四个垂直带至少要放下两个货物，否则四向优先输出逻辑将失效（0.7容量为21，0.6容量为19）
+  // 四向4个口的传送带位置
   let os = [
     { x: ox, y: oy + HorizDistance, z: oz }, // 上
     { x: ox + HorizDistance, y: oy, z: oz }, // 右
     { x: ox, y: oy - HorizDistance, z: oz }, // 下
     { x: ox - HorizDistance, y: oy, z: oz }, // 左
   ];
-  let offsetIndex = 0;
+  // 四向是否只有一个优先输入
+  const onlyOnePriorityIpt =
+    node.slots.reduce((sum, s) => {
+      return sum + (s.priority === 1 ? 1 : 0) * s.dir;
+    }, 0) == -1;
   for (let i = 0; i < 4; i++) {
     const s = node.slots[i];
     if (!s || s.edge == null) continue; // 未连接
-    // 接四向
+    // 四向直连传送带
     let belt1 = {
-      index: startIndex + ++offsetIndex,
+      index: startIndex + 1,
       offset: [os[i].x, os[i].y, os[i].z + VerticalDistance / 2],
-    };
-    // 外接
-    let belt2 = {
-      index: startIndex + ++offsetIndex,
-      offset: [os[i].x, os[i].y, os[i].z - VerticalDistance / 2],
     };
     if (s.dir === 1) {
       // 输出口 从四向输入
       belt1.ipt = [_fdir.index, i];
-      // 输出到下一节
-      belt1.opt = [belt2.index, 1]; // 传送带插槽默认为1
     } else if (s.dir === -1) {
       // 输入口 输出到四向
       belt1.opt = [_fdir.index, i];
-      // 输出到上一节
-      belt2.opt = [belt1.index, 1]; // 传送带插槽默认为1
     }
-    const belt1_building = createBelt(belt1);
-    const belt2_building = createBelt(belt2);
-    buildList.push(belt1_building);
-    buildList.push(belt2_building);
-    _slotsBelts[i] = belt2_building; // 记录外接传送带建筑对象
+    if (Cfg.globalSetting.generateMode === 0) {
+      // 无带流模式 输出口生成垂直传送带
+      const beltLevel = 2; // 传送带等级(1,2,3) 默认绿带
+      belt1.level = beltLevel;
+      // 外接传送带
+      let belt2 = {
+        index: belt1.index + 1,
+        offset: [
+          os[i].x * (i % 2 ? 1.01 : 1), // 小偏移，形成完美垂直带
+          os[i].y * (i % 2 ? 1 : 1.01),
+          os[i].z - VerticalDistance / 2,
+        ],
+        level: beltLevel,
+      };
+      if (s.dir === 1) {
+        // 输出到下一节
+        belt1.opt = [belt2.index, 1]; // 传送带插槽默认为1
+      } else if (s.dir === -1) {
+        // 输出到上一节
+        belt2.opt = [belt1.index, 1]; // 传送带插槽默认为1
+        if (onlyOnePriorityIpt && s.priority === 1) {
+          // 四向只有一个优先输入时，优先输入端使用黄带
+          belt1.level = 1;
+          belt2.level = 1;
+        }
+      }
+      const belt1_building = createBelt(belt1);
+      const belt2_building = createBelt(belt2);
+      buildList.push(belt1_building);
+      buildList.push(belt2_building);
+      _slotsBelts[i] = belt2_building; // 记录外接传送带建筑对象
+    } else if (Cfg.globalSetting.generateMode === 1) {
+      // 传送带直连模式 输出口只生成一个传送带节点
+      if (onlyOnePriorityIpt && s.dir === -1 && s.priority === 1) {
+        // 四向只有一个优先输入时，优先输入端使用绿带
+        belt1.level = 2;
+      } else {
+        // 否则使用蓝带
+        belt1.level = 3;
+      }
+      const belt1_building = createBelt(belt1);
+      buildList.push(belt1_building);
+      _slotsBelts[i] = belt1_building; // 记录外接传送带建筑对象
+    }
   }
   return { _fdir, _slotsBelts };
 }
@@ -388,7 +469,7 @@ export function createBelt({
  * 创建流速器组（带两节传送带）
  * @param {number} startIndex 起始索引
  * @param {number[]} offset 偏移 [ox,oy,oz]
- * @param {NodeData} node 节点
+ * @param {GraphNode} node 节点
  * @param {object[]} list 建筑列表
  * @return {{_monitor:BuildingItem, _slotsBelts: BuildingItem[]}} 流速器组对象（_slotsBelts属性为插槽外接传送带建筑对象）
  */
@@ -401,43 +482,56 @@ export function createMonitorGroup(
   let spawnItemOperator = 1; // 0:不勾选 1:生成货物 2:消耗货物
   let passColorId = 1;
   let failColorId = 1;
-  let targetCargoAmount = 30; // 目标流量(单位：0.1个)
+  let beltLevel = 2; // 传送带等级(1,2,3) 默认蓝带
+  let targetCargoAmount = 60; // 目标流量(单位：0.1个)
+  if (Cfg.globalSetting.generateMode === 0) {
+    // 无带流配速黄带 使用绿带
+    targetCargoAmount = 60;
+    beltLevel = 2;
+  } else if (Cfg.globalSetting.generateMode === 1) {
+    // 直连传送带配速绿带 使用蓝带
+    targetCargoAmount = 120;
+    beltLevel = 3;
+  }
   if (node.modelId === Cfg.ModelId.output || node.modelId === Cfg.ModelId.input) {
     // 只有 信号输出、信号输入 才点亮流速器
     passColorId = 113;
     failColorId = 13;
-  } else if (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1) {
-    // 非开始和结束节点的生成货物流速器 速度改为6/s，匹配黄带满带(用于提速初始化)
-    targetCargoAmount = 60;
   }
+  // else if (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1) {
+  //   // 非开始和结束节点的生成货物流速器 速度改为12/s，匹配优先口满带(用于提速初始化)
+  //   targetCargoAmount = 120;
+  // }
   const beltDistance = 0.7;
   // 接流速器
   let belt1 = {
     index: startIndex + 1,
     offset: [ox, oy, oz],
+    level: beltLevel,
   };
   // 外接
   let belt2 = {
     index: startIndex + 2,
     offset: [ox, oy - beltDistance, oz],
     iconId: node.signalId, // 传送带标记
+    level: beltLevel,
   };
   if (
     node.modelId === Cfg.ModelId.output ||
     (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1)
   ) {
     // 信号输出 或流速器 生成货物
+    spawnItemOperator = 1;
     // 输出到下一节
     belt1.opt = [belt2.index, 1]; // 传送带插槽默认为1
-    spawnItemOperator = 1;
   } else if (
     node.modelId === Cfg.ModelId.input ||
     (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === -1)
   ) {
     // 信号输入 或流速器 消耗货物
+    spawnItemOperator = 2;
     // 输出到上一节
     belt2.opt = [belt1.index, 1]; // 传送带插槽默认为1
-    spawnItemOperator = 2;
   }
   // 创建流速器
   const _monitor = createMonitor({
@@ -455,9 +549,7 @@ export function createMonitorGroup(
   const belt2_building = createBelt(belt2);
   buildList.push(belt1_building);
   buildList.push(belt2_building);
-  // 记录外接传送带建筑对象
-  // const _slotsBelts = [belt2_building];
-  const _slotsBelts = [belt1_building]; // 直接接在流速器下面那个传送带上，提高初始化速度
+  const _slotsBelts = [belt2_building]; // 记录外接传送带建筑对象
   return { _monitor, _slotsBelts };
 }
 
@@ -584,6 +676,38 @@ export function createInserter({
 }
 
 /**
+ * 创建地基
+ * @param {Object} opt
+ * @param {number} opt.index 索引
+ * @param {number[]} opt.offset 偏移 [x,y,z]
+ * @return {BuildingItem}
+ */
+export function createBase({ index, offset: [x = 0, y = 0, z = -10] = [] }) {
+  return {
+    index: index,
+    areaIndex: 0,
+    localOffset: [
+      { x, y, z },
+      { x, y: y - 1, z },
+    ],
+    yaw: [0, 0],
+    itemId: 1131,
+    modelIndex: 37, // 使用极速传送带模型
+    outputObjIdx: -1,
+    inputObjIdx: -1,
+    outputToSlot: 0,
+    inputFromSlot: 0,
+    outputFromSlot: 0,
+    inputToSlot: 1,
+    outputOffset: 0,
+    inputOffset: 0,
+    recipeId: 0,
+    filterId: 0,
+    parameters: null,
+  };
+}
+
+/**
  * 求中心扩散布局坐标（优先叠满层，再原点扩散布局）
  * @description 优先叠满层，水平方向再从原点往外扩展
  * @param {number} n 建筑数量
@@ -597,7 +721,7 @@ export function createInserter({
 export function centralCubeLayout(
   n,
   { w = 0, h = 0, d = 0, cx = 0, cy = 0 },
-  { maxW = 0, maxH = 0, maxD = 0, dir = 1 },
+  { maxW = 0, maxH = 0, maxD = 0, dir = 1, space = 0 },
   [ox = 0, oy = 0, oz = 0] = [],
   title = "建筑"
 ) {
@@ -626,12 +750,14 @@ export function centralCubeLayout(
     yDir = 1;
   }
   // 计算每行、每列和每层可以放置的建筑数量
-  let maxRow = Math.floor(maxW / w);
-  let maxCol = Math.floor(maxH / h);
+  let maxRow = Math.floor((maxW + space) / (w + space));
+  let maxCol = Math.floor((maxH + space) / (h + space));
   let maxLayer = Math.floor(maxD / d);
   if (n > maxRow * maxCol * maxLayer) {
     throw new Error(
-      `无法在给定的 宽长高(${maxW}, ${maxH}, ${maxD}) 限制内放置所有${title}！${title}数量: ${n}`
+      `无法在给定的 限宽(${maxW}),限长(${maxH}),限高(${maxD})${
+        space > 0 ? ",间隔(" + space + ")" : ""
+      } 的条件范围内放置所有${title}！${title}数量: ${n}`
     );
   }
   // 初始化建筑坐标数组
@@ -662,8 +788,8 @@ export function centralCubeLayout(
     let layer = i % maxLayer;
 
     // 计算建筑的坐标
-    let x = ox + cx + xDir * row * w;
-    let y = oy + cy + yDir * col * h;
+    let x = ox + cx + xDir * row * (w + space);
+    let y = oy + cy + yDir * col * (h + space);
     let z = oz + layer * d; // z轴锚点在建筑底部
     cubes.push([x, y, z]);
   }
@@ -683,7 +809,7 @@ export function centralCubeLayout(
 export function sequentialCubeLayout(
   n,
   { w = 0, h = 0, d = 0, cx = 0, cy = 0 },
-  { maxW = 0, maxH = 0, maxD = 0, dir = 1 },
+  { maxW = 0, maxH = 0, maxD = 0, dir = 1, space = 0 },
   [ox = 0, oy = 0, oz = 0] = [],
   title = "建筑"
 ) {
@@ -712,12 +838,14 @@ export function sequentialCubeLayout(
     yDir = 1;
   }
   // 计算每行、每列和每层可以放置的建筑数量
-  let maxRow = Math.floor(maxW / w);
-  let maxCol = Math.floor(maxH / h);
+  let maxRow = Math.floor((maxW + space) / (w + space));
+  let maxCol = Math.floor((maxH + space) / (h + space));
   let maxLayer = Math.floor(maxD / d);
   if (n > maxRow * maxCol * maxLayer) {
     throw new Error(
-      `无法在给定的 宽长高(${maxW}, ${maxH}, ${maxD}) 限制内放置所有${title}！\n${title}数量: ${n}`
+      `无法在给定的 限宽(${maxW}),限长(${maxH}),限高(${maxD})${
+        space > 0 ? ",间隔(" + space + ")" : ""
+      } 的条件范围内放置所有${title}！${title}数量: ${n}`
     );
   }
   // 初始化建筑坐标数组
@@ -735,8 +863,8 @@ export function sequentialCubeLayout(
     let layer = xzNum % maxLayer;
 
     // 计算建筑的坐标
-    let x = ox + cx + xDir * row * w;
-    let y = oy + cy + yDir * col * h;
+    let x = ox + cx + xDir * row * (w + space);
+    let y = oy + cy + yDir * col * (h + space);
     let z = oz + layer * d; // z轴锚点在建筑底部
     cubes.push([x, y, z]);
   }

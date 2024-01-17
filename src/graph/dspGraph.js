@@ -5,13 +5,13 @@ import * as Util from "./graphUtil.js";
 import * as Watermark from "@/utils/watermark.js";
 import * as BuildingUtil from "@/utils/buildingUtil.js";
 import * as ItemsUtil from "@/utils/itemsUtil.js";
+import * as Parser from "@/utils/parser";
 export default class Graph {
   /** 图谱名称 @type {string} */ graphName;
   /** 画布位移、缩放 @type {{x, y, k}} */ transform = { x: 0, y: 0, k: 1 };
   /** 画布宽度 @type {number} */ width;
   /** 画布高度 @type {number} */ height;
   /** 画布容器dom对象 @type {HTMLElement} */ _canvasDOM;
-  /** 网格对齐(默认是) @type {boolean} */ gridAlignment;
   /** 初始化缩放(默认1) @type {number} */ defaultScale;
   /** 最小缩放(默认0.1) @type {number} */ minScale;
   /** 最大缩放(默认5) @type {number} */ maxScale;
@@ -62,21 +62,19 @@ export default class Graph {
    * @param {Mapper.GraphData} options.graphData 图谱数据
    * @param {string} options.uniqueTag 画布内元素id唯一标识(默认def)
    * @param {string} options.graphName 图谱名称
-   * @param {boolean} options.gridAlignment 网格对齐(默认是)
    * @param {number} options.defaultScale 初始化缩放
    * @param {number} options.minScale 最小缩放
    * @param {number} options.maxScale 最大缩放
    * @param {(event: Event) => void} options.handleDblclick 画布空白位置双击事件
    * @param {(event: Event, d: Object) => void} options.handleRclickNode 右键点击插槽事件
    * @param {(event: Event, d: Object) => void} options.handleRclickSlot 右键点击插槽事件
-   * @param {(done: Function) => void} options.beforeGenerateBlueprint 生成蓝图事件前置调用
+   * @param {(done: ()=>blueprintRes ) => void} options.beforeGenerateBlueprint 生成蓝图事件前置调用
    */
   constructor({
     canvasDOM,
     graphData,
     uniqueTag = "def",
     graphName,
-    gridAlignment = true, // 网格对齐
     defaultScale = Cfg.defaultScale,
     minScale = Cfg.minScale,
     maxScale = Cfg.maxScale,
@@ -89,7 +87,6 @@ export default class Graph {
     this._canvasDOM = canvasDOM;
     this.uniqueTag = uniqueTag;
     this.graphName = graphName;
-    this.gridAlignment = gridAlignment;
     this.defaultScale = defaultScale;
     this.minScale = minScale;
     this.maxScale = maxScale;
@@ -365,7 +362,7 @@ export default class Graph {
     // 将坐标转换为视图内坐标
     const coord = Util.offsetToCoord([ox, oy], this.transform);
     let bboxOffset;
-    if (this.gridAlignment) {
+    if (Cfg.globalSetting.gridAlignment) {
       // 网格对齐
       const ga = Util.gridAlignment(-w / 2 + coord[0], -h / 2 + coord[1]);
       bboxOffset = [-minX + ga[0], -minY + ga[1]];
@@ -472,7 +469,7 @@ export default class Graph {
       Object.assign(other, packageModel.initNodeData);
     }
     const newNode = Mapper.modelIdToNode(modelId, ++this._maxId, other, coord); // 模型Id 转 节点对象
-    if (this.gridAlignment) {
+    if (Cfg.globalSetting.gridAlignment) {
       // 网格对齐
       const ga = Util.gridAlignment(newNode.x, newNode.y);
       newNode.x = ga[0];
@@ -1676,7 +1673,7 @@ export default class Graph {
     // 结束拖拽
     const dragend = () => {
       // 网格对齐
-      if (this.gridAlignment && this._selection.boundingBox) {
+      if (Cfg.globalSetting.gridAlignment && this._selection.boundingBox) {
         let x, y;
         const { minX, minY, w, h } = this._selection.boundingBox;
         if (this._selection.nodeMap.size == 1) {
@@ -2060,27 +2057,53 @@ export default class Graph {
    * 生成蓝图数据事件处理
    */
   handleGenerateBlueprint() {
-    if (this._nodes.length == 0) {
-      Util._warn("当前没有可导出的节点！");
-      return false;
-    }
     if (this.beforeGenerateBlueprint instanceof Function) {
       this.beforeGenerateBlueprint(() => this.generateBlueprint());
     } else {
-      this.generateBlueprint();
+      // 生成并下载蓝图
+      const blueprintRes = this.generateBlueprint();
+      if (Cfg.globalSetting.generateMode === 0) {
+        // 无带流，多下载一个分拣器接地基的蓝图
+        Util.saveAsTxt(blueprintRes.txt, blueprintRes.name + "_无带流分拣器", "txt");
+      }
+      Util.saveAsTxt(blueprintRes.txt_onlyEdge, blueprintRes.name, "txt");
     }
   }
 
   /**
+   * @typedef {Object} blueprintRes
+   * @property {name} name 蓝图名称（不带txt后缀）
+   * @property {stirng} txt 蓝图文本
+   * @property {stirng} txt_onlyEdge 仅分拣器的蓝图文本
+   */
+  /**
    * 生成蓝图数据
+   * @return {blueprintRes}
    */
   generateBlueprint() {
+    if (this._nodes.length == 0) {
+      Util._warn("当前没有可导出的节点！");
+      return false;
+    }
     try {
-      const graphData = this.getGraphData();
-      const blueprint = BuildingUtil.generateBlueprint(graphData);
-      Util.saveBlueprintAsTxt(blueprint);
+      /** @type {blueprintRes} */
+      const blueprintRes = {
+        name: this.graphName,
+      };
+      const blueprint = BuildingUtil.generateBlueprint(this._nodes, this._edges, this.graphName);
+      if (Cfg.globalSetting.generateMode === 0) {
+        // 如果是无带流，多生成一个分拣器接地基的蓝图
+        const blueprint_onlyEdge = BuildingUtil.generateBlueprint(
+          this._nodes,
+          this._edges,
+          this.graphName,
+          true
+        );
+        blueprintRes.txt_onlyEdge = Parser.toStr(blueprint_onlyEdge);
+      }
+      blueprintRes.txt = Parser.toStr(blueprint);
       Util._success("生成蓝图成功！");
-      return true;
+      return blueprintRes;
     } catch (e) {
       Util._err("生成蓝图失败：" + (e?.message || e));
       return false;

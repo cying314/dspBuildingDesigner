@@ -10,33 +10,38 @@
       :row-style="layoutTableRowStyle"
       :cell-style="layoutTableCellStyle"
     >
-      <el-table-column prop="name" label="组件" align="center" width="120px" show-overflow-tooltip></el-table-column>
-      <el-table-column label="布局起点 (X, Y)" align="center">
+      <el-table-column prop="name" label="组件" align="center" width="120" show-overflow-tooltip></el-table-column>
+      <el-table-column label="布局起点 (X, Y)" align="center" min-width="60">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.start.x" :min="-9999" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="布局起点Y" align="center">
+      <el-table-column label="布局起点Y" align="center" min-width="60">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.start.y" :min="-9999" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="最大宽长高 (W, H, T)" align="center">
+      <el-table-column label="最大宽长高 (W, H, T)" align="center" min-width="60px">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.maxW" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="最大长H" align="center">
+      <el-table-column label="最大长H" align="center" min-width="60">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.maxH" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="最大高T" align="center">
+      <el-table-column label="最大高T" align="center" min-width="60">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.maxD" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="展开方向" align="center" width="100">
+      <el-table-column label="建筑间隔" align="center" min-width="60">
+        <template slot-scope="{ row }">
+          <el-input-number v-model="row.space" :min="0" :max="10" :step="0.01" step-strictly :controls="false"></el-input-number>
+        </template>
+      </el-table-column>
+      <el-table-column label="展开方向" align="center" width="90">
         <template slot-scope="{ row }">
           <el-select v-model="row.dir" size="mini">
             <el-option label="左上" :value="0"></el-option>
@@ -59,8 +64,23 @@
         </div>
       </div>
     </div>
-    <div class="layoutSettingBtns">
-      <slot></slot>
+    <div class="bottomBtns">
+      <div class="lt">
+        <span>蓝图生成模式：</span>
+        <el-radio-group v-model="globalSetting.generateMode" size="mini">
+          <el-radio :label="0" :title="`使用分拣器进行无带流连接\n*需先提前粘贴分拣器，再在同位置粘贴完整蓝图`">
+            无带流(分拣器)
+            <i class="el-icon-question primary"></i>
+          </el-radio>
+          <el-radio :label="1" :title="`直连传送带节点\n*需使用mod进行蓝图强制粘贴`">
+            传送带直连
+            <i class="if-icon-un-priority danger"></i>
+          </el-radio>
+        </el-radio-group>
+      </div>
+      <div class="rt">
+        <slot></slot>
+      </div>
     </div>
   </div>
 </template>
@@ -71,6 +91,7 @@ export default {
   name: "LayoutSetting",
   data() {
     return {
+      globalSetting: Cfg.globalSetting,
       layoutSettingList: Cfg.layoutSettingList,
       gridSize: 5,
       minScale: 3,
@@ -99,7 +120,6 @@ export default {
     // 拖拽盒子宽度
     onXbarDrag(e1, item) {
       e1.stopPropagation();
-      e1.preventDefault();
       let startW = item.maxW ?? 0;
       let startDir = item.dir ?? 0;
       let startX = e1.pageX;
@@ -143,7 +163,6 @@ export default {
     // 拖拽盒子高度
     onYbarDrag(e1, item) {
       e1.stopPropagation();
-      e1.preventDefault();
       let startH = item.maxH ?? 0;
       let startDir = item.dir ?? 0;
       let startY = e1.pageY;
@@ -187,7 +206,6 @@ export default {
     // 拖拽盒子位置
     onBoxDrag(e1, item) {
       e1.stopPropagation();
-      e1.preventDefault();
       let x = item.start?.x ?? 0;
       let y = item.start?.y ?? 0;
       let startX = e1.pageX;
@@ -208,7 +226,6 @@ export default {
     // 拖拽网格定位
     onGridDrag(e1) {
       e1.stopPropagation();
-      e1.preventDefault();
       let startX = e1.pageX - this.ox;
       let startY = e1.pageY - this.oy;
       let onMove = (e2) => {
@@ -456,9 +473,16 @@ export default {
     }
   }
 }
-.layoutSettingBtns {
-  margin-top: 10px;
+.bottomBtns {
+  margin-top: 20px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+}
+.primary {
+  color: $--color-primary;
+}
+.danger {
+  color: $--color-danger;
 }
 </style>

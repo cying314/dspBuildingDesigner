@@ -160,7 +160,7 @@ export function toGraphData(
       // 剔除未使用的封装模块
       if (!weedOutUnusedPackage || usedPackagesHash.has(p.hash)) {
         let { hash, packageName, graphData, initNodeData } = p;
-        _packages.push({ hash, graphData, initNodeData });
+        _packages.push({ hash, packageName, graphData, initNodeData });
       }
     });
   }

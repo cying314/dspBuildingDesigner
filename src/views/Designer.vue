@@ -23,8 +23,16 @@
             <el-button type="primary" icon="el-icon-scissors" title="剪切(Ctrl+X)" @click="dspGraph.handleCut()"></el-button>
             <el-button type="primary" icon="el-icon-delete" title="删除(Delete)" @click="dspGraph.handleDelete()"></el-button>
             <el-divider direction="vertical"></el-divider>
+            <el-button type="primary" icon="el-icon-setting" title="全局设置" @click="showGlobalSetting=true"></el-button>
             <el-button type="primary" icon="el-icon-location-information" title="重置画布定位" @click="dspGraph.resetPosition(true)"></el-button>
-            <el-button type="primary" icon="if-icon-grid" :key="gridAlignment?'on':'off'" :title="(gridAlignment?'取消':'')+'网格对齐'" :plain="gridAlignment" @click="gridAlignment=!gridAlignment"></el-button>
+            <el-button
+              type="primary"
+              icon="if-icon-grid"
+              :key="globalSetting.gridAlignment?'on':'off'"
+              :title="(globalSetting.gridAlignment?'取消':'')+'网格对齐'"
+              :plain="globalSetting.gridAlignment"
+              @click="globalSetting.gridAlignment=!globalSetting.gridAlignment"
+            ></el-button>
           </div>
         </el-scrollbar>
       </div>
@@ -123,6 +131,49 @@
         <el-button size="small" type="primary" @click="generateBlueprintDone">生 成</el-button>
       </LayoutSetting>
     </el-dialog>
+    <!-- 生成蓝图结果 -->
+    <el-dialog title="生成蓝图成功" custom-class="blueprintResDialog" :visible.sync="showBlueprintRes" width="500px" top="25vh" :before-close="closeBlueprintRes" v-dialogDrag>
+      <template v-if="blueprintRes">
+        <div class="item" v-if="globalSetting.generateMode===0 && blueprintRes.txt_onlyEdge">
+          <div class="hint">
+            <i class="if-icon-un-priority danger" style="margin-right:5px"></i>
+            <span>无带流蓝图需先粘贴</span>
+            <span style="text-decoration: underline;">分拣器蓝图</span>
+            <span>后，再在同位置粘贴</span>
+            <span style="text-decoration: underline">完整蓝图</span>
+            <i class="if-icon-un-priority danger" style="margin-left:5px"></i>
+          </div>
+          <div class="btnsWrap">
+            <div class="title">1、分拣器蓝图：</div>
+            <div class="btns">
+              <el-button type="primary" icon="el-icon-document-copy" size="small" plain @click="copyBlueprint(blueprintRes.txt_onlyEdge, $refs.txtOnlyEdgeRef)">复制到剪贴板</el-button>
+              <el-button type="primary" icon="el-icon-download" size="small" @click="downloadBlueprint(blueprintRes.txt_onlyEdge, blueprintRes.name+'_分拣器蓝图')">下载蓝图文件</el-button>
+            </div>
+          </div>
+          <div class="textarea">
+            <el-input type="textarea" v-model="blueprintRes.txt_onlyEdge" :rows="3" readonly ref="txtOnlyEdgeRef"></el-input>
+          </div>
+        </div>
+        <div class="item">
+          <div class="btnsWrap">
+            <div class="title" v-if="globalSetting.generateMode===0 && blueprintRes.txt_onlyEdge">2、完整蓝图：</div>
+            <div class="btns">
+              <el-button type="primary" icon="el-icon-document-copy" size="small" plain @click="copyBlueprint(blueprintRes.txt, $refs.txtRef)">复制到剪贴板</el-button>
+              <el-button type="primary" icon="el-icon-download" size="small" @click="downloadBlueprint(blueprintRes.txt, blueprintRes.name)">下载蓝图文件</el-button>
+            </div>
+          </div>
+          <div class="textarea">
+            <el-input type="textarea" v-model="blueprintRes.txt" :rows="3" readonly ref="txtRef"></el-input>
+          </div>
+        </div>
+      </template>
+    </el-dialog>
+    <!-- 全局设置 -->
+    <el-dialog title="全局设置" custom-class="globalSettingDialog" :visible.sync="showGlobalSetting" width="500px" v-dialogDrag>
+      <GlobalSetting ref="layoutSettingRef" v-if="showGlobalSetting">
+        <el-button size="small" @click="showGlobalSetting = false">关 闭</el-button>
+      </GlobalSetting>
+    </el-dialog>
   </div>
 </template>
 
@@ -132,10 +183,12 @@ import * as Cfg from "@/graph/graphConfig.js";
 import * as Util from "@/graph/graphUtil.js";
 import * as ItemsUtil from "@/utils/itemsUtil.js";
 import LayoutSetting from "@/components/LayoutSetting.vue";
+import GlobalSetting from "@/components/GlobalSetting.vue";
 export default {
   name: "Designer",
   components: {
     LayoutSetting,
+    GlobalSetting,
   },
   data() {
     return {
@@ -145,8 +198,9 @@ export default {
        */
       dspGraph: null,
       graphName: null,
-      gridAlignment: true, // 是否网格对齐
       dbcCreate: true, // 是否双击创建
+      globalSetting: Cfg.globalSetting, // 全局设置
+      showGlobalSetting: false,
       // 抽屉start
       leftDrawW: 300, // 左边抽屉宽度
       leftDrawDragging: false, // 左边抽屉拖拽中
@@ -172,13 +226,12 @@ export default {
       selectModel: "node_1", // 默认选择四向
       // 生成布局调整
       showLayoutSetting: false,
-      generateBlueprintDoneFun: null,
+      // 生成蓝图
+      showBlueprintRes: false,
+      blueprintRes: null,
     };
   },
   watch: {
-    gridAlignment(val) {
-      this.dspGraph.gridAlignment = val;
-    },
     graphName(val) {
       this.dspGraph.graphName = val;
     },
@@ -202,7 +255,6 @@ export default {
       graphName: this.graphName,
       graphData,
       canvasDOM: this.$refs.canvasRef,
-      gridAlignment: this.gridAlignment,
       handleDblclick: this.handleDblclick,
       handleRclickNode: this.handleRclickNode,
       handleRclickSlot: this.handleRclickSlot,
@@ -210,21 +262,63 @@ export default {
     });
   },
   methods: {
-    // 生成蓝图
-    generateBlueprintDone() {
-      if (this.generateBlueprintDoneFun) {
-        if (this.generateBlueprintDoneFun()) {
-          this.generateBlueprintDoneFun = null;
-          this.showLayoutSetting = false;
+    closeBlueprintRes(done) {
+      this.$confirm("确定关闭生成结果么?", "提示", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      })
+        .then(() => {
+          this.showBlueprintRes = false;
+          done();
+        })
+        .catch(() => {});
+    },
+    // 复制蓝图
+    async copyBlueprint(txt, textRef) {
+      if (txt == null) {
+        return Util._warn("请先生成数据！");
+      }
+      if (textRef == null) {
+        return Util._warn("复制失败！");
+      }
+      textRef.select(); // 聚焦元素才可复制
+      let errMsg;
+      const Clipboard = navigator?.clipboard;
+      if (Clipboard) {
+        try {
+          await Clipboard.writeText(txt);
+          return Util._success(`已将蓝图复制到剪贴板！`);
+        } catch (e) {
+          errMsg = "未授权复制权限";
         }
       } else {
-        this.showLayoutSetting = false;
+        errMsg = "浏览器不支持复制";
+      }
+      try {
+        // 降级尝试使用execCommand复制
+        document.execCommand("copy");
+        Util._success(`已将蓝图复制到剪贴板！`);
+      } catch (e) {
+        Util._warn(errMsg);
+      }
+    },
+    // 下载蓝图
+    downloadBlueprint(txt, fileName) {
+      Util.saveAsTxt(txt, fileName, "txt");
+    },
+    // 生成蓝图
+    generateBlueprintDone() {
+      let blueprintRes = this.dspGraph.generateBlueprint();
+      if (blueprintRes) {
+        this.blueprintRes = blueprintRes;
+        this.showBlueprintRes = true;
+        // this.showLayoutSetting = false;
       }
     },
     // 生成蓝图事件前置调用
-    beforeGenerateBlueprint(done) {
+    beforeGenerateBlueprint() {
       this.showLayoutSetting = true;
-      this.generateBlueprintDoneFun = done;
     },
     // 获取当前url参数
     getUrlParams() {
@@ -901,6 +995,42 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
 .layoutSettingDialog {
   .el-dialog__body {
     padding-top: 10px;
+  }
+}
+.globalSettingDialog {
+  .el-dialog__body {
+    padding-bottom: 15px;
+  }
+}
+.blueprintResDialog {
+  .item {
+    .hint {
+      font-size: 14px;
+      color: $--color-warning;
+      margin-bottom: 10px;
+    }
+    .btnsWrap {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      .title {
+        width: 140px;
+        font-size: 14px;
+        margin-bottom: 5px;
+      }
+    }
+    .btns {
+      flex: 1;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+    .textarea {
+      margin-top: 10px;
+    }
+  }
+  .item + .item {
+    margin-top: 20px;
   }
 }
 </style>
