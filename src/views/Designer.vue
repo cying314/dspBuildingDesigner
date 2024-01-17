@@ -134,15 +134,20 @@
     <!-- 生成蓝图结果 -->
     <el-dialog title="生成蓝图成功" custom-class="blueprintResDialog" :visible.sync="showBlueprintRes" width="500px" top="25vh" :before-close="closeBlueprintRes" v-dialogDrag>
       <template v-if="blueprintRes">
+        <div class="hint" v-if="globalSetting.generateMode===0">
+          <i class="if-icon-un-priority danger" style="margin-right:5px"></i>
+          <span>无带流蓝图需先粘贴</span>
+          <span style="text-decoration: underline;">分拣器蓝图</span>
+          <span>后，再在同位置粘贴</span>
+          <span style="text-decoration: underline">完整蓝图</span>
+          <i class="if-icon-un-priority danger" style="margin-left:5px"></i>
+        </div>
+        <div class="hint" v-else-if="globalSetting.generateMode===1">
+          <i class="if-icon-un-priority danger" style="margin-right:5px"></i>
+          <span>该蓝图存在传送带与建筑碰撞，请使用mod进行蓝图强制粘贴</span>
+          <i class="if-icon-un-priority danger" style="margin-left:5px"></i>
+        </div>
         <div class="item" v-if="globalSetting.generateMode===0 && blueprintRes.txt_onlyEdge">
-          <div class="hint">
-            <i class="if-icon-un-priority danger" style="margin-right:5px"></i>
-            <span>无带流蓝图需先粘贴</span>
-            <span style="text-decoration: underline;">分拣器蓝图</span>
-            <span>后，再在同位置粘贴</span>
-            <span style="text-decoration: underline">完整蓝图</span>
-            <i class="if-icon-un-priority danger" style="margin-left:5px"></i>
-          </div>
           <div class="btnsWrap">
             <div class="title">1、分拣器蓝图：</div>
             <div class="btns">
@@ -1012,12 +1017,12 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
   }
 }
 .blueprintResDialog {
+  .hint {
+    font-size: 14px;
+    color: $--color-warning;
+    margin-bottom: 10px;
+  }
   .item {
-    .hint {
-      font-size: 14px;
-      color: $--color-warning;
-      margin-bottom: 10px;
-    }
     .btnsWrap {
       display: flex;
       justify-content: space-between;

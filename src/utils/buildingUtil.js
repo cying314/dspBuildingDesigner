@@ -210,14 +210,21 @@ export function createbuildings(nodes, edges, onlyEdge = false) {
           inputObjIdx = sourceSlotsBelts[e.sourceSlot.index].index;
         }
       }
-      // 一个传送带配1个分拣器，配速黄带满带
+      // 一个传送带配2个分拣器，配速黄带满带
       const inserter1 = createInserter({
         index: resList.length,
         offset: inserterLayoutCoords[i++],
         outputObjIdx,
         inputObjIdx,
       });
+      const inserter2 = createInserter({
+        index: resList.length,
+        offset: inserterLayoutCoords[i++],
+        outputObjIdx,
+        inputObjIdx,
+      });
       resList.push(inserter1);
+      resList.push(inserter2);
     } else if (Cfg.globalSetting.generateMode === 1) {
       // 传送带直连模式 修改传送带输出口到另一个传送带
       if (
@@ -287,7 +294,7 @@ export function createItem(
   /** 插槽外接传送带建筑对象 @type {BuildingItem[]} */
   const _slotsBelts = [];
   const HorizDistance = 0.7; // 传送带距离四向中心的偏移
-  const VerticalDistance = 0.7; // 四个垂直带至少要放下两个货物，否则四向优先输出逻辑将失效（0.7容量为21，0.6容量为19）
+  const VerticalDistance = 1.2; // 四个垂直带至少要放下两个货物，否则四向优先输出逻辑将失效；另卡29容量可以使黄绿带变1tick延迟（0.7容量为21，0.6容量为19，1.2容量为29）
   // 四向4个口的传送带位置
   let os = [
     { x: ox, y: oy + HorizDistance, z: oz }, // 上
@@ -300,12 +307,13 @@ export function createItem(
     node.slots.reduce((sum, s) => {
       return sum + (s.priority === 1 ? 1 : 0) * s.dir;
     }, 0) == -1;
+  let offsetIndex = 0;
   for (let i = 0; i < 4; i++) {
     const s = node.slots[i];
     if (!s || s.edge == null) continue; // 未连接
     // 四向直连传送带
     let belt1 = {
-      index: startIndex + 1,
+      index: startIndex + ++offsetIndex,
       offset: [os[i].x, os[i].y, os[i].z + VerticalDistance / 2],
     };
     if (s.dir === 1) {
@@ -317,15 +325,22 @@ export function createItem(
     }
     if (Cfg.globalSetting.generateMode === 0) {
       // 无带流模式 输出口生成垂直传送带
-      const beltLevel = 2; // 传送带等级(1,2,3) 默认绿带
+      const beltLevel = 3; // 传送带等级(1,2,3) 默认绿带
       belt1.level = beltLevel;
+      // 小偏移，形成完美垂直带，并且都朝外
+      let os2 = [
+        { x: ox, y: oy + HorizDistance + 0.01, z: oz }, // 上
+        { x: ox + HorizDistance + 0.01, y: oy, z: oz }, // 右
+        { x: ox, y: oy - HorizDistance - 0.01, z: oz }, // 下
+        { x: ox - HorizDistance - 0.01, y: oy, z: oz }, // 左
+      ];
       // 外接传送带
       let belt2 = {
-        index: belt1.index + 1,
+        index: startIndex + ++offsetIndex,
         offset: [
-          os[i].x * (i % 2 ? 1.01 : 1), // 小偏移，形成完美垂直带
-          os[i].y * (i % 2 ? 1 : 1.01),
-          os[i].z - VerticalDistance / 2,
+          os2[i].x, // 小偏移，形成完美垂直带，并且都朝外
+          os2[i].y,
+          os2[i].z - VerticalDistance / 2,
         ],
         level: beltLevel,
       };
@@ -482,12 +497,12 @@ export function createMonitorGroup(
   let spawnItemOperator = 1; // 0:不勾选 1:生成货物 2:消耗货物
   let passColorId = 1;
   let failColorId = 1;
-  let beltLevel = 2; // 传送带等级(1,2,3) 默认蓝带
+  let beltLevel = 3; // 传送带等级(1,2,3) 默认蓝带
   let targetCargoAmount = 60; // 目标流量(单位：0.1个)
   if (Cfg.globalSetting.generateMode === 0) {
     // 无带流配速黄带 使用绿带
     targetCargoAmount = 60;
-    beltLevel = 2;
+    beltLevel = 3;
   } else if (Cfg.globalSetting.generateMode === 1) {
     // 直连传送带配速绿带 使用蓝带
     targetCargoAmount = 120;
@@ -498,10 +513,10 @@ export function createMonitorGroup(
     passColorId = 113;
     failColorId = 13;
   }
-  // else if (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1) {
-  //   // 非开始和结束节点的生成货物流速器 速度改为12/s，匹配优先口满带(用于提速初始化)
-  //   targetCargoAmount = 120;
-  // }
+  else if (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1) {
+    // 生成货物流速器 速度改为30/s，匹配优先口满带(用于提速初始化)
+    targetCargoAmount = 300;
+  }
   const beltDistance = 0.7;
   // 接流速器
   let belt1 = {
@@ -530,6 +545,10 @@ export function createMonitorGroup(
   ) {
     // 信号输入 或流速器 消耗货物
     spawnItemOperator = 2;
+    if (node.modelId === Cfg.ModelId.input) {
+      // 输入口不自动消耗
+      spawnItemOperator = 1;
+    }
     // 输出到上一节
     belt2.opt = [belt1.index, 1]; // 传送带插槽默认为1
   }

@@ -1635,8 +1635,12 @@ export default class Graph {
   // 右键框选事件
   bindSelectionWindowEvent() {
     if (d3.event.button !== 2) return;
+    d3.event.preventDefault();
+    d3.event.stopPropagation();
     this.initSelectionWindow(d3.event.offsetX, d3.event.offsetY);
     this.$svg.on("mousemove.selection", () => {
+      d3.event.preventDefault();
+      d3.event.stopPropagation();
       // 右键移动
       this.updateSelectionWindow(d3.event.offsetX, d3.event.offsetY);
     });
