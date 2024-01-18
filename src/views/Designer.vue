@@ -71,8 +71,38 @@
               </div>
             </li>
           </ul>
+          <template v-if="dspGraph && dspGraph.packageMap.size > 0">
+            <div class="groupName" title="封装模块将保存到当前工程文件中">
+              <span>当前封装模块</span>
+              <i class="if-icon-un-priority" style="margin-left:5px;color:var(--color-warning)"></i>
+            </div>
+            <ul class="group">
+              <li
+                class="modelItem flex-between"
+                v-for="data,index in dspGraph.packageMap"
+                :key="'package_'+data[0]"
+                draggable
+                @dragstart="handleItemDragStart()"
+                @dragend="handleNodeDragEnd(packageModelId, data[0])"
+              >
+                <span>
+                  <i style="margin-right:10px" class="el-icon-box"></i>
+                  <span>{{index+1+'. '}}{{data[1].name}}</span>
+                </span>
+                <div class="item_rt">
+                  <div class="item_btns">
+                    <el-button type="text" icon="el-icon-close" title="删除" @click="dspGraph.handleDeletePackage(data[1])"></el-button>
+                  </div>
+                  <el-checkbox v-if="dbcCreate" :value="selectModel=='package_'+data[0]" @click.native.prevent="changeSelectModel('package_'+data[0])" title="勾选双击创建的组件"></el-checkbox>
+                </div>
+              </li>
+            </ul>
+          </template>
           <div class="groupName flex-between">
-            <span>基础组件</span>
+            <span :title="`作者提供的一些基础组件，将不定期更新\n欢迎联系作者提供优秀组件`">
+              <span>基础组件</span>
+              <i class="el-icon-question" style="margin-left:5px"></i>
+            </span>
             <el-button class="btn" type="text" icon="el-icon-refresh" size="small" @click="getBaseModels" :loading="baseModelsLoading">刷新</el-button>
           </div>
           <ul class="group">
@@ -84,7 +114,10 @@
             </li>
           </ul>
           <div class="groupName flex-between">
-            <span>导入组件</span>
+            <span title="将工程文件导出为JSON后，即可导入为组件">
+              <span>导入组件</span>
+              <i class="el-icon-question" style="margin-left:5px"></i>
+            </span>
             <el-button class="btn" type="text" icon="el-icon-refresh" size="small" @click="refreshUploadModels">刷新</el-button>
           </div>
           <ul class="group">
@@ -225,6 +258,7 @@ export default {
       // 基础组件
       baseModelsLoading: false,
       baseModels: [],
+      packageModelId: Cfg.ModelId.package,
       // 导入组件
       uploadModels: [],
       // 勾选组件
@@ -472,12 +506,19 @@ export default {
       let offset = [event.offsetX, event.offsetY];
       switch (type) {
         case "node": // 节点
+          if (!this.nodeModels[index]) return;
           this.dspGraph.createNode(this.nodeModels[index].modelId, offset);
           break;
+        case "package": // 封装模块
+          if (!this.dspGraph.packageMap.has(index)) return;
+          this.dspGraph.createNode(Cfg.ModelId.package, offset, index);
+          break;
         case "base": // 基础组件
+          if (!this.baseModels[index]) return;
           this.dspGraph.appendGraphData(this.baseModels[index], offset);
           break;
         case "upload": // 导入组件
+          if (!this.uploadModels[index]) return;
           this.dspGraph.appendGraphData(this.uploadModels[index], offset);
           break;
       }
@@ -518,12 +559,24 @@ export default {
         },
       ];
       if (this.dspGraph._selection.nodeMap.size > 1) {
+        // 选中多个节点
         this.operMenuBtns.push({
           title: "组合封装选中节点",
-          icon: "el-icon-takeaway-box",
+          icon: "el-icon-box",
           handler: () => {
             // 组合封装选中节点
             this.dspGraph.handlePackageComponent();
+          },
+        });
+      }
+      if (modelId === Cfg.ModelId.package) {
+        // 选中封装模块
+        this.operMenuBtns.push({
+          title: "展开封装模块",
+          icon: "el-icon-files",
+          handler: () => {
+            // 组合封装选中节点
+            this.dspGraph.unfoldPackage(d);
           },
         });
       }
@@ -698,12 +751,12 @@ export default {
       this.dragOverCanvas = false;
     },
     // 结束拖拽节点
-    handleNodeDragEnd(modelId) {
+    handleNodeDragEnd(modelId, packageHash) {
       // 落在画布上
       if (this.dragOverCanvas) {
         // 创建节点
         try {
-          this.dspGraph.createNode(modelId, [this.dragX, this.dragY]);
+          this.dspGraph.createNode(modelId, [this.dragX, this.dragY], packageHash);
         } catch {
           //
         }

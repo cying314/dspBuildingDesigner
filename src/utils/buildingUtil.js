@@ -210,21 +210,25 @@ export function createbuildings(nodes, edges, onlyEdge = false) {
           inputObjIdx = sourceSlotsBelts[e.sourceSlot.index].index;
         }
       }
-      // 一个传送带配2个分拣器，配速黄带满带
+      // 创建分拣器连接传送带，配速黄带满带
       const inserter1 = createInserter({
         index: resList.length,
         offset: inserterLayoutCoords[i++],
         outputObjIdx,
         inputObjIdx,
       });
-      const inserter2 = createInserter({
-        index: resList.length,
-        offset: inserterLayoutCoords[i++],
-        outputObjIdx,
-        inputObjIdx,
-      });
       resList.push(inserter1);
-      resList.push(inserter2);
+
+      if (sourceSlotsBelts?._doubleInserter) {
+        // 输出口标记接两个分拣器（配速混带输出）
+        const inserter2 = createInserter({
+          index: resList.length,
+          offset: inserterLayoutCoords[i++],
+          outputObjIdx,
+          inputObjIdx,
+        });
+        resList.push(inserter2);
+      }
     } else if (Cfg.globalSetting.generateMode === 1) {
       // 传送带直连模式 修改传送带输出口到另一个传送带
       if (
@@ -302,15 +306,28 @@ export function createItem(
     { x: ox, y: oy - HorizDistance, z: oz }, // 下
     { x: ox - HorizDistance, y: oy, z: oz }, // 左
   ];
-  // 四向是否只有一个优先输入
-  const onlyOnePriorityIpt =
-    node.slots.reduce((sum, s) => {
-      return sum + (s.priority === 1 ? 1 : 0) * s.dir;
-    }, 0) == -1;
-  let offsetIndex = 0;
+  // 四向优先输入个数
+  let priorityIptNum = 0;
+  // 四向dir的和
+  let dirCount = 0;
+  node.slots.reduce((sum, s) => {
+    return sum + (s.priority === 1 ? 1 : 0) * s.dir;
+  }, 0) == -1;
   for (let i = 0; i < 4; i++) {
     const s = node.slots[i];
-    if (!s || s.edge == null) continue; // 未连接
+    if (s.priority === 1 && s.dir === -1) {
+      // 优先输入
+      priorityIptNum++;
+    }
+    dirCount += s.dir === 1 ? 1 : -1;
+  }
+  // 四向是否只有一个优先输入（需改为配速带）
+  const onlyOnePriorityIpt = priorityIptNum == 1;
+
+  let offsetIndex = 0;
+  for (i = 0; i < 4; i++) {
+    const s = node.slots[i];
+    if (s.edge == null) continue; // 未连接
     // 四向直连传送带
     let belt1 = {
       index: startIndex + ++offsetIndex,
@@ -361,6 +378,10 @@ export function createItem(
       buildList.push(belt1_building);
       buildList.push(belt2_building);
       _slotsBelts[i] = belt2_building; // 记录外接传送带建筑对象
+      // 四向是否两进一出，标记输出口接两个分拣器
+      if (s.dir === 1 && dirCount == -1) {
+        _slotsBelts[i]._doubleInserter = true;
+      }
     } else if (Cfg.globalSetting.generateMode === 1) {
       // 传送带直连模式 输出口只生成一个传送带节点
       if (onlyOnePriorityIpt && s.dir === -1 && s.priority === 1) {
@@ -512,8 +533,7 @@ export function createMonitorGroup(
     // 只有 信号输出、信号输入 才点亮流速器
     passColorId = 113;
     failColorId = 13;
-  }
-  else if (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1) {
+  } else if (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1) {
     // 生成货物流速器 速度改为30/s，匹配优先口满带(用于提速初始化)
     targetCargoAmount = 300;
   }

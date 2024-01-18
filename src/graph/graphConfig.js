@@ -33,7 +33,7 @@ export const nodeCornerWidth = 5; // 节点选中角框长度
 export const gridStep = 10; // 网格对齐间距
 export const undoNum = 10; // 记录可撤回的次数
 export const undoInterval = 500; // 记录撤回的时间间隔（单位:ms）
-export const undoRebuildInterval = 200; // 撤回、重做重绘画布的事件间隔（单位:ms）
+export const undoRebuildInterval = 100; // 撤回、重做重绘画布的事件间隔（单位:ms）
 export const color = {
   success: "#67c23a",
   warning: "#e6a23c",

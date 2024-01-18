@@ -47,8 +47,7 @@ export default class Graph {
   /** 撤回列表 @type {Mapper.GraphData[]} */ _undoList = [];
   /** 重做列表 @type {Mapper.GraphData[]} */ _redoList = [];
 
-  /** 封装节点映射 hash->PackageModel @type {Map<string, Mapper.PackageModel>} */ packageMap =
-    new Map();
+  /** 封装节点映射 hash->PackageModel @type {Map<string, Mapper.PackageModel>} */ packageMap;
 
   /** 画布空白位置双击事件 */ handleDblclick;
   /** 右键点击节点事件 */ handleRclickNode;
@@ -334,7 +333,7 @@ export default class Graph {
     }
 
     // 重置引用封装模块列表
-    this.packageMap.clear();
+    this.packageMap = new Map();
     if (graphParse.packages?.length > 0) {
       graphParse.packages.forEach((p) => {
         this.packageMap.set(p.hash, p);
@@ -383,13 +382,7 @@ export default class Graph {
     this._selection.nodeMap = nodeMap; // 选中粘贴的节点
 
     // 追加引用封装模块列表
-    if (packages?.length > 0) {
-      packages.forEach((p) => {
-        if (!this.packageMap.has(p.hash)) {
-          this.packageMap.set(p.hash, p);
-        }
-      });
-    }
+    this.appendPackages(packages);
 
     // 重绘节点
     this.buildNode();
@@ -1960,13 +1953,13 @@ export default class Graph {
   /**
    * 将当前选中节点数据转换为持久化数据
    */
-  getSelectionGraphData(graphName = this.graphName) {
+  getSelectionGraphData() {
     return Mapper.toGraphData(
       Array.from(this._selection.nodeMap.values()), // 选中节点集合
       Util.getEdgesByNodeMap(this._selection.nodeMap), // 通过节点映射获取边集
       {
         transform: this.transform,
-        graphName,
+        graphName: this.graphName,
       },
       Array.from(this.packageMap.values()),
       true
@@ -2183,20 +2176,29 @@ export default class Graph {
   /**
    * 封装框选建筑事件处理
    */
-  handlePackageComponent() {
+  async handlePackageComponent() {
     if (this._selection.nodeMap.size <= 1) {
-      Util._warn("请先框选两个及以上的节点进行封装！");
-      return false;
+      let err = "请先框选两个及以上的节点进行封装！";
+      Util._warn(err);
+      throw err;
     }
-    let promptRes = prompt("请输入封装模块名");
-    if (promptRes == null) return; // 取消
-    let packageName = promptRes || "封装模块" + (this.packageMap.size + 1);
     try {
-      const graphData = this.getSelectionGraphData(packageName);
-      const packageModel = this.packageComponent(graphData);
-      // 粘贴一个组件到当前视图中央
-      let offset = [this.width / 2, this.height / 2];
-      this.createNode(Cfg.ModelId.package, offset, packageModel.hash);
+      const graphData = this.getSelectionGraphData();
+      const packageModel = await this.packageComponent(graphData);
+      if (packageModel) {
+        // 删除当前选中组件，粘贴一个封装组件
+        this.handleDelete(false);
+        let offset;
+        if (this._mouseIsEnter) {
+          // 如果鼠标在画布内，则粘贴到鼠标位置
+          offset = this._mouseOffset;
+        } else {
+          // 否则粘贴到当前视图中央
+          offset = [this.width / 2, this.height / 2];
+        }
+        this.createNode(Cfg.ModelId.package, offset, packageModel.hash);
+        Util._success("封装成功");
+      }
       return true;
     } catch (e) {
       Util._err("封装失败：" + e);
@@ -2209,102 +2211,219 @@ export default class Graph {
    * @param {Mapper.GraphData} graphData
    * @return {Mapper.PackageModel}
    */
-  packageComponent(graphData) {
+  async packageComponent(graphData) {
     const graphDataHash = Util.getGraphDataHash(graphData);
     graphData.header.hash = graphDataHash;
-    if (this.packageMap.has(graphDataHash)) {
-      let packageModel = this.packageMap.get(graphDataHash);
-      if (
-        confirm(
-          "存在相同结构的封装，是否覆盖更新封装数据？\n相似模块名：" + packageModel.packageName
-        )
-      ) {
-        // 覆盖更新已有的封装
-        packageModel.graphData = graphData;
-        packageModel.packageName = graphData.header.graphName;
-        packageModel.initNodeData.text = graphData.header.graphName;
-        packageModel.outsideNodeMap.clear();
-        Mapper.setOutsideNodeMap(packageModel);
-        // 更新插槽图标和文本
-        packageModel.initNodeData.slots.forEach((s) => {
-          let originNode = packageModel.outsideNodeMap.get(s.packageId);
-          if (originNode) {
-            s.text = originNode.text;
-            s.signalId = originNode.signalId;
-          }
-        });
+
+    let defaultName = "封装模块" + (this.packageMap.size + 1);
+    // 查询已有封装
+    let packageModel = this.packageMap.get(graphDataHash);
+    if (packageModel != null) {
+      defaultName = packageModel.name;
+      // 是否覆盖更新已有的封装
+      try {
+        await Util._confirmHtml(`存在相同结构的封装，是否覆盖更新封装数据？<br/>
+        相似模块名：<span style="font-weight:bold;color:var(--color-warning)">${packageModel.name}</span>`);
+      } catch {
+        // 取消 不更新
+        return false;
       }
-      return packageModel;
-    } else {
-      /** @type {Mapper.PackageModel} */
-      const packageModel = {
-        hash: graphDataHash,
-        graphData,
-        packageName: graphData.header.graphName,
-        initNodeData: {
-          modelId: Cfg.ModelId.package,
-          packageHash: graphDataHash,
-          text: graphData.header.graphName, // 节点文本-package名称
-          slots: [],
-        },
-        outsideNodeMap: new Map(),
-      };
-      // 遍历节点创建输入输出插槽
-      const inputSlots = [];
-      const outputSlots = [];
-      graphData.data.nodes.forEach((n) => {
-        if (n.modelId === Cfg.ModelId.input) {
-          // 信号输入口
-          packageModel.outsideNodeMap.set(n.id, n);
-          /** @type {Mapper.NodeSlotData} */
-          const slot = {
-            packageId: n.id, // 对应package中原输入输出节点id
-            itemId: n.itemId, // 生成/消耗物品id
-            signalId: n.signalId, // 文本标记id
-            text: n.text, // 插槽文本
-            dir: 1, // 外部插槽需要倒置输入输出
-          };
-          packageModel.initNodeData.slots.push(slot);
-          inputSlots.push(slot);
-        } else if (n.modelId === Cfg.ModelId.output) {
-          // 信号输出口
-          packageModel.outsideNodeMap.set(n.id, n);
-          const slot = {
-            packageId: n.id,
-            itemId: n.itemId,
-            signalId: n.signalId,
-            text: n.text,
-            dir: -1, // 倒置为输入
-          };
-          packageModel.initNodeData.slots.push(slot);
-          outputSlots.push(slot);
+    }
+    // 模块名
+    let packageName;
+    try {
+      packageName = await Util._prompt("请输入封装模块名", defaultName);
+    } catch {
+      // 取消
+      return false;
+    }
+    if (!packageName) {
+      packageName = defaultName;
+    }
+
+    // 新增、更新
+    packageModel = {
+      hash: graphDataHash,
+      name: packageName,
+      graphData,
+      initNodeData: {
+        modelId: Cfg.ModelId.package,
+        packageHash: graphDataHash,
+        text: packageName, // 节点文本-package名称
+        slots: [],
+      },
+      outsideNodeMap: new Map(),
+    };
+    // 遍历节点创建输入输出插槽
+    const inputSlots = [];
+    const outputSlots = [];
+    graphData.data.nodes.forEach((n) => {
+      if (n.modelId === Cfg.ModelId.input) {
+        // 信号输入口
+        packageModel.outsideNodeMap.set(n.id, n);
+        /** @type {Mapper.NodeSlotData} */
+        const slot = {
+          packageNodeId: n.id, // 对应package中原输入输出节点id
+          itemId: n.itemId, // 生成/消耗物品id
+          signalId: n.signalId, // 文本标记id
+          text: n.text, // 插槽文本
+          dir: 1, // 外部插槽需要倒置输入输出
+        };
+        packageModel.initNodeData.slots.push(slot);
+        inputSlots.push(slot);
+      } else if (n.modelId === Cfg.ModelId.output) {
+        // 信号输出口
+        packageModel.outsideNodeMap.set(n.id, n);
+        const slot = {
+          packageNodeId: n.id,
+          itemId: n.itemId,
+          signalId: n.signalId,
+          text: n.text,
+          dir: -1, // 倒置为输入
+        };
+        packageModel.initNodeData.slots.push(slot);
+        outputSlots.push(slot);
+      }
+    });
+    if (inputSlots.length == 0 || outputSlots.length == 0) {
+      throw "所要封装的节点里，需要包含至少一个输入及输出节点！";
+    }
+    // 根据插槽数量决定盒子大小
+    packageModel.initNodeData.w =
+      Math.max(inputSlots.length, outputSlots.length) *
+        (Cfg.packageSlotSize + Cfg.packageSlotSpace) +
+      Cfg.packageSlotSpace;
+    packageModel.initNodeData.h = Cfg.nodeSize;
+    const W = packageModel.initNodeData.w;
+    const H = packageModel.initNodeData.h;
+
+    // 插槽布局（横向等距排列，输出口在上边缘，输入口在下边缘，高度不变）
+    const iptDis = W / (inputSlots.length + 1);
+    const optDis = W / (outputSlots.length + 1);
+    inputSlots.forEach((s, si) => {
+      s.ox = -W / 2 + (si + 1) * iptDis;
+      s.oy = H / 2;
+    });
+    outputSlots.forEach((s, si) => {
+      s.ox = -W / 2 + (si + 1) * optDis;
+      s.oy = -H / 2;
+    });
+
+    // 追加引用封装模块
+    this.appendPackages(graphData.packages);
+    this.packageMap.set(graphDataHash, packageModel);
+    return packageModel;
+  }
+
+  /**
+   * 展开封装
+   * @param {Mapper.GraphNode} node
+   */
+  unfoldPackage(node) {
+    if (!node || node.modelId !== Cfg.ModelId.package || !node.packageHash) {
+      Util._err("节点数据异常");
+      throw false;
+    }
+    const _package = this.packageMap.get(node.packageHash);
+    if (!_package) {
+      Util._err("封装数据异常");
+      throw false;
+    }
+    try {
+      // 删除当前节点，粘贴一个封装展开组件
+      this.deleteNode(node);
+      let offset;
+      if (this._mouseIsEnter) {
+        // 如果鼠标在画布内，则粘贴到鼠标位置
+        offset = this._mouseOffset;
+      } else {
+        // 否则粘贴到当前视图中央
+        offset = [this.width / 2, this.height / 2];
+      }
+      this.appendGraphData(_package.graphData, offset);
+      return true;
+    } catch (e) {
+      console.error(e);
+      Util._warn("展开封装节点失败！");
+      return false;
+    }
+  }
+
+  /**
+   * 删除封装模块事件
+   * @param {Mapper.PackageModel} packageModel
+   */
+  async handleDeletePackage(packageModel) {
+    if (!packageModel) return;
+    try {
+      await Util._confirmHtml(
+        `是否删除封装模块<span style="font-weight:bold;color:var(--color-warning)">${packageModel.name}</span>，及其相应的引用节点`
+      );
+    } catch {
+      // 取消
+      return false;
+    }
+    this.deletePackage(packageModel.hash);
+    Util._success("删除成功！");
+    return true;
+  }
+
+  /**
+   * 删除封装模块及相应的引用节点
+   * @param {String} packageHash
+   */
+  deletePackage(packageHash) {
+    if (!packageHash) return;
+
+    // 构建依赖链
+    const treeMap = {};
+    this.packageMap.forEach((c, cHash) => {
+      c.graphData?.packageHashList?.forEach((pHash) => {
+        if (!treeMap[pHash]) {
+          treeMap[pHash] = [cHash];
+        } else {
+          treeMap[pHash].push(cHash);
         }
       });
-      if (inputSlots.length == 0 || outputSlots.length == 0) {
-        throw "所要封装的节点里，需要包含至少一个输入及输出节点！";
-      }
-      // 根据插槽数量决定盒子大小
-      packageModel.initNodeData.w =
-        Math.max(inputSlots.length, outputSlots.length) *
-          (Cfg.packageSlotSize + Cfg.packageSlotSpace) +
-        Cfg.packageSlotSpace;
-      packageModel.initNodeData.h = Cfg.nodeSize;
-      const W = packageModel.initNodeData.w;
-      const H = packageModel.initNodeData.h;
+    });
 
-      // 插槽布局（横向等距排列，输出口在上边缘，输入口在下边缘，高度不变）
-      const iptDis = W / (inputSlots.length + 1);
-      const optDis = W / (outputSlots.length + 1);
-      inputSlots.forEach((s, si) => {
-        s.ox = -W / 2 + (si + 1) * iptDis;
-        s.oy = H / 2;
+    this.packageMap.delete(packageHash);
+    const referencePackageHash = new Set(); // 记录嵌套引用了packageHash的所有封装模块Hash
+    referencePackageHash.add(packageHash);
+
+    let childs = treeMap[packageHash] ?? [];
+    while (childs.length > 0) {
+      let _hash = childs.shift();
+      if (referencePackageHash.has(_hash)) continue;
+      // 删除嵌套引用的模块
+      this.packageMap.delete(_hash);
+      referencePackageHash.add(_hash);
+      let _childs = treeMap[_hash];
+      if (_childs?.length > 0) {
+        childs.push(..._childs);
+      }
+    }
+
+    // 找到所有引用该封装模块的节点
+    let packageNodes = this._nodes.filter((n) => {
+      return n.modelId === Cfg.ModelId.package && referencePackageHash.has(n.packageHash);
+    });
+    this.deleteNodes(packageNodes);
+    // 记录操作
+    this.recordUndo();
+  }
+
+  /**
+   * 追加引用封装模块
+   * @param {Mapper.PackageModel[]} packages
+   */
+  appendPackages(packages) {
+    if (packages?.length > 0) {
+      packages.forEach((p) => {
+        if (!this.packageMap.has(p.hash)) {
+          this.packageMap.set(p.hash, p);
+        }
       });
-      outputSlots.forEach((s, si) => {
-        s.ox = -W / 2 + (si + 1) * optDis;
-        s.oy = -H / 2;
-      });
-      this.packageMap.set(graphDataHash, packageModel);
-      return packageModel;
     }
   }
 }

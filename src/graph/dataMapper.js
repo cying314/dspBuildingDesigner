@@ -9,6 +9,7 @@ import * as Util from "./graphUtil.js";
  *   lines: LineData[]
  * }} data - 节点连接信息
  * @property {PackageModel[]} packages - 引用封装模块列表
+ * @property {stirng[]} packageHashList - 引用封装模块hash列表（嵌套封装模块中，只记录hash，不记录对象）
  */
 /**
  * @typedef {Object} HeaderData 头部信息
@@ -23,10 +24,10 @@ import * as Util from "./graphUtil.js";
 /**
  * @typedef {Object} PackageModel 封装节点
  * @property {string} hash - 图谱数据hash值
- * @property {string} packageName - 封装模块名称
+ * @property {string} name - 封装模块名称
  * @property {GraphData} graphData - 图谱数据
  * @property {NodeData} initNodeData - 封装节点初始化数据（需dataToNode创建）
- * @property {Map<packageId, NodeData>} outsideNodeMap - 输入输出节点（不持久化）
+ * @property {Map<packageNodeId, NodeData>} outsideNodeMap - 输入输出节点（不持久化）
  */
 
 /**
@@ -35,6 +36,7 @@ import * as Util from "./graphUtil.js";
  * @property {GraphNode[]} nodes - 节点对象集合
  * @property {GraphEdge[]} edges - 连接线集合
  * @property {PackageModel[]} packages - 引用封装模块列表
+ * @property {stirng[]} packageHashList - 引用封装模块hash列表（嵌套封装模块中，只记录hash，不记录对象）
  * @property {number} maxId - 当前点集中最大节点id
  * @property {Map<number,GraphNode>} nodeMap 节点id->节点对象
  * @property {Map<number,GraphNode>} _nodeMapByOriginId 节点导入原id->节点对象
@@ -108,6 +110,7 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
       nodes: _nodes,
       edges: _edges,
       packages: _packages,
+      packageHashList: graphData.packageHashList,
       maxId: _maxId,
       nodeMap: _nodeMap,
       _nodeMapByOriginId: nodeMapByOriginId,
@@ -124,6 +127,7 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
  * @param {GraphEdge[]} edges 边数据
  * @param {HeaderData} header 图谱相关信息 header:{transform, graphName}
  * @param {PackageModel[]} packages 引用封装模块列表
+ * @property {stirng[]} packageHashList - 引用封装模块hash列表（嵌套封装模块中，只记录hash，不记录对象）
  * @param {boolean} weedOutUnusedPackage 是否剔除未引用的封装模块（默认否）
  * @return {GraphData} 图谱持久化数据 { header, data:{nodes,lines} }
  */
@@ -144,27 +148,60 @@ export function toGraphData(
       boundingBox: Util.calcuBoundingBox(nodes),
       layout: Cfg.layoutSetting,
     },
-    data: {
-      nodes: nodes.map((n) => {
-        if (n.modelId === Cfg.ModelId.package) {
-          usedPackagesHash.add(n.packageHash); // 记录使用的封装模块Hash
-        }
-        return nodeToData(n);
-      }),
-      lines: edges.map((e) => edgeToData(e)),
-    },
+    data: {},
   };
+
+  // 节点
+  let maxId = 0;
+  let nodeMapByOriginId = new Map(); // 传入id映射到节点
+  graphData.data.nodes = nodes.map((n) => {
+    if (n.modelId === Cfg.ModelId.package) {
+      usedPackagesHash.add(n.packageHash); // 记录使用的封装模块Hash
+    }
+    let nodeData = nodeToData(n);
+    nodeMapByOriginId.set(nodeData.id, nodeData);
+    // 将节点id修改为自增id
+    nodeData.id = ++maxId;
+    return nodeData;
+  });
+
+  // 连接线
+  graphData.data.lines = edges.map((e) => {
+    let lineData = edgeToData(e);
+    // 映射到自增id
+    if (nodeMapByOriginId.has(lineData.startId)) {
+      lineData.startId = nodeMapByOriginId.get(lineData.startId).id;
+    }
+    if (nodeMapByOriginId.has(lineData.endId)) {
+      lineData.endId = nodeMapByOriginId.get(lineData.endId).id;
+    }
+    return lineData;
+  });
+
   const _packages = [];
+  const _packageHashList = [];
   if (packages?.length > 0) {
     packages.forEach((p) => {
       // 剔除未使用的封装模块
-      if (!weedOutUnusedPackage || usedPackagesHash.has(p.hash)) {
-        let { hash, packageName, graphData, initNodeData } = p;
-        _packages.push({ hash, packageName, graphData, initNodeData });
+      if (weedOutUnusedPackage && !usedPackagesHash.has(p.hash)) {
+        return;
       }
+      let { hash, name, graphData, initNodeData } = p;
+      // 剔除封装模块中嵌套封装模块引用对象
+      graphData = { ...graphData };
+      if (graphData.packages?.length > 0) {
+        graphData.packages = undefined;
+      }
+      _packages.push({ hash, name, graphData, initNodeData });
+      _packageHashList.push(hash);
     });
   }
-  graphData.packages = _packages;
+  if (_packages.length > 0) {
+    graphData.packages = _packages;
+  }
+  if (_packageHashList.length > 0) {
+    graphData.packageHashList = _packageHashList;
+  }
 
   const _lay = (graphData.header.layout = {});
   Object.keys(Cfg.layoutSetting).forEach((key) => {
@@ -204,7 +241,7 @@ export function toGraphData(
  * @property {number} dir - 输入输出方向 (1:输出, -1:输入)
  * @property {number} priority - 是否优先插槽 (1:是, -1:否) [当模型为四向时生效]
  * @property {number} filterId - 过滤优先输出物品id [当模型为四向时生效]
- * @property {number} packageId - 封装模块插槽-对应package中原输入输出节点id
+ * @property {number} packageNodeId - 封装模块插槽-对应package中原输入输出节点id
  * @property {number} itemId - 封装模块插槽-生成/消耗物品id
  * @property {number} signalId - 封装模块插槽-插槽标记id
  * @property {number} count - 封装模块插槽-插槽标记数
@@ -254,7 +291,7 @@ export function initGraphNode(d) {
       }
     } else if (node.modelId === Cfg.ModelId.package) {
       // 封装模块
-      slot.packageId = _toInt(s.packageId); // 对应package中原输入输出节点id
+      slot.packageNodeId = _toInt(s.packageNodeId); // 对应package中原输入输出节点id
       slot.itemId = _toInt(s.itemId); // 生成/消耗物品id
       slot.signalId = _toInt(s.signalId); // 插槽标记id
       slot.count = _toInt(s.count); // 插槽标记数
@@ -333,7 +370,7 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
       // if (d.packageHash == null) throw "封装模块hash不能为空！";
       // if (other.slots?.length > 0) {
       //   for (const s of other.slots) {
-      //     if (s.packageId == null) throw "封装模块插槽原输入输出节点id丢失！";
+      //     if (s.packageNodeId == null) throw "封装模块插槽原输入输出节点id丢失！";
       //   }
       // }
       break;
@@ -375,7 +412,7 @@ export function dataToNode(data, nodeId, offset) {
  * @property {number} dir - 输入输出方向 (1:输出, -1:输入)
  * @property {number} priority - 四向插槽-是否优先 (1:是, -1:否)
  * @property {number} filterId - 四向插槽-过滤优先输出物品id
- * @property {number} packageId - 封装模块插槽-对应package中原输入输出节点id
+ * @property {number} packageNodeId - 封装模块插槽-对应package中原输入输出节点id
  * @property {number} itemId - 封装模块插槽-生成/消耗物品id
  * @property {number} signalId - 封装模块插槽-插槽标记id
  * @property {number} count - 封装模块插槽-插槽标记数
@@ -395,7 +432,7 @@ export function nodeToData(node) {
     x: node.x,
     y: node.y,
     modelId: node.modelId,
-    text: node.text,
+    text: node.text || undefined,
   };
   if (modelId === Cfg.ModelId.fdir) {
     // 四向
@@ -434,11 +471,11 @@ export function nodeToData(node) {
         ox: s.ox,
         oy: s.oy,
         dir: s.dir, // 1:输出口 -1:输入口
-        packageId: s.packageId, // 对应package中原输入输出节点id
+        packageNodeId: s.packageNodeId, // 对应package中原输入输出节点id
         itemId: s.itemId, // 生成/消耗物品id
-        signalId: s.signalId, // 插槽标记id
-        count: s.count, // 插槽标记数
-        text: s.text, // 插槽文本
+        signalId: s.signalId || undefined, // 插槽标记id
+        count: s.count || undefined, // 插槽标记数
+        text: s.text || undefined, // 插槽文本
       })) || [];
   } else {
     // TODO:其他模型

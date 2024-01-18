@@ -1,5 +1,5 @@
 import * as Cfg from "./graphConfig.js";
-import { Notification, Message } from "element-ui";
+import { Notification, Message, MessageBox } from "element-ui";
 import { saveAs } from "file-saver";
 import crypto from "crypto";
 
@@ -348,8 +348,8 @@ export function getGraphDataHash(graphData) {
         if (s.filterId) {
           feature += "," + s.filterId; // 过滤优先输出物品id
         }
-        if (s.packageId) {
-          feature += "," + s.packageId; // 封装模块插槽-对应package中原输入输出节点id
+        if (s.packageNodeId) {
+          feature += "," + s.packageNodeId; // 封装模块插槽-对应package中原输入输出节点id
         }
       }
       feature += "]";
@@ -416,4 +416,31 @@ export function _err(mes) {
     message: mes,
     type: "error",
   });
+}
+
+/**
+ * 弹窗html内容提示确认
+ */
+export function _confirmHtml(html) {
+  return MessageBox.confirm(html, "提示", {
+    confirmButtonText: "确定",
+    cancelButtonText: "取消",
+    type: "warning",
+    dangerouslyUseHTMLString: true, // 渲染html
+  });
+}
+
+/**
+ * 弹窗输入框提示确认
+ * @param {string} title 输入框标题
+ * @param {string} inputValue 输入框默认内容
+ * @param {object} otherOption 其他MessageBox.prompt option参数
+ */
+export function _prompt(title, inputValue, otherOption = {}) {
+  return MessageBox.prompt(title, "提示", {
+    confirmButtonText: "确定",
+    cancelButtonText: "取消",
+    inputValue,
+    ...otherOption,
+  }).then(({ value }) => value);
 }
