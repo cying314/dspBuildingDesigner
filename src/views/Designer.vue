@@ -285,6 +285,8 @@ export default {
     if (param._blank) {
       // 新建
       graphData = Util.getInitGraphData();
+      // 更新路由，去掉新建参数标识
+      window.history.replaceState({}, '', "/");
     } else {
       graphData = Util.getCacheGraphData() ?? Util.getInitGraphData(); // 优先获取缓存，没有则初始化
     }
