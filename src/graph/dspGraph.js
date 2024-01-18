@@ -2155,12 +2155,10 @@ export default class Graph {
       };
       const blueprint = BuildingUtil.generateBlueprint(this._nodes, this._edges, this.graphName);
       if (Cfg.globalSetting.generateMode === 0) {
-        // 如果是无带流，多生成一个分拣器接地基的蓝图
-        const blueprint_onlyEdge = BuildingUtil.generateBlueprint(
-          this._nodes,
-          this._edges,
-          this.graphName,
-          true
+        // 如果是无带流，多生成一个只有分拣器的蓝图
+        const blueprint_onlyEdge = BuildingUtil.filterInserter(
+          blueprint,
+          this.graphName + "_分拣器蓝图"
         );
         blueprintRes.txt_onlyEdge = Parser.toStr(blueprint_onlyEdge);
       }

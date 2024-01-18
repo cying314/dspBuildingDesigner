@@ -91,7 +91,14 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
       _packages = [];
     }
 
-    const { minX = 0, minY = 0, maxX = 0, maxY = 0, w = 0, h = 0 } = graphData.header.boundingBox;
+    const {
+      minX = 0,
+      minY = 0,
+      maxX = 0,
+      maxY = 0,
+      w = 0,
+      h = 0,
+    } = graphData.header.boundingBox ?? {};
     const { x = 0, y = 0, k = 1 } = graphData.header.transform;
     return {
       header: {

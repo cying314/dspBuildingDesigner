@@ -31,10 +31,9 @@ const inserterSize = { w: 1, h: 2, d: 1, cx: 0.5, cy: 1.5 };
  * @param {GraphNode[]} nodes 节点集
  * @param {GraphEdge[]} edges 边集
  * @param {string} graphName 蓝图名
- * @param {boolean} onlyEdge 是否只生成分拣器，接到地基上
  * @return {object} blueprint
  */
-export function generateBlueprint(nodes, edges, graphName, onlyEdge) {
+export function generateBlueprint(nodes, edges, graphName) {
   const blueprint = {
     header: {
       layout: 10,
@@ -60,7 +59,7 @@ export function generateBlueprint(nodes, edges, graphName, onlyEdge) {
       },
     ],
   };
-  blueprint.buildings = createbuildings(nodes, edges, onlyEdge);
+  blueprint.buildings = createbuildings(nodes, edges);
   return blueprint;
 }
 
@@ -68,43 +67,51 @@ export function generateBlueprint(nodes, edges, graphName, onlyEdge) {
  * 生成蓝图建筑列表
  * @param {GraphNode[]} nodes 节点集
  * @param {GraphEdge[]} edges 边集
- * @param {boolean} onlyEdge 是否只生成分拣器，接到地基上
  * @return {BuildingItem[]}
  */
-export function createbuildings(nodes, edges, onlyEdge = false) {
+export function createbuildings(nodes, edges) {
   let resList = [];
   let fdirList = []; // 四向节点
   let monitorList = []; // 流速器节点
   let outputList = []; // 信号输出
   let inputList = []; // 信号输入
-  let baseBelt; // 只生成分拣器时，用于挂分拣器的单个传送带
-  if (!onlyEdge) {
-    nodes.forEach((n) => {
-      switch (n.modelId) {
-        case Cfg.ModelId.fdir: // 四向
-          fdirList.push(n);
-          break;
-        case Cfg.ModelId.monitor: // 流速器
-          monitorList.push(n);
-          break;
-        case Cfg.ModelId.output: // 信号输出
-          outputList.push(n);
-          break;
-        case Cfg.ModelId.input: // 信号输入
-          inputList.push(n);
-          break;
-      }
-    });
-  } else {
-    // 只生成分拣器
-    if (Cfg.globalSetting.generateMode === 1) {
-      // 如果配置生成直连模式，将不生成任何建筑
-      return [];
+
+  nodes.forEach((n) => {
+    switch (n.modelId) {
+      case Cfg.ModelId.fdir: // 四向
+        var priorityIdx = []; // 优先插槽索引
+        var inputIdx = []; // 输入插槽索引
+        var outputIdx = []; // 输出插槽索引
+        for (let i = 0; i < 4; i++) {
+          const s = n.slots[i];
+          if (s.edge == null) continue;
+          if (s.priority === 1) priorityIdx.push(i);
+          if (s.dir === 1) outputIdx.push(i);
+          else inputIdx.push(i);
+        }
+        // 四向只有一个优先输入时，标记优先输入边使用配速带（无带：配黄带，直连：配绿带）
+        if (priorityIdx.length == 1 && n.slots[priorityIdx[0]].dir === -1) {
+          n.slots[priorityIdx[0]].edge._onlyOnePriorityIpt = true;
+        }
+        // 无带流模式下，四向是否两进一出，标记输出口接两个分拣器
+        if (Cfg.globalSetting.generateMode === 0 && inputIdx.length == 2 && outputIdx.length == 1) {
+          n.slots[outputIdx[0]].edge._doubleInserter = true;
+        }
+        fdirList.push(n);
+        break;
+      case Cfg.ModelId.monitor: // 流速器
+        monitorList.push(n);
+        break;
+      case Cfg.ModelId.output: // 信号输出
+        outputList.push(n);
+        break;
+      case Cfg.ModelId.input: // 信号输入
+        inputList.push(n);
+        break;
     }
-    // 生成传送带挂分拣器
-    baseBelt = createBelt({ index: resList.length, offset: [0, 0, -10] });
-    resList.push(baseBelt);
-  }
+  });
+
+  const nodeId2SlotBeltsMap = new Map();
 
   // 1、四向布局
   const fdirLayout = Cfg.layoutSetting.fdirLayout;
@@ -117,7 +124,6 @@ export function createbuildings(nodes, edges, onlyEdge = false) {
     fdirLayout.name
   );
   /** 节点id映射插槽传送带对象 @type {Map<number,BuildingItem[]>} */
-  const nodeId2SlotBeltsMap = new Map();
   let prevFdir;
   fdirList.forEach((n, ni) => {
     //  创建 四向带4个短垂直带
@@ -198,18 +204,13 @@ export function createbuildings(nodes, edges, onlyEdge = false) {
       // 无带流模式 生成分拣器
       let outputObjIdx = -1;
       let inputObjIdx = -1;
-      if (onlyEdge) {
-        // 只生成分拣器，接到单个传送带上
-        outputObjIdx = baseBelt.index;
-        inputObjIdx = baseBelt.index;
-      } else {
-        if (targetSlotsBelts && targetSlotsBelts[e.targetSlot.index]) {
-          outputObjIdx = targetSlotsBelts[e.targetSlot.index].index;
-        }
-        if (sourceSlotsBelts && sourceSlotsBelts[e.sourceSlot.index]) {
-          inputObjIdx = sourceSlotsBelts[e.sourceSlot.index].index;
-        }
+      if (targetSlotsBelts && targetSlotsBelts[e.targetSlot.index]) {
+        outputObjIdx = targetSlotsBelts[e.targetSlot.index].index;
       }
+      if (sourceSlotsBelts && sourceSlotsBelts[e.sourceSlot.index]) {
+        inputObjIdx = sourceSlotsBelts[e.sourceSlot.index].index;
+      }
+
       // 创建分拣器连接传送带，配速黄带满带
       const inserter1 = createInserter({
         index: resList.length,
@@ -218,9 +219,8 @@ export function createbuildings(nodes, edges, onlyEdge = false) {
         inputObjIdx,
       });
       resList.push(inserter1);
-
-      if (sourceSlotsBelts?._doubleInserter) {
-        // 输出口标记接两个分拣器（配速混带输出）
+      if (e._doubleInserter) {
+        // 四向两进一出，输出口接两个分拣器（配速混带输出）
         const inserter2 = createInserter({
           index: resList.length,
           offset: inserterLayoutCoords[i++],
@@ -306,26 +306,8 @@ export function createItem(
     { x: ox, y: oy - HorizDistance, z: oz }, // 下
     { x: ox - HorizDistance, y: oy, z: oz }, // 左
   ];
-  // 四向优先输入个数
-  let priorityIptNum = 0;
-  // 四向dir的和
-  let dirCount = 0;
-  node.slots.reduce((sum, s) => {
-    return sum + (s.priority === 1 ? 1 : 0) * s.dir;
-  }, 0) == -1;
-  for (let i = 0; i < 4; i++) {
-    const s = node.slots[i];
-    if (s.priority === 1 && s.dir === -1) {
-      // 优先输入
-      priorityIptNum++;
-    }
-    dirCount += s.dir === 1 ? 1 : -1;
-  }
-  // 四向是否只有一个优先输入（需改为配速带）
-  const onlyOnePriorityIpt = priorityIptNum == 1;
-
   let offsetIndex = 0;
-  for (i = 0; i < 4; i++) {
+  for (let i = 0; i < 4; i++) {
     const s = node.slots[i];
     if (s.edge == null) continue; // 未连接
     // 四向直连传送带
@@ -367,7 +349,7 @@ export function createItem(
       } else if (s.dir === -1) {
         // 输出到上一节
         belt2.opt = [belt1.index, 1]; // 传送带插槽默认为1
-        if (onlyOnePriorityIpt && s.priority === 1) {
+        if (s.edge._onlyOnePriorityIpt) {
           // 四向只有一个优先输入时，优先输入端使用黄带
           belt1.level = 1;
           belt2.level = 1;
@@ -378,13 +360,9 @@ export function createItem(
       buildList.push(belt1_building);
       buildList.push(belt2_building);
       _slotsBelts[i] = belt2_building; // 记录外接传送带建筑对象
-      // 四向是否两进一出，标记输出口接两个分拣器
-      if (s.dir === 1 && dirCount == -1) {
-        _slotsBelts[i]._doubleInserter = true;
-      }
     } else if (Cfg.globalSetting.generateMode === 1) {
       // 传送带直连模式 输出口只生成一个传送带节点
-      if (onlyOnePriorityIpt && s.dir === -1 && s.priority === 1) {
+      if (s.edge._onlyOnePriorityIpt) {
         // 四向只有一个优先输入时，优先输入端使用绿带
         belt1.level = 2;
       } else {
@@ -744,6 +722,33 @@ export function createBase({ index, offset: [x = 0, y = 0, z = -10] = [] }) {
     filterId: 0,
     parameters: null,
   };
+}
+
+/**
+ * 生成无带流分拣器蓝图
+ * 筛选出分拣器，排除其他建筑，并将分拣器设置连接到一个传送带节点
+ * @param {object} blueprint
+ * @param {string} rename 蓝图更名
+ */
+export function filterInserter(blueprint, rename) {
+  const baseBelt = createBelt({ index: 0, offset: [0, 0, -10] });
+  const buildings = [baseBelt];
+  const _blueprint = { ...blueprint, buildings };
+  if (rename) {
+    _blueprint.header = { ..._blueprint.header, shortDesc: rename };
+  }
+  blueprint.buildings.forEach((b) => {
+    if (b.itemId == 2011 || b.itemId == 2012 || b.itemId == 2013) {
+      // 筛选分拣器，输入输出口绑定到单点传送带
+      let _b = {
+        ...b,
+        outputObjIdx: baseBelt.index,
+        inputObjIdx: baseBelt.index,
+      };
+      buildings.push(_b);
+    }
+  });
+  return _blueprint;
 }
 
 /**
