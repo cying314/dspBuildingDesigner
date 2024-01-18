@@ -515,17 +515,18 @@ export function createMonitorGroup(
     // 生成货物流速器 速度改为30/s，匹配优先口满带(用于提速初始化)
     targetCargoAmount = 300;
   }
+  const yOffset = -0.1; // 整体偏移，避免非瞬间建造时流速器绑定错位问题
   const beltDistance = 0.7;
   // 接流速器
   let belt1 = {
     index: startIndex + 1,
-    offset: [ox, oy, oz],
+    offset: [ox, oy + yOffset, oz],
     level: beltLevel,
   };
   // 外接
   let belt2 = {
     index: startIndex + 2,
-    offset: [ox, oy - beltDistance, oz],
+    offset: [ox, oy + yOffset - beltDistance, oz],
     iconId: node.signalId, // 传送带标记
     level: beltLevel,
   };
