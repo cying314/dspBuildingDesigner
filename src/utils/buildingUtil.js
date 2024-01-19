@@ -132,10 +132,9 @@ export function createbuildings({ nodes, packageMap }) {
  * @param {Map<string, Mapper.PackageModel>} packageMap 封装节点映射 hash->PackageModel
  * @param {CollateNodesRes} res 返回集合，若传入则在原来基础上累加
  * @param {boolean} isPackage 是否封装内建筑
- * @param {Map<number,number>} outsideNodeMap 封装模块内的输入输出节点id -> 外接节点id
  * @return {CollateNodesRes}
  */
-export function collateNodes(nodes, packageMap, res, isPackage, outsideNodeMap) {
+export function collateNodes(nodes, packageMap, res, isPackage) {
   res ??= {};
   res.builds ??= [];
   res.fdirList ??= [];
@@ -150,25 +149,27 @@ export function collateNodes(nodes, packageMap, res, isPackage, outsideNodeMap) 
   nodes.forEach((n) => {
     if (n.id > res.maxId) res.maxId = n.id;
 
-    let modelId = n.modelId;
-    if (isPackage && (modelId === Cfg.ModelId.input || modelId === Cfg.ModelId.output)) {
-      // 若输入输出口已外接，则忽略这个流速器
-      if (outsideNodeMap?.has(n.id)) return;
+    if (isPackage && (n.modelId === Cfg.ModelId.input || n.modelId === Cfg.ModelId.output)) {
       // 封装建筑内的输入归到普通流速器里
-      modelId = Cfg.ModelId.monitor;
+      n.modelId = Cfg.ModelId.monitor;
     }
 
     var hasEdge = false;
     n.slots.forEach((s) => {
       if (s.edge != null) {
         hasEdge = true;
-        // 记录连线
-        res.edgeSet.add(s.edge);
+        if (
+          s.edge.target.modelId !== Cfg.ModelId.package &&
+          s.edge.source.modelId !== Cfg.ModelId.package
+        ) {
+          // 记录连线（排除连在封装模块节点的连线：封装节点不新建连线，而是修改内置连线目标外置）
+          res.edgeSet.add(s.edge);
+        }
       }
     });
     // 只生成有连接的节点
     if (!hasEdge) return;
-    switch (modelId) {
+    switch (n.modelId) {
       case Cfg.ModelId.fdir: // 四向
         var priorityIdx = []; // 优先插槽索引
         var inputIdx = []; // 输入插槽索引
@@ -234,13 +235,8 @@ export function collateNodes(nodes, packageMap, res, isPackage, outsideNodeMap) 
     // 解析图谱数据(偏移节点id，避免id重复)
     let graphParse = Mapper.graphDataParse(p.graphData, res.maxId);
 
-    /** @type {Map<number,number>} 封装模块内的输入输出节点id -> 外接节点id */
-    let outsideNodeMap = new Map();
     n.slots.forEach((s) => {
       if (s.edge == null) return;
-      // 删除当前连在封装模块上的边（封装节点不新建连线，而是修改内置连线目标外置）
-      res.edgeSet.delete(s.edge);
-
       // 已链接的封装模块内的 输入输出节点
       let outsideNode = graphParse._nodeMapByOriginId.get(s.packageNodeId);
       if (
@@ -250,23 +246,32 @@ export function collateNodes(nodes, packageMap, res, isPackage, outsideNodeMap) 
       ) {
         throw "封装组件插槽节点数据异常！";
       }
-      let outsideNodeSlot = outsideNode.slots[0];
-      // 内置输入输出口未连接
-      if (outsideNodeSlot.edge == null) return;
-      outsideNodeMap.set(outsideNode.id, n.id);
 
-      // 将内置输入输出口的连接线 重新连接到 外置插槽链接的节点
+      let outsideNodeSlot = outsideNode.slots[0];
+      // 内置输入输出口未连接，跳过
+      if (outsideNodeSlot.edge == null) return;
+      // 将内置输入输出口的连接线 链接到封装外的节点
       if (outsideNodeSlot.dir == 1) {
-        outsideNodeSlot.edge.source = s.edge.source;
-        outsideNodeSlot.edge.sourceSlot = s.edge.sourceSlot;
+        // 信号输出口
+        outsideNodeSlot.edge.source = s.edge._source ?? s.edge.source;
+        outsideNodeSlot.edge.sourceSlot = s.edge._sourceSlot ?? s.edge.sourceSlot;
+        // 不直接修改外层对象的target，避免污染最外层的视图数据
+        s.edge._target = outsideNodeSlot.edge.target;
+        s.edge._targetSlot = outsideNodeSlot.edge.targetSlot;
       } else {
-        outsideNodeSlot.edge.target = s.edge.target;
-        outsideNodeSlot.edge.targetSlot = s.edge.targetSlot;
+        // 信号输入口
+        outsideNodeSlot.edge.target = s.edge._target ?? s.edge.target;
+        outsideNodeSlot.edge.targetSlot = s.edge._targetSlot ?? s.edge.targetSlot;
+        // 不直接修改外层对象的source，避免污染最外层的视图数据
+        s.edge._source = outsideNodeSlot.edge.source;
+        s.edge._sourceSlot = outsideNodeSlot.edge.sourceSlot;
       }
+      // 断开原输入输出口连接
+      outsideNodeSlot.edge = null;
     });
 
     // 递归解析封装节点数据
-    collateNodes(graphParse.nodes, packageMap, res, true, outsideNodeMap);
+    collateNodes(graphParse.nodes, packageMap, res, true);
   });
   return res;
 }
@@ -519,6 +524,12 @@ export function generateInserter(edgeSet, idToBuildMap, builds) {
   // 分拣器布局
   let inserterList = [];
   edgeSet.forEach((e) => {
+    // 释放掉在整理节点过程中赋值的临时数据
+    e._target = null;
+    e._targetSlot = null;
+    e._source = null;
+    e._sourceSlot = null;
+
     let targetBuild = idToBuildMap.get(e.target.id);
     let sourceBuild = idToBuildMap.get(e.source.id);
     let targetBelt;
