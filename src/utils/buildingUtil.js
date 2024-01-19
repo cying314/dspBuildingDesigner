@@ -280,7 +280,7 @@ export function formatBuildsLayout(builds, size, layout, isStack = false) {
       build.inputObjIdx = builds[i - 1].index ?? -1;
     }
     // 原对象坐标
-    let { ox, oy, oz } = build.localOffset[0] ?? { x: 0, y: 0, z: 0 };
+    let { x: ox = 0, y: oy = 0, z: oz = 0 } = build.localOffset[0] ?? {};
     // 更新坐标
     build.localOffset = [
       { x, y, z },
@@ -292,7 +292,7 @@ export function formatBuildsLayout(builds, size, layout, isStack = false) {
     // 更新关联传送带坐标
     build._belts?.forEach((b) => {
       // 相对主建筑偏移
-      let { bx, by, bz } = b.localOffset[0] ?? { x: 0, y: 0, z: 0 };
+      let { x: bx = 0, y: by = 0, z: bz = 0 } = b.localOffset[0] ?? {};
       let os = { x: bx + dtx, y: by + dty, z: bz + dtz };
       b.localOffset = [os, os];
     });
