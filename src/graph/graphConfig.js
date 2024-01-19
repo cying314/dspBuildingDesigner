@@ -19,6 +19,7 @@ export const nodeSize = 60; // 节点默认宽高
 export const pointSize = 7; // 节点插槽圆点大小
 export const packageSlotSize = 20; // 封装模块插槽大小
 export const packageSlotSpace = 20; // 封装模块插槽间隔
+export const packageSlotFontSize = 8; // 封装模块插槽小字字体大小
 export const signalSize = 20; // 图标标记大小
 export const signalIds = [
   600, 601, 602, 603, 604, 605, 606, 607, 608, 609, 401, 402, 403, 404, 405, 406, 501, 502, 503,
@@ -26,7 +27,7 @@ export const signalIds = [
 ]; // 图标id
 export const defaultText = "双击修改文本"; // 默认文本
 export const fontSize = 15; // 字体大小
-export const slotFontSize = 10; // 插槽小字字体大小
+export const nodeCountFontSize = 10; // 插槽标记数字体大小
 export const lineHeight = 15; // 行高
 export const lineWordNum = 10; // 一行文本的字数（非中文算0.5个字符）
 export const selectionMargin = 5; // 节点选中框与元素间距

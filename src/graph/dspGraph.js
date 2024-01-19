@@ -1320,7 +1320,7 @@ export default class Graph {
     nodeBgSel
       .append("text")
       .attr("class", "belt-count")
-      .style("font-size", Cfg.slotFontSize + "px")
+      .style("font-size", Cfg.nodeCountFontSize + "px")
       .attr("text-anchor", "start")
       .attr("font-weight", "bold")
       .on("dblclick.editCount", function (d) {
@@ -1330,7 +1330,7 @@ export default class Graph {
       })
       .append("tspan")
       .attr("x", (d) => -d.w / 2)
-      .attr("y", (d) => d.h / 2 + Cfg.slotFontSize / 2)
+      .attr("y", (d) => d.h / 2 + Cfg.nodeCountFontSize / 2)
       .style("fill", Cfg.color.text)
       .text((d) => {
         if (!+d.count) return null;
@@ -1478,12 +1478,13 @@ export default class Graph {
         if (d.text) {
           packageSlotBg
             .append("text")
-            .style("font-size", (Cfg.slotFontSize / 3) * 2 + "px")
+            .style("font-size", Cfg.packageSlotFontSize + "px")
             .attr("text-anchor", "middle")
             .attr("font-weight", "bold")
             .append("tspan")
             .attr("x", 0)
-            .attr("y", d.oy < 0 ? Cfg.packageSlotSize : (-Cfg.packageSlotSize / 3) * 2)
+            .attr("y", (d.oy < 0 ? 1 : -1) * Cfg.packageSlotSize)
+            .attr("dy", d.oy < 0 ? -Cfg.packageSlotFontSize / 3 : Cfg.packageSlotFontSize)
             .style("fill", Cfg.color.packageNodeStroke)
             .text(d.text);
         }
@@ -2556,6 +2557,9 @@ export default class Graph {
     if (inputSlots.length == 0 || outputSlots.length == 0) {
       throw "所要封装的节点里，需要包含至少一个输入及输出节点！";
     }
+    // 输入输出口插槽根据标记数升序排列
+    inputSlots.sort((a, b) => (a.count ?? 0) - (b.count ?? 0));
+    outputSlots.sort((a, b) => (a.count ?? 0) - (b.count ?? 0));
     // 根据插槽数量决定盒子大小
     packageModel.initNodeData.w =
       Math.max(inputSlots.length, outputSlots.length) *

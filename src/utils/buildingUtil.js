@@ -12,6 +12,7 @@ import * as Mapper from "@/graph/dataMapper";
  * @property {number} filterId - 过滤物品id
  * @property {BuildingItem[]} _belts - (临时属性) 关联传送带建筑对象
  * @property {number[]} _slotsBeltIdx - (临时属性) 插槽外接的传送带建筑对象索引
+ * @property {{priority,iconId,count}} parameters - 建筑属性
  */
 /**
  * @typedef {Object} BuildingSize 建筑大小信息
@@ -84,6 +85,20 @@ export function createbuildings({ nodes, packageMap }) {
 
   // 2、排列 流速器 建筑布局
   formatBuildsLayout(nodeGroup.monitorList, monitorSize, Cfg.layoutSetting.monitorLayout);
+
+  // 输入输出口按传送带标记升序，为空时当做0
+  nodeGroup.outputList.sort((a, b) => {
+    return (
+      (a._belts[a._slotsBeltIdx[a._slotsBeltIdx.length - 1]]?.parameters?.count ?? 0) -
+      (b._belts[b._slotsBeltIdx[b._slotsBeltIdx.length - 1]]?.parameters?.count ?? 0)
+    );
+  });
+  nodeGroup.inputList.sort((a, b) => {
+    return (
+      (a._belts[a._slotsBeltIdx[a._slotsBeltIdx.length - 1]]?.parameters?.count ?? 0) -
+      (b._belts[b._slotsBeltIdx[b._slotsBeltIdx.length - 1]]?.parameters?.count ?? 0)
+    );
+  });
 
   // 3、排列 信号输出流速器 建筑布局
   formatBuildsLayout(nodeGroup.outputList, monitorSize, Cfg.layoutSetting.outputLayout);
@@ -280,20 +295,18 @@ export function formatBuildsLayout(builds, size, layout, isStack = false) {
       build.inputObjIdx = builds[i - 1].index ?? -1;
     }
     // 原对象坐标
-    let { x: ox = 0, y: oy = 0, z: oz = 0 } = build.localOffset[0] ?? {};
+    let { x: ox1 = 0, y: oy1 = 0, z: oz1 = 0 } = build.localOffset[0] ?? {};
+    let { x: ox2 = 0, y: oy2 = 0, z: oz2 = 0 } = build.localOffset[1] ?? {};
     // 更新坐标
     build.localOffset = [
       { x, y, z },
-      { x, y, z },
+      { x: x + ox2 - ox1, y: y + oy2 - oy1, z: z + oz2 - oz1 },
     ];
-    let dtx = x - ox;
-    let dty = y - oy;
-    let dtz = z - oz;
     // 更新关联传送带坐标
     build._belts?.forEach((b) => {
       // 相对主建筑偏移
       let { x: bx = 0, y: by = 0, z: bz = 0 } = b.localOffset[0] ?? {};
-      let os = { x: bx + dtx, y: by + dty, z: bz + dtz };
+      let os = { x: x + bx - ox1, y: y + by - oy1, z: z + bz - oz1 };
       b.localOffset = [os, os];
     });
   }
@@ -322,8 +335,6 @@ export function createFdirGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0] =
     { x: ox, y: oy - HorizDistance, z: oz }, // 下
     { x: ox - HorizDistance, y: oy, z: oz }, // 左
   ];
-  // 下一节带的小偏移量，形成完美垂直带，并且都朝外
-  const osY = [0.01, 0.01, -0.01, -0.01];
   let offsetIndex = 0;
   for (let i = 0; i < 4; i++) {
     const s = node.slots[i];
@@ -356,7 +367,11 @@ export function createFdirGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0] =
       // 创建外接传送带
       let belt2 = {
         index: startIndex + ++offsetIndex,
-        offset: [os[i].x, os[i].y + osY[i], os[i].z + VerticalDistance / 2],
+        offset: [
+          os[i].x + (i == 1 ? 0.01 : i == 3 ? -0.01 : 0), // 小偏移量，形成完美垂直带，并且都朝外
+          os[i].y + (i == 0 ? 0.01 : i == 2 ? -0.01 : 0),
+          os[i].z - VerticalDistance / 2,
+        ],
         level: beltLevel,
       };
       if (s.dir === 1) {

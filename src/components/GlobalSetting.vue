@@ -11,7 +11,7 @@
       <div class="name">蓝图生成模式：</div>
       <div class="form">
         <el-radio-group v-model="globalSetting.generateMode" size="mini">
-          <el-radio :label="0" :title="`使用分拣器进行无带流连接\n*需先提前粘贴分拣器，再在同位置粘贴完整蓝图`">
+          <el-radio :label="0" :title="`使用分拣器进行无带流连接\n*需先提前粘贴分拣器，再在同位置粘贴完整蓝图\n*蓝图粘贴时请尽量使用[沙盒瞬间建造]`">
             无带流(分拣器)
             <i class="el-icon-question primary"></i>
           </el-radio>

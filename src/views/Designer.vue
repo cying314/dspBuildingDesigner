@@ -72,7 +72,7 @@
             </li>
           </ul>
           <template v-if="dspGraph && dspGraph.packageMap.size > 0">
-            <div class="groupName" title="封装模块将保存到当前工程文件中">
+            <div class="groupName" :title="`当前项目依赖到的所有封装模块\n这些模块将随着当前工程保存`">
               <span>当前封装模块</span>
               <i class="if-icon-un-priority" style="margin-left:5px;color:var(--color-warning)"></i>
             </div>
@@ -640,7 +640,7 @@ export default {
         });
         // 信号输出、信号输入 更改传送带标记数
         this.operMenuBtns.push({
-          title: "更改传送带标记数",
+          title: "更改传送带标记数\n生成的输入输出口将根据标记数升序排列",
           icon: "if-icon-count",
           handler: () => {
             this.dspGraph.handleChangeNodeCount(d);
