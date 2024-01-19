@@ -33,6 +33,8 @@ export default class Graph {
   /** 节点数据 @type {Mapper.GraphNode[]} */ _nodes;
   /** 连接线数据 @type {Mapper.GraphEdge[]} */ _edges;
   /** 最大节点id @type {number} */ _maxId;
+  /** 输入标记自增数 @type {number} */ _inputCount;
+  /** 输出标记自增数 @type {number} */ _outputCount;
   /** 节点id对应实体Map @type {Map<number,Mapper.GraphNode>} */ _nodeMap;
 
   /** 节点选择框 */ _selection = {
@@ -311,6 +313,8 @@ export default class Graph {
       this._nodes = graphParse.nodes;
       this._edges = graphParse.edges;
       this._maxId = graphParse.maxId;
+      this._inputCount = graphParse.maxInputCount;
+      this._outputCount = graphParse.maxOutputCount;
       this._nodeMap = graphParse.nodeMap;
       this._selection.nodeMap.clear();
 
@@ -352,6 +356,7 @@ export default class Graph {
       // 重绘选择框
       this.buildBox();
     } catch (e) {
+      console.error(e);
       Util._err("载入数据失败：" + e);
       throw e;
     }
@@ -376,21 +381,27 @@ export default class Graph {
       } else {
         bboxOffset = [-minX - w / 2 + coord[0], -minY - h / 2 + coord[1]];
       }
-      const { nodes, edges, maxId, nodeMap, packages } = Mapper.graphDataParse(
+      const graphParse = Mapper.graphDataParse(
         graphData,
         this._maxId,
         bboxOffset // 整体偏移
       );
-      this._nodes.push(...nodes);
-      this._edges.push(...edges);
-      this._maxId = maxId;
-      nodeMap.forEach((n, nid) => {
+      this._nodes.push(...graphParse.nodes);
+      this._edges.push(...graphParse.edges);
+      this._maxId = graphParse.maxId;
+      if (graphParse.maxInputCount > this._inputCount) {
+        this._inputCount = graphParse.maxInputCount;
+      }
+      if (graphParse.maxOutputCount > this._outputCount) {
+        this._outputCount = graphParse.maxOutputCount;
+      }
+      graphParse.nodeMap.forEach((n, nid) => {
         this._nodeMap.set(nid, n);
       });
-      this._selection.nodeMap = nodeMap; // 选中粘贴的节点
+      this._selection.nodeMap = graphParse.nodeMap; // 选中粘贴的节点
 
       // 追加引用封装模块列表
-      this.appendPackages(packages);
+      this.appendPackages(graphParse.packages);
 
       // 重绘节点
       this.buildNode();
@@ -402,6 +413,7 @@ export default class Graph {
       // 记录操作
       this.recordUndo();
     } catch (e) {
+      console.error(e);
       Util._err("合并数据失败：" + e);
       throw e;
     }
@@ -463,9 +475,13 @@ export default class Graph {
     if (modelId === Cfg.ModelId.output) {
       // 输出默认标记 黄色三角感叹号
       other.signalId = 402;
+      // 默认标记数自增
+      other.count = ++this._outputCount;
     } else if (modelId === Cfg.ModelId.input) {
       // 输入默认标记 红色三角感叹号
       other.signalId = 403;
+      // 默认标记数自增
+      other.count = ++this._inputCount;
     } else if (modelId === Cfg.ModelId.package) {
       // 封装模块节点
       if (packageHash == null) throw "封装模块hash不能为空！";
@@ -772,7 +788,8 @@ export default class Graph {
    */
   changeSlotPriority(slot) {
     const modelId = slot?.node?.modelId;
-    if (modelId !== Cfg.ModelId.fdir) return; // 不是四向
+    // 只有四向可切换
+    if (modelId !== Cfg.ModelId.fdir) return;
     // 删除节点上带的连接线
     if (slot.priority === 1) {
       slot.priority = 0;
@@ -799,7 +816,8 @@ export default class Graph {
    */
   changeSlotFilter(slot, filterItemId) {
     const modelId = slot?.node?.modelId;
-    if (modelId !== Cfg.ModelId.fdir) return; // 不是四向
+    // 只有四向可切换
+    if (modelId !== Cfg.ModelId.fdir) return;
     if (slot.dir !== 1) return; // 输入口不可设置过滤物品
     slot.filterId = filterItemId;
     // 重绘节点插槽
@@ -809,38 +827,34 @@ export default class Graph {
   }
 
   /**
-   * 切换流速器生成/消耗物品id 过滤物品id
+   * 切换流速器 生成/消耗物品id
    * @param {Mapper.GraphNode} node 节点对象
    * @param {number} itemId 物品id
    */
   changeNodeItemId(node, itemId) {
     const modelId = node?.modelId;
-    if (![Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) return; // 不是流速器、信号输出、信号输入
+    // 只有流速器、信号输出、信号输入可切换
+    if (![Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) return;
     node.itemId = itemId;
     // 重绘节点颜色
-    if (modelId === Cfg.ModelId.monitor) {
-      d3.select(`#${this.uniqueTag}_node-bg-${node.id}`).style(
-        "fill",
-        Cfg.filterItemMap.get(itemId)?.color ?? Cfg.color.item_default
-      );
-    } else {
-      d3.select(`#${this.uniqueTag}_node-bg-${node.id}`)
-        .select("circle")
-        .style("fill", Cfg.filterItemMap.get(itemId)?.color ?? Cfg.color.item_default);
-    }
+    d3.select(`#${this.uniqueTag}_node-bg-${node.id} .item-bg`).style(
+      "fill",
+      Cfg.filterItemMap.get(itemId)?.color ?? Cfg.color.item_default
+    );
 
     // 记录操作
     this.recordUndo();
   }
 
   /**
-   * 切换流速器生成/消耗物品id 传送带标记图标id
+   * 切换输入输出口 传送带标记图标id
    * @param {Mapper.GraphNode} node 节点对象
    * @param {number} signalId 传送带标记图标id
    */
   changeNodeSignalId(node, signalId) {
     const modelId = node?.modelId;
-    if (![Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) return; // 不是流速器、信号输出、信号输入
+    // 只有信号输出、信号输入可切换
+    if (![Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) return;
     node.signalId = signalId;
     // 重绘节点颜色
     d3.select(`#${this.uniqueTag}_node-bg-${node.id}`)
@@ -848,6 +862,123 @@ export default class Graph {
       .attr("xlink:href", ItemsUtil.getSignalImage(signalId));
     // 记录操作
     this.recordUndo();
+  }
+
+  /**
+   * 创建输入框 修改节点文本（输出输入口）
+   * @param {Mapper.GraphNode} node 节点对象
+   */
+  handleChangeNodeText(node) {
+    let _this = this;
+    const modelId = node?.modelId;
+    // 只有普通文本、信号输出、信号输入、封装模块可切换
+    if (
+      ![Cfg.ModelId.text, Cfg.ModelId.output, Cfg.ModelId.input, Cfg.ModelId.package].includes(
+        modelId
+      )
+    )
+      return;
+    let oy = 0;
+    if (modelId === Cfg.ModelId.output || modelId === Cfg.ModelId.input) {
+      oy = node.h / 2;
+    }
+    // 创建文本输入框
+    this.createInput({
+      x: node.x,
+      y: node.y + oy,
+      w: node.w,
+      h: node.h,
+      defaultText: node.text,
+      callback: (val) => {
+        val = val.trim();
+        // 获取tspan元素，修改文本
+        let nodeBgSel = d3.select(`#${this.uniqueTag}_node-bg-${node.id}`);
+        if (!val) {
+          node.text = null;
+          nodeBgSel.select(".node-text").remove();
+          if (node.modelId === Cfg.ModelId.text) {
+            // 文本置空则删除
+            this.deleteNode(node);
+          }
+          return;
+        }
+        node.text = val;
+
+        if (node.modelId === Cfg.ModelId.package) {
+          const _package = this.packageMap.get(node.packageHash);
+          // 判断节点文本与模块名不同，修改模块名
+          if (_package && _package.name !== node.text) {
+            let samePackageNodeSel = this.$node.filter(
+              (d) => d.modelId === Cfg.ModelId.package && d.packageHash === node.packageHash
+            );
+            if (samePackageNodeSel.size() > 1) {
+              // 有一个以上相同的弹窗提示
+              Util._confirmHtml(
+                `是否同步修改所有<span style="color:var(--color-warning)">相同封装模块</span>的节点文本？`
+              )
+                .then(() => {
+                  // 确认
+                  _package.name = node.text;
+                  _package.initNodeData.text = node.text;
+                  samePackageNodeSel.select(".node-bg").each(function (d) {
+                    // 修改并重新渲染单行文本
+                    d.text = node.text;
+                    // 重绘节点文本
+                    let nodeBgSel = d3.select(this);
+                    _this.createNodeText(nodeBgSel);
+                  });
+                })
+                .catch(() => {});
+            } else {
+              // 否则直接更改
+              _package.name = node.text;
+              _package.initNodeData.text = node.text;
+            }
+          }
+        }
+
+        // 重绘节点文本
+        this.createNodeText(nodeBgSel);
+        // 记录操作
+        this.recordUndo();
+      },
+    });
+  }
+
+  /**
+   * 创建输入框 修改传送带标记数（输出输入口）
+   * @param {Mapper.GraphNode} node 节点对象
+   */
+  handleChangeNodeCount(node) {
+    const modelId = node?.modelId;
+    // 只有信号输出、信号输入可切换
+    if (![Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) return;
+    // 创建文本输入框
+    this.createInput({
+      x: node.x - node.w / 2,
+      y: node.y + node.h / 2,
+      w: 30,
+      h: 15,
+      minW: 30,
+      minH: 15,
+      defaultText: node.count,
+      callback: (val) => {
+        // 获取tspan元素，修改文本
+        let nodeBgSel = d3.select(`#${this.uniqueTag}_node-bg-${node.id}`);
+        if (!+val) {
+          node.count = null;
+          nodeBgSel.select(".belt-count").remove();
+          return;
+        }
+        node.count = +val;
+        if (nodeBgSel.select(".belt-count tspan").text(node.count).empty()) {
+          // 若元素不存在则创建
+          this.createNodeCountText(nodeBgSel);
+        }
+        // 记录操作
+        this.recordUndo();
+      },
+    });
   }
 
   /**
@@ -1045,131 +1176,166 @@ export default class Graph {
   insertNodeBg(nodeSel, overwrite = true) {
     let _this = this;
     if (overwrite) nodeSel.selectAll(".node-bg").remove();
-    nodeSel.each(function (d) {
-      let bg;
-      if (d.modelId === Cfg.ModelId.text) {
-        // 普通文本
-        bg = d3
-          .select(this)
-          .insert("text", ".node-slot") // 在插槽前插入
-          .style("font-size", Cfg.fontSize + "px")
-          .attr("text-anchor", "middle")
-          .on("dblclick.deleteNode", function (d) {
-            d3.event.stopPropagation(); // 阻止创建事件传播
-            // 双击文本，创建输入框
-            // 获取当前的text元素
-            var textEl = d3.select(this);
-            const offset = Util.coordToOffset([d.x, d.y], _this.transform);
-            const w = Math.max(100, Math.min(500, d.w * _this.transform.k));
-            const h = Math.max(20, Math.min(200, d.h * _this.transform.k));
-            // 创建一个输入框
-            const input = d3
-              .select(_this._canvasDOM)
-              .append("textarea")
-              .style("width", w + "px")
-              .style("height", h + "px")
-              .style("position", "absolute")
-              .style("left", offset[0] - w / 2 + "px")
-              .style("top", offset[1] - h / 2 + "px")
-              .text(d.text) // 设置输入框的初始值为text元素的文本
-              .on("keydown", () => {
-                d3.event.stopPropagation();
-              })
-              .on("keyup", () => {
-                d3.event.stopPropagation();
-              });
-            let inputDom = input.node();
-            inputDom.focus(); // 获取焦点
-            // 设置光标到文本的最后面
-            inputDom.selectionStart = inputDom.selectionEnd = inputDom.value.length;
+    nodeSel
+      .insert("g", ".node-slot") // 在插槽前插入
+      .attr("class", "node-bg")
+      .attr("id", (d) => `${this.uniqueTag}_node-bg-${d.id}`)
+      .style("opacity", 0.8)
+      .each(function (d) {
+        let bg = d3.select(this);
+        if (d.modelId === Cfg.ModelId.text) {
+          // 普通文本
+          _this.createNodeText(bg);
+        } else if (d.modelId === Cfg.ModelId.output || d.modelId === Cfg.ModelId.input) {
+          // 信号输出、信号输入模型
+          bg.append("circle")
+            .attr("class", "item-bg")
+            .attr("r", d.w / 2)
+            .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default)
+            .style(
+              "stroke",
+              d.modelId === Cfg.ModelId.output
+                ? Cfg.color.priorityOutStroke
+                : Cfg.color.priorityInStroke
+            )
+            .style("stroke-width", Cfg.strokeW.bold);
+          bg.append("image")
+            .attr("xlink:href", ItemsUtil.getSignalImage(d.signalId))
+            .attr("x", d.w / 2 - Cfg.signalSize / 2)
+            .attr("y", d.h / 2 - Cfg.signalSize / 2)
+            .attr("width", Cfg.signalSize)
+            .attr("height", Cfg.signalSize);
+          // 创建节点文本
+          if (d.text) {
+            _this.createNodeText(bg);
+          }
+          // 创建传送带标记数文本
+          if (+d.count) {
+            _this.createNodeCountText(bg);
+          }
+        } else if (d.modelId === Cfg.ModelId.monitor) {
+          // 流速器模型
+          bg.append("rect")
+            .attr("class", "item-bg")
+            .attr("x", -d.w / 2)
+            .attr("y", -d.h / 2)
+            .attr("width", d.w)
+            .attr("height", d.h)
+            .attr("rx", 5) // 圆角
+            .attr("ry", 5)
+            .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default) // 生成消耗物品颜色
+            .style("stroke", Cfg.color.nodeStroke)
+            .style("stroke-width", Cfg.strokeW.light);
+        } else if (d.modelId === Cfg.ModelId.package) {
+          // 封装模块节点
+          bg.append("rect")
+            .attr("x", -d.w / 2)
+            .attr("y", -d.h / 2)
+            .attr("width", d.w)
+            .attr("height", d.h)
+            .attr("rx", 10) // 圆角
+            .attr("ry", 10)
+            .style("fill", Cfg.color.packageNodeFill)
+            .style("stroke", Cfg.color.packageNodeStroke)
+            .style("stroke-width", Cfg.strokeW.light);
+          // 创建节点文本
+          if (d.text) {
+            _this.createNodeText(bg);
+          }
+        } else {
+          // 其他模型：矩形
+          let fill = Cfg.color.nodeFill;
+          bg = d3
+            .select(this)
+            .append("rect")
+            .attr("x", -d.w / 2)
+            .attr("y", -d.h / 2)
+            .attr("width", d.w)
+            .attr("height", d.h)
+            .attr("rx", 10) // 圆角
+            .attr("ry", 10)
+            .style("fill", fill)
+            .style("stroke", Cfg.color.nodeStroke)
+            .style("stroke-width", Cfg.strokeW.light);
+        }
+      });
+  }
 
-            // 当输入框失去焦点时，更新text元素的文本并删除输入框
-            input.on("blur", () => {
-              d.text = input.node().value || "";
-              textEl.html(null);
-              const lines = Util.splitLines(d.text);
-              d.h = lines.length * Cfg.lineHeight; // 根据实际文本行数修改高度
-              _this.createTspan(textEl, lines);
-              input.remove();
-            });
-          });
+  /**
+   * 创建节点文本
+   * @param {d3.Selection<SVGGElement, Mapper.GraphNode>} nodeBgSel
+   */
+  createNodeText(nodeBgSel) {
+    let _this = this;
+    let textSel = nodeBgSel.select(".node-text");
+    if (textSel.empty()) {
+      textSel = nodeBgSel
+        .append("text")
+        .attr("y", (d) => {
+          if (d.modelId === Cfg.ModelId.output || d.modelId === Cfg.ModelId.input) {
+            return d.h;
+          }
+          return null;
+        })
+        .attr("class", "node-text")
+        .style("font-size", Cfg.fontSize + "px")
+        .attr("text-anchor", "middle")
+        .on("dblclick.editCount", function (d) {
+          // 双击文本，创建输入框
+          d3.event.stopPropagation(); // 阻止创建事件传播
+          _this.handleChangeNodeText(d);
+        });
+    }
+    textSel.each(function (d) {
+      let textEl = d3.select(this);
+      textEl.html(null);
+      // 是否多行文本
+      let isMultilineText = d.modelId === Cfg.ModelId.text;
+      if (isMultilineText) {
         // 创建多行文本
-        _this.createTspan(bg, Util.splitLines(d.text));
-      } else if (d.modelId === Cfg.ModelId.output || d.modelId === Cfg.ModelId.input) {
-        // 信号输出、信号输入模型
-        bg = d3.select(this).insert("g", ".node-slot"); // 在插槽前插入
-        bg.append("circle")
-          .attr("r", d.w / 2)
-          .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default)
-          .style(
-            "stroke",
-            d.modelId === Cfg.ModelId.output
-              ? Cfg.color.priorityOutStroke
-              : Cfg.color.priorityInStroke
-          )
-          .style("stroke-width", Cfg.strokeW.bold);
-        bg.append("image")
-          .attr("xlink:href", ItemsUtil.getSignalImage(d.signalId))
-          .attr("x", d.w / 2 - Cfg.signalSize / 2)
-          .attr("y", d.h / 2 - Cfg.signalSize / 2)
-          .attr("width", Cfg.signalSize)
-          .attr("height", Cfg.signalSize);
-      } else if (d.modelId === Cfg.ModelId.monitor) {
-        // 流速器模型
-        bg = d3
-          .select(this)
-          .insert("rect", ".node-slot") // 在插槽前插入
-          .attr("x", -d.w / 2)
-          .attr("y", -d.h / 2)
-          .attr("width", d.w)
-          .attr("height", d.h)
-          .attr("rx", 5) // 圆角
-          .attr("ry", 5)
-          .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default) // 生成消耗物品颜色
-          .style("stroke", Cfg.color.nodeStroke)
-          .style("stroke-width", Cfg.strokeW.light);
-      } else if (d.modelId === Cfg.ModelId.package) {
-        // 封装模块节点
-        bg = d3
-          .select(this)
-          .insert("rect", ".node-slot") // 在插槽前插入
-          .attr("x", -d.w / 2)
-          .attr("y", -d.h / 2)
-          .attr("width", d.w)
-          .attr("height", d.h)
-          .attr("rx", 10) // 圆角
-          .attr("ry", 10)
-          .style("fill", Cfg.color.packageNodeFill)
-          .style("stroke", Cfg.color.packageNodeStroke)
-          .style("stroke-width", Cfg.strokeW.light);
-        let nodeText = d3
-          .select(this)
-          .insert("text", ".node-slot") // 在插槽前插入
-          .attr("class", "node-text")
-          .style("font-size", Cfg.fontSize + "px")
-          .attr("text-anchor", "middle");
-        // 创建1行文本
-        _this.createTspan(nodeText, [d.text]);
+        const lines = Util.splitLines(d.text);
+        if (d.modelId === Cfg.ModelId.text) {
+          // 文本域根据实际文本行数修改高度
+          d.h = lines.length * Cfg.lineHeight;
+        }
+        _this.createTspan(textEl, lines);
       } else {
-        // 其他模型：矩形
-        let fill = Cfg.color.nodeFill;
-        bg = d3
-          .select(this)
-          .insert("rect", ".node-slot") // 在插槽前插入
-          .attr("x", -d.w / 2)
-          .attr("y", -d.h / 2)
-          .attr("width", d.w)
-          .attr("height", d.h)
-          .attr("rx", 10) // 圆角
-          .attr("ry", 10)
-          .style("fill", fill)
-          .style("stroke", Cfg.color.nodeStroke)
-          .style("stroke-width", Cfg.strokeW.light);
+        // 创建单行文本
+        textEl
+          .append("tspan")
+          .attr("x", 0)
+          .attr("dy", Cfg.lineHeight / 3)
+          .style("fill", Cfg.color.text)
+          .text(d.text);
       }
-      bg.attr("class", "node-bg")
-        .attr("id", `${_this.uniqueTag}_node-bg-${d.id}`)
-        .style("opacity", 0.8);
     });
+  }
+
+  /**
+   * 创建传送带标记数文本
+   * @param {d3.Selection<SVGGElement, Mapper.GraphNode>} nodeBgSel
+   */
+  createNodeCountText(nodeBgSel) {
+    let _this = this;
+    nodeBgSel
+      .append("text")
+      .attr("class", "belt-count")
+      .style("font-size", Cfg.slotFontSize + "px")
+      .attr("text-anchor", "start")
+      .attr("font-weight", "bold")
+      .on("dblclick.editCount", function (d) {
+        d3.event.stopPropagation(); // 阻止创建事件传播
+        // 双击文本，创建输入框
+        _this.handleChangeNodeCount(d);
+      })
+      .append("tspan")
+      .attr("x", (d) => -d.w / 2)
+      .attr("y", (d) => d.h / 2 + Cfg.slotFontSize / 2)
+      .style("fill", Cfg.color.text)
+      .text((d) => {
+        if (!+d.count) return null;
+        return +d.count;
+      });
   }
 
   /**
@@ -1195,6 +1361,63 @@ export default class Graph {
         .style("fill", Cfg.color.emptyText)
         .text("(空文本)");
     }
+  }
+
+  /**
+   * 创建文本输入框
+   * @param {Object} opt
+   * @param {number} opt.x 输入框坐标x（画布内坐标）
+   * @param {number} opt.y 输入框坐标y
+   * @param {number} opt.w 输入框宽度
+   * @param {number} opt.minW 最小宽度
+   * @param {number} opt.maxW 最大宽度
+   * @param {number} opt.h 输入框高度
+   * @param {number} opt.minH 最小高度
+   * @param {number} opt.maxH 最大高度
+   * @param {string} opt.defaultText 默认输入框内容
+   * @param {(stirng)=>void} opt.callback 输入结束回调
+   */
+  createInput({
+    x = 0,
+    y = 0,
+    w = 100,
+    minW = 100,
+    maxW = 500,
+    h = 20,
+    minH = 20,
+    maxH = 200,
+    defaultText = "",
+    callback,
+  }) {
+    const offset = Util.coordToOffset([x, y], this.transform);
+    w = Math.max(minW, Math.min(maxW, w * this.transform.k));
+    h = Math.max(minH, Math.min(maxH, h * this.transform.k));
+    // 创建一个输入框
+    const input = d3
+      .select(this._canvasDOM)
+      .append("textarea")
+      .style("width", w + "px")
+      .style("height", h + "px")
+      .style("position", "absolute")
+      .style("left", offset[0] - w / 2 + "px")
+      .style("top", offset[1] - h / 2 + "px")
+      .text(defaultText) // 设置输入框的初始值为text元素的文本
+      .on("keydown", () => {
+        d3.event.stopPropagation();
+      })
+      .on("keyup", () => {
+        d3.event.stopPropagation();
+      });
+    let inputDom = input.node();
+    inputDom.focus(); // 获取焦点
+    // 设置光标到文本的最后面
+    inputDom.selectionStart = inputDom.selectionEnd = inputDom.value.length;
+
+    // 当输入框失去焦点时，更新text元素的文本并删除输入框
+    input.on("blur", () => {
+      callback && callback(input.node().value || "");
+      input.remove();
+    });
   }
 
   /**
@@ -1243,6 +1466,7 @@ export default class Graph {
           .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default)
           .style("stroke", d.dir === 1 ? Cfg.color.priorityInStroke : Cfg.color.priorityOutStroke)
           .style("stroke-width", Cfg.strokeW.light);
+        // 插槽传送带标记id
         packageSlotBg
           .append("image")
           .attr("xlink:href", ItemsUtil.getSignalImage(d.signalId))
@@ -1250,6 +1474,19 @@ export default class Graph {
           .attr("y", Cfg.packageSlotSize / 4)
           .attr("width", Cfg.signalSize / 2) // 插槽图标大小减半
           .attr("height", Cfg.signalSize / 2);
+        // 插槽传送带标记数
+        if (d.text) {
+          packageSlotBg
+            .append("text")
+            .style("font-size", (Cfg.slotFontSize / 3) * 2 + "px")
+            .attr("text-anchor", "middle")
+            .attr("font-weight", "bold")
+            .append("tspan")
+            .attr("x", 0)
+            .attr("y", d.oy < 0 ? Cfg.packageSlotSize : (-Cfg.packageSlotSize / 3) * 2)
+            .style("fill", Cfg.color.packageNodeStroke)
+            .text(d.text);
+        }
       });
 
     // 新增 插槽节点
@@ -2107,6 +2344,7 @@ export default class Graph {
       window.localStorage.setItem("cacheGraphData", JSON.stringify(graphData));
       Util._success("已保存至浏览器缓存！");
     } catch (e) {
+      console.error(e);
       Util._err("保存失败：" + e);
     }
   }
@@ -2124,6 +2362,7 @@ export default class Graph {
       Util.saveGraphDataAsJson(graphData);
       Util._success("导出成功！");
     } catch (e) {
+      console.error(e);
       Util._err("导出失败：" + e);
     }
   }
@@ -2201,21 +2440,24 @@ export default class Graph {
       const graphData = this.getSelectionGraphData();
       const packageModel = await this.packageComponent(graphData);
       if (packageModel) {
-        // 删除当前选中组件，粘贴一个封装组件
-        this.handleDelete(false);
         let offset;
-        if (this._mouseIsEnter) {
-          // 如果鼠标在画布内，则粘贴到鼠标位置
-          offset = this._mouseOffset;
+        if (this._selection.boundingBox) {
+          let { minX = 0, minY = 0, w = 0, h = 0 } = this._selection.boundingBox;
+          // 如果存在选中节点包围盒，则粘贴到包围盒中央
+          offset = Util.coordToOffset([minX + w / 2, minY + h / 2], this.transform);
         } else {
           // 否则粘贴到当前视图中央
           offset = [this.width / 2, this.height / 2];
         }
+        // 删除当前选中组件
+        this.handleDelete(false);
+        // 粘贴一个封装组件
         this.createNode(Cfg.ModelId.package, offset, packageModel.hash);
         Util._success("封装成功");
       }
       return true;
     } catch (e) {
+      console.error(e);
       Util._err("封装失败：" + e);
       return false;
     }
@@ -2230,7 +2472,7 @@ export default class Graph {
     const graphDataHash = Util.getGraphDataHash(graphData);
     graphData.header.hash = graphDataHash;
 
-    let defaultName = "封装模块" + (this.packageMap.size + 1);
+    let defaultName = "模块" + (this.packageMap.size + 1) + "(双击更名)";
     // 查询已有封装
     let packageModel = this.packageMap.get(graphDataHash);
     if (packageModel != null) {
@@ -2246,15 +2488,15 @@ export default class Graph {
     }
     // 模块名
     let packageName;
-    try {
-      packageName = await Util._prompt("请输入封装模块名", defaultName);
-    } catch {
-      // 取消
-      return false;
-    }
-    if (!packageName) {
-      packageName = defaultName;
-    }
+    // try {
+    //   packageName = await Util._prompt("请输入封装模块名", defaultName);
+    // } catch {
+    //   // 取消
+    //   return false;
+    // }
+    // if (!packageName) {
+    packageName = defaultName;
+    // }
 
     // 新增、更新
 
@@ -2356,16 +2598,18 @@ export default class Graph {
       throw false;
     }
     try {
-      // 删除当前节点，粘贴一个封装展开组件
-      this.deleteNode(node);
       let offset;
-      if (this._mouseIsEnter) {
-        // 如果鼠标在画布内，则粘贴到鼠标位置
-        offset = this._mouseOffset;
+      if (this._selection.boundingBox) {
+        let { minX = 0, minY = 0, w = 0, h = 0 } = this._selection.boundingBox;
+        // 如果存在选中节点包围盒，则粘贴到包围盒中央
+        offset = Util.coordToOffset([minX + w / 2, minY + h / 2], this.transform);
       } else {
         // 否则粘贴到当前视图中央
         offset = [this.width / 2, this.height / 2];
       }
+      // 删除当前节点
+      this.deleteNode(node);
+      // 粘贴一个封装展开组件
       this.appendGraphData(_package.graphData, offset);
       return true;
     } catch (e) {

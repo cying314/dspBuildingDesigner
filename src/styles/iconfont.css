@@ -26,6 +26,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.if-icon-count:before {
+  content: "\e627";
+}
+
 .if-icon-arrow-tb:before {
   content: "\ea58";
 }

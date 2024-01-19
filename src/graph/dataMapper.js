@@ -31,13 +31,15 @@ import * as Util from "./graphUtil.js";
  */
 
 /**
- * @typedef {Object} GraphDataParse 图谱解析返回值 {_header:{_graphName, _transform, _boundingBox, _layout}, _nodes, _edges, _maxId, _nodeMap, _nodeMapByOriginId}
+ * @typedef {Object} GraphDataParse 图谱解析返回值
  * @property {HeaderData} header - 头部信息
  * @property {GraphNode[]} nodes - 节点对象集合
  * @property {GraphEdge[]} edges - 连接线集合
  * @property {PackageModel[]} packages - 引用封装模块列表
  * @property {stirng[]} packageHashList - 引用封装模块hash列表（嵌套封装模块中，只记录hash，不记录对象）
  * @property {number} maxId - 当前点集中最大节点id
+ * @property {number} maxInputCount - 最大输入标记数
+ * @property {number} maxOutputCount - 最大输出标记数
  * @property {Map<number,GraphNode>} nodeMap 节点id->节点对象
  * @property {Map<number,GraphNode>} _nodeMapByOriginId 节点导入原id->节点对象
  */
@@ -52,7 +54,9 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
   const nodes = graphData.data.nodes;
   const lines = graphData.data.lines;
 
-  let _maxId = startId;
+  let maxId = startId;
+  let maxInputCount = 0;
+  let maxOutputCount = 0;
   const nodeMapByOriginId = new Map(); // 导入id映射节点：dataId -> node
   const _nodeMap = new Map(); // 自增id映射节点：nodeId -> node
 
@@ -62,10 +66,16 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
     if (d == null) return console.warn("存在空节点对象！已忽略");
     if (d.id == null) return console.warn("存在节点id为空！已忽略");
     if (nodeMapByOriginId.has(d.id)) return console.warn("存在重复节点id:" + d.id);
-    const node = dataToNode(d, ++_maxId, offset);
+    const node = dataToNode(d, ++maxId, offset);
     nodeMapByOriginId.set(d.id, node);
     _nodeMap.set(node.id, node);
     _nodes.push(node);
+    if (node.modelId === Cfg.ModelId.input && node.count > maxInputCount) {
+      maxInputCount = node.count;
+    }
+    if (node.modelId === Cfg.ModelId.output && node.count > maxOutputCount) {
+      maxOutputCount = node.count;
+    }
   });
 
   // 解析连接线数据
@@ -112,7 +122,9 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
     edges: _edges,
     packages: _packages,
     packageHashList: graphData.packageHashList,
-    maxId: _maxId,
+    maxId,
+    maxInputCount,
+    maxOutputCount,
     nodeMap: _nodeMap,
     _nodeMapByOriginId: nodeMapByOriginId,
   };
@@ -282,7 +294,7 @@ export function initGraphNode(d) {
     node.packageHash = _toStr(d.packageHash); // 封装模块hash
   } else if (node.modelId === Cfg.ModelId.input || node.modelId === Cfg.ModelId.output) {
     // 输入输出口节点
-    node.count = _toInt(node.count); // 传送带标记数
+    node.count = _toInt(d.count); // 传送带标记数
   }
   d.slots?.forEach((s, si) => {
     /** @type {GraphNodeSlot} */
@@ -368,6 +380,7 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
       d.w = d.h = Cfg.nodeSize / 2; // 一半四向宽
       d.itemId = _toInt(other.itemId, 6002); // 生成/消耗物品id（默认红糖）
       d.signalId = _toInt(other.signalId); // 传送带标记图标id
+      d.count = _toInt(other.count); // 传送带标记数
       d.slots = [
         { dir: modelId === Cfg.ModelId.input ? -1 : 1 }, // 默认输出->1 [信号输入->-1]
       ];

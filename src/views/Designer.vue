@@ -610,7 +610,7 @@ export default {
       if ([Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
         // 信号输出、信号输入 切换传送带标记图标id
         this.operMenuBtns.push({
-          title: "切换标记",
+          title: "切换传送带标记",
           icon: "el-icon-info",
           handler: (event) => {
             // 阻止关闭窗口
@@ -636,6 +636,28 @@ export default {
                 },
               });
             }
+          },
+        });
+        // 信号输出、信号输入 更改传送带标记数
+        this.operMenuBtns.push({
+          title: "更改传送带标记数",
+          icon: "if-icon-count",
+          handler: () => {
+            this.dspGraph.handleChangeNodeCount(d);
+          },
+        });
+      }
+      if (
+        [Cfg.ModelId.text, Cfg.ModelId.output, Cfg.ModelId.input, Cfg.ModelId.package].includes(
+          modelId
+        )
+      ) {
+        // 普通文本、信号输出、信号输入、封装模块 切换节点文本
+        this.operMenuBtns.push({
+          title: "更改节点文本描述",
+          icon: "if-icon-textarea",
+          handler: () => {
+            this.dspGraph.handleChangeNodeText(d);
           },
         });
       }

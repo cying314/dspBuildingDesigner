@@ -412,6 +412,7 @@ export function _warn(mes) {
  * 异常信息
  */
 export function _err(mes) {
+  console.error(mes);
   Notification({
     title: "错误",
     message: mes,
