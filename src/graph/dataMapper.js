@@ -25,9 +25,9 @@ import * as Util from "./graphUtil.js";
  * @typedef {Object} PackageModel 封装节点
  * @property {string} hash - 图谱数据hash值
  * @property {string} name - 封装模块名称
+ * @property {string[]} childsHash - 所有嵌套的子封装模块hash
  * @property {GraphData} graphData - 图谱数据
  * @property {NodeData} initNodeData - 封装节点初始化数据（需dataToNode创建）
- * @property {Map<packageNodeId, NodeData>} outsideNodeMap - 输入输出节点（不持久化）
  */
 
 /**
@@ -49,83 +49,73 @@ import * as Util from "./graphUtil.js";
  * @return {GraphDataParse} 图谱解析对象
  */
 export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
-  Util.checkGraphData(graphData, true, true);
-  try {
-    const nodes = graphData.data.nodes;
-    const lines = graphData.data.lines;
+  const nodes = graphData.data.nodes;
+  const lines = graphData.data.lines;
 
-    let _maxId = startId;
-    const nodeMapByOriginId = new Map(); // 导入id映射节点：dataId -> node
-    const _nodeMap = new Map(); // 自增id映射节点：nodeId -> node
+  let _maxId = startId;
+  const nodeMapByOriginId = new Map(); // 导入id映射节点：dataId -> node
+  const _nodeMap = new Map(); // 自增id映射节点：nodeId -> node
 
-    // 解析节点数据
-    const _nodes = [];
-    nodes.forEach((d) => {
-      if (d == null) return console.warn("存在空节点对象！已忽略");
-      if (d.id == null) return console.warn("存在节点id为空！已忽略");
-      if (nodeMapByOriginId.has(d.id)) return console.warn("存在重复节点id:" + d.id);
-      const node = dataToNode(d, ++_maxId, offset);
-      nodeMapByOriginId.set(d.id, node);
-      _nodeMap.set(node.id, node);
-      _nodes.push(node);
-    });
+  // 解析节点数据
+  const _nodes = [];
+  nodes.forEach((d) => {
+    if (d == null) return console.warn("存在空节点对象！已忽略");
+    if (d.id == null) return console.warn("存在节点id为空！已忽略");
+    if (nodeMapByOriginId.has(d.id)) return console.warn("存在重复节点id:" + d.id);
+    const node = dataToNode(d, ++_maxId, offset);
+    nodeMapByOriginId.set(d.id, node);
+    _nodeMap.set(node.id, node);
+    _nodes.push(node);
+  });
 
-    // 解析连接线数据
-    const _edges = [];
-    lines.forEach((line) => {
-      if (line == null) return console.warn("存在空连接线对象！已忽略");
-      const edge = dataToEdge(line, nodeMapByOriginId);
-      if (edge instanceof Error) return console.warn(edge.message);
-      _edges.push(edge);
-    });
+  // 解析连接线数据
+  const _edges = [];
+  lines.forEach((line) => {
+    if (line == null) return console.warn("存在空连接线对象！已忽略");
+    const edge = dataToEdge(line, nodeMapByOriginId);
+    if (edge instanceof Error) return console.warn(edge.message);
+    _edges.push(edge);
+  });
 
-    // 引用封装模块列表
-    let _packages;
-    if (graphData.packages instanceof Array) {
-      graphData.packages.forEach((p) => {
-        // 设置输入输出口节点Map
-        setOutsideNodeMap(p);
-      });
-      _packages = graphData.packages;
-    } else {
-      _packages = [];
-    }
-
-    const {
-      minX = 0,
-      minY = 0,
-      maxX = 0,
-      maxY = 0,
-      w = 0,
-      h = 0,
-    } = graphData.header.boundingBox ?? {};
-    const { x = 0, y = 0, k = 1 } = graphData.header.transform;
-    return {
-      header: {
-        graphName: graphData.header.graphName,
-        transform: { x, y, k },
-        boundingBox: {
-          minX: minX + offset[0],
-          minY: minY + offset[1],
-          maxX: maxX + offset[0],
-          maxY: maxY + offset[1],
-          w: w,
-          h: h,
-        },
-        layout: graphData.header.layout,
-      },
-      nodes: _nodes,
-      edges: _edges,
-      packages: _packages,
-      packageHashList: graphData.packageHashList,
-      maxId: _maxId,
-      nodeMap: _nodeMap,
-      _nodeMapByOriginId: nodeMapByOriginId,
-    };
-  } catch (e) {
-    Util._err("载入数据失败：" + e);
-    throw e;
+  // 引用封装模块列表
+  let _packages;
+  if (graphData.packages instanceof Array) {
+    _packages = graphData.packages;
+  } else {
+    _packages = [];
   }
+
+  const {
+    minX = 0,
+    minY = 0,
+    maxX = 0,
+    maxY = 0,
+    w = 0,
+    h = 0,
+  } = graphData.header.boundingBox ?? {};
+  const { x = 0, y = 0, k = 1 } = graphData.header.transform;
+  return {
+    header: {
+      graphName: graphData.header.graphName,
+      transform: { x, y, k },
+      boundingBox: {
+        minX: minX + offset[0],
+        minY: minY + offset[1],
+        maxX: maxX + offset[0],
+        maxY: maxY + offset[1],
+        w: w,
+        h: h,
+      },
+      layout: graphData.header.layout,
+    },
+    nodes: _nodes,
+    edges: _edges,
+    packages: _packages,
+    packageHashList: graphData.packageHashList,
+    maxId: _maxId,
+    nodeMap: _nodeMap,
+    _nodeMapByOriginId: nodeMapByOriginId,
+  };
 }
 
 /**
@@ -145,7 +135,7 @@ export function toGraphData(
   packages,
   weedOutUnusedPackage = false
 ) {
-  let usedPackagesHash = new Set();
+  let usedPackageHashSet = new Set();
   const graphData = {
     header: {
       version: Cfg.version,
@@ -162,8 +152,8 @@ export function toGraphData(
   let maxId = 0;
   let nodeMapByOriginId = new Map(); // 传入id映射到节点
   graphData.data.nodes = nodes.map((n) => {
-    if (n.modelId === Cfg.ModelId.package) {
-      usedPackagesHash.add(n.packageHash); // 记录使用的封装模块Hash
+    if (weedOutUnusedPackage && n.modelId === Cfg.ModelId.package) {
+      usedPackageHashSet.add(n.packageHash); // 记录节点使用的封装模块Hash
     }
     let nodeData = nodeToData(n);
     nodeMapByOriginId.set(nodeData.id, nodeData);
@@ -187,20 +177,32 @@ export function toGraphData(
 
   const _packages = [];
   const _packageHashList = [];
+
   if (packages?.length > 0) {
+    // 记录节点使用的封装中，使用到的子hash
+    if (weedOutUnusedPackage) {
+      packages.forEach((p) => {
+        if (usedPackageHashSet.has(p.hash) && p.childsHash?.length > 0) {
+          usedPackageHashSet.add(...p.childsHash);
+        }
+      });
+    }
+
     packages.forEach((p) => {
       // 剔除未使用的封装模块
-      if (weedOutUnusedPackage && !usedPackagesHash.has(p.hash)) {
+      if (weedOutUnusedPackage && !usedPackageHashSet.has(p.hash)) {
         return;
       }
-      let { hash, name, graphData, initNodeData } = p;
-      // 剔除封装模块中嵌套封装模块引用对象
-      graphData = { ...graphData };
-      if (graphData.packages?.length > 0) {
-        graphData.packages = undefined;
-      }
-      _packages.push({ hash, name, graphData, initNodeData });
-      _packageHashList.push(hash);
+      /** @type {PackageModel} */
+      const _p = {
+        ...p,
+      };
+      _p.graphData = {
+        ..._p.graphData,
+        packages: undefined, // 剔除封装模块中嵌套封装模块引用对象
+      };
+      _packages.push(_p);
+      _packageHashList.push(_p.hash);
     });
   }
   if (_packages.length > 0) {
@@ -235,7 +237,8 @@ export function toGraphData(
  * @property {number} h - 节点高度
  * @property {string} text - 节点文本
  * @property {number} itemId - 生成/消耗物品id
- * @property {number} signalId - 标记id
+ * @property {number} signalId - 传送带标记图标id
+ * @property {number} count - 传送带标记数
  * @property {GraphNodeSlot[]} slots - 插槽
  */
 /**
@@ -250,8 +253,8 @@ export function toGraphData(
  * @property {number} filterId - 过滤优先输出物品id [当模型为四向时生效]
  * @property {number} packageNodeId - 封装模块插槽-对应package中原输入输出节点id
  * @property {number} itemId - 封装模块插槽-生成/消耗物品id
- * @property {number} signalId - 封装模块插槽-插槽标记id
- * @property {number} count - 封装模块插槽-插槽标记数
+ * @property {number} signalId - 封装模块插槽-插槽传送带标记图标id
+ * @property {number} count - 封装模块插槽-插槽传送带标记数
  * @property {string} text - 封装模块插槽-插槽文本
  */
 /**
@@ -277,6 +280,9 @@ export function initGraphNode(d) {
   if (node.modelId === Cfg.ModelId.package) {
     // 封装模块节点
     node.packageHash = _toStr(d.packageHash); // 封装模块hash
+  } else if (node.modelId === Cfg.ModelId.input || node.modelId === Cfg.ModelId.output) {
+    // 输入输出口节点
+    node.count = _toInt(node.count); // 传送带标记数
   }
   d.slots?.forEach((s, si) => {
     /** @type {GraphNodeSlot} */
@@ -300,8 +306,8 @@ export function initGraphNode(d) {
       // 封装模块
       slot.packageNodeId = _toInt(s.packageNodeId); // 对应package中原输入输出节点id
       slot.itemId = _toInt(s.itemId); // 生成/消耗物品id
-      slot.signalId = _toInt(s.signalId); // 插槽标记id
-      slot.count = _toInt(s.count); // 插槽标记数
+      slot.signalId = _toInt(s.signalId); // 插槽传送带标记图标id
+      slot.count = _toInt(s.count); // 插槽传送带标记数
       slot.text = _toStr(s.text); // 插槽文本
     }
     node.slots.push(slot);
@@ -361,7 +367,7 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
     case Cfg.ModelId.input: // 信号输入(消耗)
       d.w = d.h = Cfg.nodeSize / 2; // 一半四向宽
       d.itemId = _toInt(other.itemId, 6002); // 生成/消耗物品id（默认红糖）
-      d.signalId = _toInt(other.signalId); // 标记id
+      d.signalId = _toInt(other.signalId); // 传送带标记图标id
       d.slots = [
         { dir: modelId === Cfg.ModelId.input ? -1 : 1 }, // 默认输出->1 [信号输入->-1]
       ];
@@ -409,7 +415,8 @@ export function dataToNode(data, nodeId, offset) {
  * @property {number} h - 节点高度
  * @property {string} text - 节点文本
  * @property {number} itemId - 生成/消耗物品id
- * @property {number} signalId - 标记id
+ * @property {number} signalId - 传送带标记图标id
+ * @property {number} count - 传送带标记数
  * @property {NodeSlotData[]} slots - 插槽
  */
 /**
@@ -421,8 +428,8 @@ export function dataToNode(data, nodeId, offset) {
  * @property {number} filterId - 四向插槽-过滤优先输出物品id
  * @property {number} packageNodeId - 封装模块插槽-对应package中原输入输出节点id
  * @property {number} itemId - 封装模块插槽-生成/消耗物品id
- * @property {number} signalId - 封装模块插槽-插槽标记id
- * @property {number} count - 封装模块插槽-插槽标记数
+ * @property {number} signalId - 封装模块插槽-插槽传送带标记图标id
+ * @property {number} count - 封装模块插槽-插槽传送带标记数
  * @property {string} text - 封装模块插槽-插槽文本
  */
 /**
@@ -462,7 +469,8 @@ export function nodeToData(node) {
   } else if ([Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
     // 流速器、信号输出、信号输入
     data.itemId = node.itemId; // 生成/消耗物品id
-    data.signalId = node.signalId; // 标记id
+    data.signalId = node.signalId || undefined; // 传送带标记图标id
+    data.count = node.count ?? undefined; // 传送带标记数
     data.slots =
       node.slots?.map((s) => ({
         // 固定插槽，不保存偏移
@@ -480,8 +488,8 @@ export function nodeToData(node) {
         dir: s.dir, // 1:输出口 -1:输入口
         packageNodeId: s.packageNodeId, // 对应package中原输入输出节点id
         itemId: s.itemId, // 生成/消耗物品id
-        signalId: s.signalId || undefined, // 插槽标记id
-        count: s.count || undefined, // 插槽标记数
+        signalId: s.signalId || undefined, // 插槽传送带标记图标id
+        count: s.count || undefined, // 插槽传送带标记数
         text: s.text || undefined, // 插槽文本
       })) || [];
   } else {
@@ -562,24 +570,6 @@ export function edgeToData(edge) {
     endId: edge.target.id,
     endSlot: edge.targetSlot.index,
   };
-}
-
-/**
- * 遍历封装数据节点集合，提取设置输入输出口节点Map
- * @param {PackageModel} packageModel
- */
-export function setOutsideNodeMap(packageModel) {
-  Util.checkGraphData(packageModel.graphData, true, false);
-  if (!(packageModel.outsideNodeMap instanceof Map)) {
-    packageModel.outsideNodeMap = new Map();
-  }
-  packageModel.graphData.data.nodes.forEach((n) => {
-    if (n.modelId === Cfg.ModelId.input || n.modelId === Cfg.ModelId.output) {
-      // 输入输出口
-      packageModel.outsideNodeMap.set(n.id, n);
-    }
-  });
-  return packageModel;
 }
 
 function _toInt(num, def) {

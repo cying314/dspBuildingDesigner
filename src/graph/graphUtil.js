@@ -20,7 +20,8 @@ export function checkGraphData(graphData, isThrow, popupMessage) {
   try {
     if (graphData == null) throw "图谱数据为null！";
     if (!(graphData.header instanceof Object)) throw "header数据异常！";
-    // if (!(graphData.header.boundingBox instanceof Object)) throw "header.boundingBox数据异常！";
+    if (graphData.header.boundingBox != null && !(graphData.header.boundingBox instanceof Object))
+      throw "header.boundingBox数据异常！";
     if (!(graphData.header.transform instanceof Object)) throw "header.transform数据异常！";
     if (!(graphData.data instanceof Object)) throw "data数据异常！";
     if (!(graphData.data.nodes instanceof Array)) throw "data.nodes数据异常！";

@@ -304,50 +304,57 @@ export default class Graph {
    * @param {boolean} isTransform 是否更新视图位置
    */
   resetGraphData(graphData, isTransform = true) {
-    const graphParse = Mapper.graphDataParse(graphData, 0);
-    this._nodes = graphParse.nodes;
-    this._edges = graphParse.edges;
-    this._maxId = graphParse.maxId;
-    this._nodeMap = graphParse.nodeMap;
-    this._selection.nodeMap.clear();
+    Util.checkGraphData(graphData, true, true); // 校验图谱数据
+    try {
+      const graphParse = Mapper.graphDataParse(graphData, 0);
 
-    const header = graphParse.header;
-    // 图谱名称
-    this.graphName = header.graphName;
-    // 设置画布位移、缩放
-    if (isTransform) this.setTransform(header.transform);
-    // 载入生成布局
-    if (header.layout instanceof Object) {
-      Object.keys(header.layout).forEach((key) => {
-        let _lay = header.layout[key];
-        if (Object.hasOwnProperty.call(Cfg.layoutSetting, key)) {
-          let _cfgLay = Cfg.layoutSetting[key];
-          let { x = 0, y = 0 } = _lay.start ?? {};
-          _cfgLay.start = { x, y };
-          _cfgLay.maxW = _lay.maxW ?? 0;
-          _cfgLay.maxH = _lay.maxH ?? 0;
-          _cfgLay.maxD = _lay.maxD ?? 0;
-          _cfgLay.dir = _lay.dir ?? 0;
-        }
-      });
+      this._nodes = graphParse.nodes;
+      this._edges = graphParse.edges;
+      this._maxId = graphParse.maxId;
+      this._nodeMap = graphParse.nodeMap;
+      this._selection.nodeMap.clear();
+
+      const header = graphParse.header;
+      // 图谱名称
+      this.graphName = header.graphName;
+      // 设置画布位移、缩放
+      if (isTransform) this.setTransform(header.transform);
+      // 载入生成布局
+      if (header.layout instanceof Object) {
+        Object.keys(header.layout).forEach((key) => {
+          let _lay = header.layout[key];
+          if (Object.hasOwnProperty.call(Cfg.layoutSetting, key)) {
+            let _cfgLay = Cfg.layoutSetting[key];
+            let { x = 0, y = 0 } = _lay.start ?? {};
+            _cfgLay.start = { x, y };
+            _cfgLay.maxW = _lay.maxW ?? 0;
+            _cfgLay.maxH = _lay.maxH ?? 0;
+            _cfgLay.maxD = _lay.maxD ?? 0;
+            _cfgLay.dir = _lay.dir ?? 0;
+          }
+        });
+      }
+
+      // 重置引用封装模块列表
+      this.packageMap = new Map();
+      if (graphParse.packages?.length > 0) {
+        graphParse.packages.forEach((p) => {
+          this.packageMap.set(p.hash, p);
+        });
+      }
+
+      // 重置视图中的元素分层（否则可能会出现数据绑定异常）
+      this.buildGroup();
+      // 重绘节点
+      this.buildNode();
+      // 重绘连线
+      this.buildLink();
+      // 重绘选择框
+      this.buildBox();
+    } catch (e) {
+      Util._err("载入数据失败：" + e);
+      throw e;
     }
-
-    // 重置引用封装模块列表
-    this.packageMap = new Map();
-    if (graphParse.packages?.length > 0) {
-      graphParse.packages.forEach((p) => {
-        this.packageMap.set(p.hash, p);
-      });
-    }
-
-    // 重置视图中的元素分层（否则可能会出现数据绑定异常）
-    this.buildGroup();
-    // 重绘节点
-    this.buildNode();
-    // 重绘连线
-    this.buildLink();
-    // 重绘选择框
-    this.buildBox();
   }
 
   /**
@@ -357,42 +364,47 @@ export default class Graph {
    */
   appendGraphData(graphData, [ox = 0, oy = 0] = []) {
     Util.checkGraphData(graphData, true, true); // 校验图谱数据
-    const { minX = 0, minY = 0, w = 0, h = 0 } = graphData.header.boundingBox ?? {};
-    // 将坐标转换为视图内坐标
-    const coord = Util.offsetToCoord([ox, oy], this.transform);
-    let bboxOffset;
-    if (Cfg.globalSetting.gridAlignment) {
-      // 网格对齐
-      const ga = Util.gridAlignment(-w / 2 + coord[0], -h / 2 + coord[1]);
-      bboxOffset = [-minX + ga[0], -minY + ga[1]];
-    } else {
-      bboxOffset = [-minX - w / 2 + coord[0], -minY - h / 2 + coord[1]];
+    try {
+      const { minX = 0, minY = 0, w = 0, h = 0 } = graphData.header.boundingBox ?? {};
+      // 将坐标转换为视图内坐标
+      const coord = Util.offsetToCoord([ox, oy], this.transform);
+      let bboxOffset;
+      if (Cfg.globalSetting.gridAlignment) {
+        // 网格对齐
+        const ga = Util.gridAlignment(-w / 2 + coord[0], -h / 2 + coord[1]);
+        bboxOffset = [-minX + ga[0], -minY + ga[1]];
+      } else {
+        bboxOffset = [-minX - w / 2 + coord[0], -minY - h / 2 + coord[1]];
+      }
+      const { nodes, edges, maxId, nodeMap, packages } = Mapper.graphDataParse(
+        graphData,
+        this._maxId,
+        bboxOffset // 整体偏移
+      );
+      this._nodes.push(...nodes);
+      this._edges.push(...edges);
+      this._maxId = maxId;
+      nodeMap.forEach((n, nid) => {
+        this._nodeMap.set(nid, n);
+      });
+      this._selection.nodeMap = nodeMap; // 选中粘贴的节点
+
+      // 追加引用封装模块列表
+      this.appendPackages(packages);
+
+      // 重绘节点
+      this.buildNode();
+      // 重绘连线
+      this.buildLink();
+      // 重绘选择框
+      this.buildBox();
+
+      // 记录操作
+      this.recordUndo();
+    } catch (e) {
+      Util._err("合并数据失败：" + e);
+      throw e;
     }
-    const { nodes, edges, maxId, nodeMap, packages } = Mapper.graphDataParse(
-      graphData,
-      this._maxId,
-      bboxOffset // 整体偏移
-    );
-    this._nodes.push(...nodes);
-    this._edges.push(...edges);
-    this._maxId = maxId;
-    nodeMap.forEach((n, nid) => {
-      this._nodeMap.set(nid, n);
-    });
-    this._selection.nodeMap = nodeMap; // 选中粘贴的节点
-
-    // 追加引用封装模块列表
-    this.appendPackages(packages);
-
-    // 重绘节点
-    this.buildNode();
-    // 重绘连线
-    this.buildLink();
-    // 重绘选择框
-    this.buildBox();
-
-    // 记录操作
-    this.recordUndo();
   }
 
   /**
@@ -822,9 +834,9 @@ export default class Graph {
   }
 
   /**
-   * 切换流速器生成/消耗物品id 标记id
+   * 切换流速器生成/消耗物品id 传送带标记图标id
    * @param {Mapper.GraphNode} node 节点对象
-   * @param {number} signalId 标记id
+   * @param {number} signalId 传送带标记图标id
    */
   changeNodeSignalId(node, signalId) {
     const modelId = node?.modelId;
@@ -1962,7 +1974,7 @@ export default class Graph {
         graphName: this.graphName,
       },
       Array.from(this.packageMap.values()),
-      true
+      true // 剔除未引用的封装模块
     );
   }
 
@@ -2153,7 +2165,11 @@ export default class Graph {
       const blueprintRes = {
         name: this.graphName,
       };
-      const blueprint = BuildingUtil.generateBlueprint(this._nodes, this._edges, this.graphName);
+      const blueprint = BuildingUtil.generateBlueprint(
+        this._nodes,
+        this.packageMap,
+        this.graphName
+      );
       if (Cfg.globalSetting.generateMode === 0) {
         // 如果是无带流，多生成一个只有分拣器的蓝图
         const blueprint_onlyEdge = BuildingUtil.filterInserter(
@@ -2166,6 +2182,7 @@ export default class Graph {
       Util._success("生成蓝图成功！");
       return blueprintRes;
     } catch (e) {
+      console.error(e);
       Util._err("生成蓝图失败：" + (e?.message || e));
       return false;
     }
@@ -2240,9 +2257,21 @@ export default class Graph {
     }
 
     // 新增、更新
+
+    // 记录所有嵌套的子封装模块hash
+    const childsHashSet = new Set();
+    if (graphData.packages?.length > 0) {
+      for (let p of graphData.packages) {
+        childsHashSet.add(p.hash);
+        if (p.childsHash?.length > 0) {
+          childsHashSet.add(...p.childsHash);
+        }
+      }
+    }
     packageModel = {
       hash: graphDataHash,
       name: packageName,
+      childsHash: Array.from(childsHashSet),
       graphData,
       initNodeData: {
         modelId: Cfg.ModelId.package,
@@ -2250,7 +2279,6 @@ export default class Graph {
         text: packageName, // 节点文本-package名称
         slots: [],
       },
-      outsideNodeMap: new Map(),
     };
     // 遍历节点创建输入输出插槽
     const inputSlots = [];
@@ -2258,12 +2286,12 @@ export default class Graph {
     graphData.data.nodes.forEach((n) => {
       if (n.modelId === Cfg.ModelId.input) {
         // 信号输入口
-        packageModel.outsideNodeMap.set(n.id, n);
         /** @type {Mapper.NodeSlotData} */
         const slot = {
           packageNodeId: n.id, // 对应package中原输入输出节点id
           itemId: n.itemId, // 生成/消耗物品id
-          signalId: n.signalId, // 文本标记id
+          signalId: n.signalId, // 传送带标记图标id
+          count: n.count, // 传送带标记数
           text: n.text, // 插槽文本
           dir: 1, // 外部插槽需要倒置输入输出
         };
@@ -2271,11 +2299,11 @@ export default class Graph {
         inputSlots.push(slot);
       } else if (n.modelId === Cfg.ModelId.output) {
         // 信号输出口
-        packageModel.outsideNodeMap.set(n.id, n);
         const slot = {
           packageNodeId: n.id,
           itemId: n.itemId,
           signalId: n.signalId,
+          count: n.count,
           text: n.text,
           dir: -1, // 倒置为输入
         };
@@ -2355,7 +2383,7 @@ export default class Graph {
     if (!packageModel) return;
     try {
       await Util._confirmHtml(
-        `是否删除封装模块<span style="font-weight:bold;color:var(--color-warning)">${packageModel.name}</span>，及其相应的引用节点`
+        `是否删除封装模块<span style="font-weight:bold;color:var(--color-warning)">${packageModel.name}</span>，及其所有引用节点<br/><span style="color:var(--color-warning)">*删除包含嵌套封装了该模块的其他封装</span>`
       );
     } catch {
       // 取消
@@ -2373,38 +2401,22 @@ export default class Graph {
   deletePackage(packageHash) {
     if (!packageHash) return;
 
-    // 构建依赖链
-    const treeMap = {};
-    this.packageMap.forEach((c, cHash) => {
-      c.graphData?.packageHashList?.forEach((pHash) => {
-        if (!treeMap[pHash]) {
-          treeMap[pHash] = [cHash];
-        } else {
-          treeMap[pHash].push(cHash);
-        }
-      });
+    this.packageMap.delete(packageHash);
+    const referenceHash = new Set(); // 记录嵌套引用了packageHash的所有封装模块Hash
+    referenceHash.add(packageHash);
+
+    // 删除封装模块时，同步删除引用到该模块的外嵌套封装模块
+    this.packageMap.forEach((p) => {
+      if (p.childsHash?.includes(packageHash)) {
+        // 删除嵌套引用的模块
+        this.packageMap.delete(p.hash);
+        referenceHash.add(p.hash);
+      }
     });
 
-    this.packageMap.delete(packageHash);
-    const referencePackageHash = new Set(); // 记录嵌套引用了packageHash的所有封装模块Hash
-    referencePackageHash.add(packageHash);
-
-    let childs = treeMap[packageHash] ?? [];
-    while (childs.length > 0) {
-      let _hash = childs.shift();
-      if (referencePackageHash.has(_hash)) continue;
-      // 删除嵌套引用的模块
-      this.packageMap.delete(_hash);
-      referencePackageHash.add(_hash);
-      let _childs = treeMap[_hash];
-      if (_childs?.length > 0) {
-        childs.push(..._childs);
-      }
-    }
-
-    // 找到所有引用该封装模块的节点
+    // 找到所有引用被删除模块的节点
     let packageNodes = this._nodes.filter((n) => {
-      return n.modelId === Cfg.ModelId.package && referencePackageHash.has(n.packageHash);
+      return n.modelId === Cfg.ModelId.package && referenceHash.has(n.packageHash);
     });
     this.deleteNodes(packageNodes);
     // 记录操作

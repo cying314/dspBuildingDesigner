@@ -286,7 +286,7 @@ export default {
       // 新建
       graphData = Util.getInitGraphData();
       // 更新路由，去掉新建参数标识
-      window.history.replaceState({}, '', "/");
+      window.history.replaceState({}, "", window.location.origin + window.location.pathname);
     } else {
       graphData = Util.getCacheGraphData() ?? Util.getInitGraphData(); // 优先获取缓存，没有则初始化
     }
@@ -608,7 +608,7 @@ export default {
         });
       }
       if ([Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
-        // 信号输出、信号输入 切换标记id
+        // 信号输出、信号输入 切换传送带标记图标id
         this.operMenuBtns.push({
           title: "切换标记",
           icon: "el-icon-info",

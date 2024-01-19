@@ -459,7 +459,7 @@ export function getItemImage(itemId) {
 }
 
 const signalImageMap = new Map();
-/** 根据标记id获取物品图标 */
+/** 根据传送带标记图标id获取图标 */
 export function getSignalImage(signalId) {
   if (signalId == null) return null;
   let img = signalImageMap.get(signalId);

@@ -1,6 +1,6 @@
 import * as Cfg from "@/graph/graphConfig.js";
-/** @typedef {import("@/graph/dataMapper").GraphNode} GraphNode */
-/** @typedef {import("@/graph/dataMapper").GraphEdge} GraphEdge */
+import * as Util from "@/graph/graphUtil.js";
+import * as Mapper from "@/graph/dataMapper";
 /**
  * @typedef {Object} BuildingItem
  * @property {number} index - 建筑索引
@@ -10,6 +10,8 @@ import * as Cfg from "@/graph/graphConfig.js";
  * @property {number} inputObjIdx - 输入对象索引
  * @property {number} inputFromSlot - 输入对象插槽索引
  * @property {number} filterId - 过滤物品id
+ * @property {BuildingItem[]} _belts - (临时属性) 关联传送带建筑对象
+ * @property {number[]} _slotsBeltIdx - (临时属性) 插槽外接的传送带建筑对象索引
  */
 /**
  * @typedef {Object} BuildingSize 建筑大小信息
@@ -28,12 +30,12 @@ const inserterSize = { w: 1, h: 2, d: 1, cx: 0.5, cy: 1.5 };
 
 /**
  * 生成蓝图数据
- * @param {GraphNode[]} nodes 节点集
- * @param {GraphEdge[]} edges 边集
+ * @param {Mapper.GraphNode[]} nodes 节点集
+ * @param {Map<string, Mapper.PackageModel>} packageMap 封装节点映射 hash->PackageModel
  * @param {string} graphName 蓝图名
  * @return {object} blueprint
  */
-export function generateBlueprint(nodes, edges, graphName) {
+export function generateBlueprint(nodes, packageMap, graphName) {
   const blueprint = {
     header: {
       layout: 10,
@@ -59,25 +61,99 @@ export function generateBlueprint(nodes, edges, graphName) {
       },
     ],
   };
-  blueprint.buildings = createbuildings(nodes, edges);
+  blueprint.buildings = createbuildings({
+    nodes,
+    packageMap,
+  });
   return blueprint;
 }
 
 /**
  * 生成蓝图建筑列表
- * @param {GraphNode[]} nodes 节点集
- * @param {GraphEdge[]} edges 边集
+ * @param {Object} opt
+ * @param {Mapper.GraphNode[]} opt.nodes 节点集
+ * @param {Map<string, Mapper.PackageModel>} opt.packageMap 封装节点映射 hash->PackageModel
  * @return {BuildingItem[]}
  */
-export function createbuildings(nodes, edges) {
-  let resList = [];
-  let fdirList = []; // 四向节点
-  let monitorList = []; // 流速器节点
-  let outputList = []; // 信号输出
-  let inputList = []; // 信号输入
+export function createbuildings({ nodes, packageMap }) {
+  // 解析节点生成建筑
+  let nodeGroup = collateNodes(nodes, packageMap);
 
+  // 1、排列 四向分流器 建筑布局
+  formatBuildsLayout(nodeGroup.fdirList, fdirSize, Cfg.layoutSetting.fdirLayout, true);
+
+  // 2、排列 流速器 建筑布局
+  formatBuildsLayout(nodeGroup.monitorList, monitorSize, Cfg.layoutSetting.monitorLayout);
+
+  // 3、排列 信号输出流速器 建筑布局
+  formatBuildsLayout(nodeGroup.outputList, monitorSize, Cfg.layoutSetting.outputLayout);
+
+  // 4、排列 信号输入流速器 建筑布局
+  formatBuildsLayout(nodeGroup.inputList, monitorSize, Cfg.layoutSetting.inputLayout);
+
+  // 5、解析边集，创建分拣器
+  let inserterList = generateInserter(nodeGroup.edgeSet, nodeGroup.idToBuildMap, nodeGroup.builds);
+
+  // 6、排列 分拣器 建筑布局
+  formatBuildsLayout(inserterList, inserterSize, Cfg.layoutSetting.inserterLayout);
+
+  return nodeGroup.builds;
+}
+
+/**
+ * @typedef {Object} CollateNodesRes
+ * @property {BuildingItem[]} builds 全部建筑列表
+ * @property {BuildingItem[]} fdirList 四向建筑列表
+ * @property {BuildingItem[]} monitorList 流速器建筑列表
+ * @property {BuildingItem[]} outputList 信号输出建筑列表
+ * @property {BuildingItem[]} inputList 信号输入建筑列表
+ * @property {Set<Mapper.GraphEdge>} edgeSet 边集
+ * @property {number} maxId 最大节点id
+ * @property {Map<number,BuildingItem>} idToBuildMap 节点id->建筑对象映射
+ */
+/**
+ * 解析节点生成建筑
+ * @param {Mapper.GraphNode[]} nodes 节点集合
+ * @param {Map<string, Mapper.PackageModel>} packageMap 封装节点映射 hash->PackageModel
+ * @param {CollateNodesRes} res 返回集合，若传入则在原来基础上累加
+ * @param {boolean} isPackage 是否封装内建筑
+ * @param {Map<number,number>} outsideNodeMap 封装模块内的输入输出节点id -> 外接节点id
+ * @return {CollateNodesRes}
+ */
+export function collateNodes(nodes, packageMap, res, isPackage, outsideNodeMap) {
+  res ??= {};
+  res.builds ??= [];
+  res.fdirList ??= [];
+  res.monitorList ??= [];
+  res.outputList ??= [];
+  res.inputList ??= [];
+  res.edgeSet ??= new Set();
+  res.maxId ??= 0;
+  res.idToBuildMap ??= new Map();
+  /** @type {Mapper.GraphNode[]} 封装模块节点 */
+  const packageNodeList = [];
   nodes.forEach((n) => {
-    switch (n.modelId) {
+    if (n.id > res.maxId) res.maxId = n.id;
+
+    let modelId = n.modelId;
+    if (isPackage && (modelId === Cfg.ModelId.input || modelId === Cfg.ModelId.output)) {
+      // 若输入输出口已外接，则忽略这个流速器
+      if (outsideNodeMap?.has(n.id)) return;
+      // 封装建筑内的输入归到普通流速器里
+      modelId = Cfg.ModelId.monitor;
+    }
+
+    var hasEdge = false;
+    n.slots.forEach((s) => {
+      if (s.edge != null) {
+        hasEdge = true;
+        // 记录连线
+        res.edgeSet.add(s.edge);
+      }
+    });
+    // 只生成有连接的节点
+    if (!hasEdge) return;
+    switch (modelId) {
       case Cfg.ModelId.fdir: // 四向
         var priorityIdx = []; // 优先插槽索引
         var inputIdx = []; // 输入插槽索引
@@ -85,161 +161,387 @@ export function createbuildings(nodes, edges) {
         for (let i = 0; i < 4; i++) {
           const s = n.slots[i];
           if (s.edge == null) continue;
+          // 移除可能存在的旧标识
+          if (s._onlyOnePriorityIpt) s._onlyOnePriorityIpt = undefined;
+          if (s._doubleInserter) s._doubleInserter = undefined;
+
           if (s.priority === 1) priorityIdx.push(i);
           if (s.dir === 1) outputIdx.push(i);
           else inputIdx.push(i);
         }
         // 四向只有一个优先输入时，标记优先输入边使用配速带（无带：配黄带，直连：配绿带）
         if (priorityIdx.length == 1 && n.slots[priorityIdx[0]].dir === -1) {
-          n.slots[priorityIdx[0]].edge._onlyOnePriorityIpt = true;
+          n.slots[priorityIdx[0]]._onlyOnePriorityIpt = true;
         }
         // 无带流模式下，四向是否两进一出，标记输出口接两个分拣器
         if (Cfg.globalSetting.generateMode === 0 && inputIdx.length == 2 && outputIdx.length == 1) {
-          n.slots[outputIdx[0]].edge._doubleInserter = true;
+          n.slots[outputIdx[0]]._doubleInserter = true;
         }
-        fdirList.push(n);
+
+        var fdir = createFdirGroup(n, res.builds.length);
+        res.fdirList.push(fdir);
+        res.builds.push(fdir);
+        res.builds.push(...fdir._belts);
+        res.idToBuildMap.set(n.id, fdir);
         break;
       case Cfg.ModelId.monitor: // 流速器
-        monitorList.push(n);
+        var monitor = createMonitorGroup(n, res.builds.length);
+        res.monitorList.push(monitor);
+        res.builds.push(monitor);
+        res.builds.push(...monitor._belts);
+        res.idToBuildMap.set(n.id, monitor);
         break;
       case Cfg.ModelId.output: // 信号输出
-        outputList.push(n);
+        var output = createMonitorGroup(n, res.builds.length);
+        res.outputList.push(output);
+        res.builds.push(output);
+        res.builds.push(...output._belts);
+        res.idToBuildMap.set(n.id, output);
         break;
       case Cfg.ModelId.input: // 信号输入
-        inputList.push(n);
+        var input = createMonitorGroup(n, res.builds.length);
+        res.inputList.push(input);
+        res.builds.push(input);
+        res.builds.push(...input._belts);
+        res.idToBuildMap.set(n.id, input);
+        break;
+      case Cfg.ModelId.package: // 封装模块
+        packageNodeList.push(n);
         break;
     }
   });
+  // 解析封装节点
+  packageNodeList.forEach((n) => {
+    let p = packageMap.get(n.packageHash);
+    if (p == null) throw "数据异常，找不到封装组件数据！";
+    // 校验图谱数据
+    Util.checkGraphData(p.graphData, true, false);
+    // 解析图谱数据(偏移节点id，避免id重复)
+    let graphParse = Mapper.graphDataParse(p.graphData, res.maxId);
 
-  const nodeId2SlotBeltsMap = new Map();
+    /** @type {Map<number,number>} 封装模块内的输入输出节点id -> 外接节点id */
+    let outsideNodeMap = new Map();
+    n.slots.forEach((s) => {
+      if (s.edge == null) return;
+      // 删除当前连在封装模块上的边（封装节点不新建连线，而是修改内置连线目标外置）
+      res.edgeSet.delete(s.edge);
 
-  // 1、四向布局
-  const fdirLayout = Cfg.layoutSetting.fdirLayout;
-  let fdirOffset = [fdirLayout.start.x, fdirLayout.start.y, 0];
-  let fdirLayoutCoords = centralCubeLayout(
-    fdirList.length,
-    fdirSize,
-    fdirLayout,
-    fdirOffset,
-    fdirLayout.name
+      // 已链接的封装模块内的 输入输出节点
+      let outsideNode = graphParse._nodeMapByOriginId.get(s.packageNodeId);
+      if (
+        outsideNode == null ||
+        (outsideNode.modelId != Cfg.ModelId.output && outsideNode.modelId != Cfg.ModelId.input) ||
+        outsideNode.slots[0] == null
+      ) {
+        throw "封装组件插槽节点数据异常！";
+      }
+      let outsideNodeSlot = outsideNode.slots[0];
+      // 内置输入输出口未连接
+      if (outsideNodeSlot.edge == null) return;
+      outsideNodeMap.set(outsideNode.id, n.id);
+
+      // 将内置输入输出口的连接线 重新连接到 外置插槽链接的节点
+      if (outsideNodeSlot.dir == 1) {
+        outsideNodeSlot.edge.source = s.edge.source;
+        outsideNodeSlot.edge.sourceSlot = s.edge.sourceSlot;
+      } else {
+        outsideNodeSlot.edge.target = s.edge.target;
+        outsideNodeSlot.edge.targetSlot = s.edge.targetSlot;
+      }
+    });
+
+    // 递归解析封装节点数据
+    collateNodes(graphParse.nodes, packageMap, res, true, outsideNodeMap);
+  });
+  return res;
+}
+
+/**
+ * 根据布局对象排列建筑位置
+ * @param {BuildingItem[]} builds 建筑列表
+ * @param {BuildingSize} size 建筑大小信息
+ * @param {Cfg.BuildingLayout} layout 建筑布局信息
+ * @param {boolean} isStack 是否堆叠建筑
+ */
+export function formatBuildsLayout(builds, size, layout, isStack = false) {
+  // 生成布局坐标数组
+  let layoutCoords = centralCubeLayout(
+    builds.length,
+    size,
+    layout,
+    [layout.start.x, layout.start.y, 0],
+    layout.name
   );
-  /** 节点id映射插槽传送带对象 @type {Map<number,BuildingItem[]>} */
-  let prevFdir;
-  fdirList.forEach((n, ni) => {
-    //  创建 四向带4个短垂直带
-    let inputObjIdx = -1;
-    let [x, y, z] = fdirLayoutCoords[ni];
-    if (z !== 0) {
-      // z不为0，传入上一个四向做底
-      inputObjIdx = prevFdir?.index ?? -1;
+  for (let i = 0; i < builds.length; i++) {
+    let build = builds[i];
+    let [x, y, z] = layoutCoords[i];
+    if (isStack && z !== 0 && i > 0) {
+      // 堆叠建筑z不为0，赋值上一个建筑做底
+      build.inputObjIdx = builds[i - 1].index ?? -1;
     }
-    const item = createItem(resList.length, [x, y, z], n, resList, inputObjIdx);
-    prevFdir = item._fdir;
-    nodeId2SlotBeltsMap.set(n.id, item._slotsBelts);
-  });
+    // 原对象坐标
+    let { ox, oy, oz } = build.localOffset[0] ?? { x: 0, y: 0, z: 0 };
+    // 更新坐标
+    build.localOffset = [
+      { x, y, z },
+      { x, y, z },
+    ];
+    let dtx = x - ox;
+    let dty = y - oy;
+    let dtz = z - oz;
+    // 更新关联传送带坐标
+    build._belts?.forEach((b) => {
+      // 相对主建筑偏移
+      let { bx, by, bz } = b.localOffset[0] ?? { x: 0, y: 0, z: 0 };
+      let os = { x: bx + dtx, y: by + dty, z: bz + dtz };
+      b.localOffset = [os, os];
+    });
+  }
+}
 
-  // 2、流速器布局
-  const monitorLayout = Cfg.layoutSetting.monitorLayout;
-  let monitorOffset = [monitorLayout.start.x, monitorLayout.start.y, 0];
-  let monitorLayoutCoords = centralCubeLayout(
-    monitorList.length,
-    monitorSize,
-    monitorLayout,
-    monitorOffset,
-    monitorLayout.name
-  );
-  monitorList.forEach((n, ni) => {
-    //  创建流速器组（带两节传送带）
-    const monitorGroup = createMonitorGroup(resList.length, monitorLayoutCoords[ni], n, resList);
-    nodeId2SlotBeltsMap.set(n.id, monitorGroup._slotsBelts);
-  });
+/**
+ * 创建四向建筑组（四向带4个短垂直带结构）
+ * @param {Mapper.GraphNode} node 节点
+ * @param {number} startIndex 起始索引
+ * @param {number[]} offset 偏移 [ox,oy,oz]
+ * @return {BuildingItem} 四向建筑组对象
+ */
+export function createFdirGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0] = []) {
+  let filterId = 0;
+  let priority = [false, false, false, false];
 
-  // 3、信号输入布局
-  const outputLayout = Cfg.layoutSetting.outputLayout;
-  let startOffset = [outputLayout.start.x, outputLayout.start.y, 0];
-  let outputLayoutCoords = centralCubeLayout(
-    outputList.length,
-    monitorSize,
-    outputLayout,
-    startOffset,
-    outputLayout.name
-  );
-  outputList.forEach((n, ni) => {
-    //  创建流速器组（带两节传送带）
-    const monitorGroup = createMonitorGroup(resList.length, outputLayoutCoords[ni], n, resList);
-    nodeId2SlotBeltsMap.set(n.id, monitorGroup._slotsBelts);
-  });
+  // 创建四向底下四个垂直带
+  const _belts = [];
+  const _slotsBeltIdx = [];
+  const HorizDistance = 0.7; // 传送带距离四向中心的偏移
+  const VerticalDistance = 1.2; // 四个垂直带至少要放下两个货物，否则四向优先输出逻辑将失效；另卡29容量可以使黄绿带变1tick延迟（0.7容量为21，0.6容量为19，1.2容量为29）
+  const os = [
+    // 垂直带相对位置
+    { x: ox, y: oy + HorizDistance, z: oz }, // 上
+    { x: ox + HorizDistance, y: oy, z: oz }, // 右
+    { x: ox, y: oy - HorizDistance, z: oz }, // 下
+    { x: ox - HorizDistance, y: oy, z: oz }, // 左
+  ];
+  // 下一节带的小偏移量，形成完美垂直带，并且都朝外
+  const osY = [0.01, 0.01, -0.01, -0.01];
+  let offsetIndex = 0;
+  for (let i = 0; i < 4; i++) {
+    const s = node.slots[i];
+    if (s.edge == null) continue; // 未连接
+    if (s.priority === 1) {
+      // 是否优先接口
+      priority[i] = true;
+    }
+    // 优先输出过滤物品id
+    if (s.priority === 1 && s.dir === 1 && s.filterId != null) {
+      filterId = s.filterId;
+    }
+    // 创建四向直连的传送带
+    let belt1 = {
+      index: startIndex + ++offsetIndex, // 四向索引startIndex
+      offset: [os[i].x, os[i].y, os[i].z + VerticalDistance / 2],
+    };
+    if (s.dir === 1) {
+      // 输出口 从四向输入
+      belt1.ipt = [startIndex, i];
+    } else if (s.dir === -1) {
+      // 输入口 输出到四向
+      belt1.opt = [startIndex, i];
+    }
+    if (Cfg.globalSetting.generateMode === 0) {
+      // 无带流模式 输出口生成垂直传送带
+      const beltLevel = 3; // 传送带等级(1,2,3) 默认绿带
+      belt1.level = beltLevel;
 
-  // 4、信号输入布局
-  const inputLayout = Cfg.layoutSetting.inputLayout;
-  let endOffset = [inputLayout.start.x, inputLayout.start.y, 0];
-  let inputLayoutCoords = centralCubeLayout(
-    inputList.length,
-    monitorSize,
-    inputLayout,
-    endOffset,
-    inputLayout.name
-  );
-  inputList.forEach((n, ni) => {
-    //  创建流速器组（带两节传送带）
-    const monitorGroup = createMonitorGroup(resList.length, inputLayoutCoords[ni], n, resList);
-    nodeId2SlotBeltsMap.set(n.id, monitorGroup._slotsBelts);
-  });
+      // 创建外接传送带
+      let belt2 = {
+        index: startIndex + ++offsetIndex,
+        offset: [os[i].x, os[i].y + osY[i], os[i].z + VerticalDistance / 2],
+        level: beltLevel,
+      };
+      if (s.dir === 1) {
+        // 输出到下一节
+        belt1.opt = [belt2.index, 1]; // 传送带插槽默认为1
+      } else if (s.dir === -1) {
+        // 输出到上一节
+        belt2.opt = [belt1.index, 1]; // 传送带插槽默认为1
+        if (s._onlyOnePriorityIpt) {
+          // 四向只有一个优先输入时，优先输入端使用黄带
+          belt1.level = 1;
+          belt2.level = 1;
+        }
+      }
+      const belt1_building = createBelt(belt1);
+      const belt2_building = createBelt(belt2);
+      // 记录关联的传送带对象
+      _belts.push(belt1_building);
+      _belts.push(belt2_building);
+      // 记录插槽外接传送带建筑对象索引
+      _slotsBeltIdx[i] = _belts.length - 1; // belt2_building
+    } else if (Cfg.globalSetting.generateMode === 1) {
+      // 传送带直连模式 输出口只生成一个传送带节点
+      if (s._onlyOnePriorityIpt) {
+        // 四向只有一个优先输入时，优先输入端使用绿带
+        belt1.level = 2;
+      } else {
+        // 否则使用蓝带
+        belt1.level = 3;
+      }
+      const belt1_building = createBelt(belt1);
+      // 记录关联的传送带对象
+      _belts.push(belt1_building);
+      // 记录插槽外接传送带建筑对象索引
+      _slotsBeltIdx[i] = _belts.length - 1; // belt1_building
+    }
+  }
 
-  // 5、分拣器：中心扩散布局
-  const inserterLayout = Cfg.layoutSetting.inserterLayout;
-  let inserterOffset = [inserterLayout.start.x, inserterLayout.start.y, 0];
-  let inserterLayoutCoords = centralCubeLayout(
-    edges.length * 2,
-    inserterSize,
-    inserterLayout,
-    inserterOffset,
-    inserterLayout.name
-  );
-  let i = 0;
-  edges.forEach((e) => {
-    let targetSlotsBelts = nodeId2SlotBeltsMap.get(e.target.id);
-    let sourceSlotsBelts = nodeId2SlotBeltsMap.get(e.source.id);
+  // 创建四向分流器
+  const _fdir = createFdir({
+    index: startIndex,
+    offset: [ox, oy, oz],
+    priority,
+    filterId,
+  });
+  _fdir._belts = _belts;
+  _fdir._slotsBeltIdx = _slotsBeltIdx;
+  return _fdir;
+}
+
+/**
+ * 创建流速器组（流速器带两节传送带）
+ * @param {Mapper.GraphNode} node 节点
+ * @param {number} startIndex 起始索引
+ * @param {number[]} offset 偏移 [ox,oy,oz]
+ * @return {BuildingItem} 流速器组对象
+ */
+export function createMonitorGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0] = []) {
+  let spawnItemOperator = 1; // 0:不勾选 1:生成货物 2:消耗货物
+  let passColorId = 1;
+  let failColorId = 1;
+  let beltLevel = 3; // 传送带等级(1,2,3) 默认蓝带
+  let targetCargoAmount = 60; // 目标流量(单位：0.1个)
+  if (Cfg.globalSetting.generateMode === 0) {
+    // 无带流配速黄带 使用绿带
+    targetCargoAmount = 60;
+    beltLevel = 3;
+  } else if (Cfg.globalSetting.generateMode === 1) {
+    // 直连传送带配速绿带 使用蓝带
+    targetCargoAmount = 120;
+    beltLevel = 3;
+  }
+  if (node.modelId === Cfg.ModelId.output || node.modelId === Cfg.ModelId.input) {
+    // 只有 信号输出、信号输入 才点亮流速器
+    passColorId = 113;
+    failColorId = 13;
+  } else if (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1) {
+    // 生成货物流速器 速度改为30/s，匹配优先口满带(用于提速初始化)
+    targetCargoAmount = 300;
+  }
+  const yOffset = -0.1; // 整体偏移，避免非瞬间建造时流速器绑定错位问题
+  const beltDistance = 0.7; // 传送带间距
+  // 接流速器
+  let belt1 = {
+    index: startIndex + 1,
+    offset: [ox, oy + yOffset, oz],
+    level: beltLevel,
+  };
+  // 外接
+  let belt2 = {
+    index: startIndex + 2,
+    offset: [ox, oy + yOffset - beltDistance, oz],
+    iconId: node.signalId, // 传送带标记图标id
+    count: node.count, // 传送带标记数
+    level: beltLevel,
+  };
+  if (
+    node.modelId === Cfg.ModelId.output ||
+    (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1)
+  ) {
+    // 信号输出 或流速器 生成货物
+    spawnItemOperator = 1;
+    // 输出到下一节
+    belt1.opt = [belt2.index, 1]; // 传送带插槽默认为1
+  } else if (
+    node.modelId === Cfg.ModelId.input ||
+    (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === -1)
+  ) {
+    // 信号输入 或流速器 消耗货物
+    spawnItemOperator = 2;
+    if (node.modelId === Cfg.ModelId.input) {
+      // 输入口不自动消耗
+      spawnItemOperator = 1;
+    }
+    // 输出到上一节
+    belt2.opt = [belt1.index, 1]; // 传送带插槽默认为1
+  }
+  // 创建流速器
+  const _monitor = createMonitor({
+    index: startIndex,
+    offset: [ox, oy, oz],
+    spawnItemOperator, // 生成/消耗货物
+    cargoFilter: node.itemId,
+    passColorId,
+    failColorId,
+    targetCargoAmount,
+  });
+  // 创建底下传送带
+  const belt1_building = createBelt(belt1);
+  const belt2_building = createBelt(belt2);
+  // 记录关联的传送带对象
+  _monitor._belts = [belt1_building, belt2_building];
+  // 记录插槽外接传送带建筑对象索引
+  _monitor._slotsBeltIdx = [_monitor._belts.length - 1]; // belt2_building
+  return _monitor;
+}
+
+/**
+ * 根据布局生成分拣器建筑
+ * @param {Set<Mapper.GraphEdge>} edgeSet 边集合
+ * @param {Map<number,BuildingItem>} idToBuildMap 节点id->建筑对象映射
+ * @param {BuildingItem[]} inserterList 分拣器建筑列表
+ */
+export function generateInserter(edgeSet, idToBuildMap, builds) {
+  // 分拣器布局
+  let inserterList = [];
+  edgeSet.forEach((e) => {
+    let targetBuild = idToBuildMap.get(e.target.id);
+    let sourceBuild = idToBuildMap.get(e.source.id);
+    let targetBelt;
+    let sourceBelt;
+    // 获取插槽外接传送带对象
+    if (targetBuild) {
+      targetBelt = targetBuild._belts[targetBuild._slotsBeltIdx[e.targetSlot.index]];
+    }
+    if (sourceBuild) {
+      sourceBelt = sourceBuild._belts[sourceBuild._slotsBeltIdx[e.sourceSlot.index]];
+    }
+
     if (Cfg.globalSetting.generateMode === 0) {
       // 无带流模式 生成分拣器
-      let outputObjIdx = -1;
-      let inputObjIdx = -1;
-      if (targetSlotsBelts && targetSlotsBelts[e.targetSlot.index]) {
-        outputObjIdx = targetSlotsBelts[e.targetSlot.index].index;
-      }
-      if (sourceSlotsBelts && sourceSlotsBelts[e.sourceSlot.index]) {
-        inputObjIdx = sourceSlotsBelts[e.sourceSlot.index].index;
-      }
-
+      let outputObjIdx = targetBelt ? targetBelt.index : -1;
+      let inputObjIdx = sourceBelt ? sourceBelt.index : -1;
       // 创建分拣器连接传送带，配速黄带满带
       const inserter1 = createInserter({
-        index: resList.length,
-        offset: inserterLayoutCoords[i++],
+        index: builds.length,
         outputObjIdx,
         inputObjIdx,
       });
-      resList.push(inserter1);
-      if (e._doubleInserter) {
+      builds.push(inserter1);
+      inserterList.push(inserter1);
+      if (e.targetSlot?._doubleInserter || e.sourceSlot?._doubleInserter) {
         // 四向两进一出，输出口接两个分拣器（配速混带输出）
         const inserter2 = createInserter({
-          index: resList.length,
-          offset: inserterLayoutCoords[i++],
+          index: builds.length,
           outputObjIdx,
           inputObjIdx,
         });
-        resList.push(inserter2);
+        builds.push(inserter2);
+        inserterList.push(inserter2);
       }
     } else if (Cfg.globalSetting.generateMode === 1) {
       // 传送带直连模式 修改传送带输出口到另一个传送带
-      if (
-        targetSlotsBelts &&
-        targetSlotsBelts[e.targetSlot.index] &&
-        sourceSlotsBelts &&
-        sourceSlotsBelts[e.sourceSlot.index]
-      ) {
-        let targetBelt = targetSlotsBelts[e.targetSlot.index];
-        let sourceBelt = sourceSlotsBelts[e.sourceSlot.index];
-        // 取两节传送带最慢的带速
+      if (targetBelt && sourceBelt) {
+        // 取两节传送带最慢的带速 作为整条传送带的速度
         if (sourceBelt.itemId > targetBelt.itemId) {
           sourceBelt.itemId = targetBelt.itemId;
           sourceBelt.modelIndex = targetBelt.modelIndex;
@@ -253,132 +555,11 @@ export function createbuildings(nodes, edges) {
       }
     }
   });
-  return resList;
+  return inserterList;
 }
 
 /**
- * 创建 四向带4个短垂直带 结构
- * @param {number} opt.startIndex 起始索引
- * @param {number[]} opt.offset 偏移 [ox,oy,oz]
- * @param {GraphNode} node 节点
- * @param {object[]} list 建筑列表
- * @param {number} opt.inputObjIdx 四向底座的索引
- * @return {{_fdir:BuildingItem, _slotsBelts: BuildingItem[]}} 四向建筑对象（_slotsBelts属性为插槽外接传送带建筑对象）
- */
-export function createItem(
-  startIndex = 0,
-  [ox = 0, oy = 0, oz = 0] = [],
-  node,
-  buildList = [],
-  inputObjIdx = -1
-) {
-  // 创建四向分流器
-  let filterId = 0;
-  let priority = [false, false, false, false];
-  node.slots.forEach((s, si) => {
-    if (si > 3) return;
-    if (s.priority === 1) {
-      // 是否优先接口
-      priority[si] = true;
-    }
-    if (s.priority === 1 && s.dir === 1 && s.filterId != null) {
-      // 优先输出过滤物品id
-      filterId = s.filterId;
-    }
-  });
-  const _fdir = createFdir({
-    index: startIndex,
-    offset: [ox, oy, oz],
-    priority,
-    filterId,
-    inputObjIdx,
-  });
-  buildList.push(_fdir);
-
-  /** 插槽外接传送带建筑对象 @type {BuildingItem[]} */
-  const _slotsBelts = [];
-  const HorizDistance = 0.7; // 传送带距离四向中心的偏移
-  const VerticalDistance = 1.2; // 四个垂直带至少要放下两个货物，否则四向优先输出逻辑将失效；另卡29容量可以使黄绿带变1tick延迟（0.7容量为21，0.6容量为19，1.2容量为29）
-  // 四向4个口的传送带位置
-  let os = [
-    { x: ox, y: oy + HorizDistance, z: oz }, // 上
-    { x: ox + HorizDistance, y: oy, z: oz }, // 右
-    { x: ox, y: oy - HorizDistance, z: oz }, // 下
-    { x: ox - HorizDistance, y: oy, z: oz }, // 左
-  ];
-  let offsetIndex = 0;
-  for (let i = 0; i < 4; i++) {
-    const s = node.slots[i];
-    if (s.edge == null) continue; // 未连接
-    // 四向直连传送带
-    let belt1 = {
-      index: startIndex + ++offsetIndex,
-      offset: [os[i].x, os[i].y, os[i].z + VerticalDistance / 2],
-    };
-    if (s.dir === 1) {
-      // 输出口 从四向输入
-      belt1.ipt = [_fdir.index, i];
-    } else if (s.dir === -1) {
-      // 输入口 输出到四向
-      belt1.opt = [_fdir.index, i];
-    }
-    if (Cfg.globalSetting.generateMode === 0) {
-      // 无带流模式 输出口生成垂直传送带
-      const beltLevel = 3; // 传送带等级(1,2,3) 默认绿带
-      belt1.level = beltLevel;
-      // 小偏移，形成完美垂直带，并且都朝外
-      let os2 = [
-        { x: ox, y: oy + HorizDistance + 0.01, z: oz }, // 上
-        { x: ox + HorizDistance + 0.01, y: oy, z: oz }, // 右
-        { x: ox, y: oy - HorizDistance - 0.01, z: oz }, // 下
-        { x: ox - HorizDistance - 0.01, y: oy, z: oz }, // 左
-      ];
-      // 外接传送带
-      let belt2 = {
-        index: startIndex + ++offsetIndex,
-        offset: [
-          os2[i].x, // 小偏移，形成完美垂直带，并且都朝外
-          os2[i].y,
-          os2[i].z - VerticalDistance / 2,
-        ],
-        level: beltLevel,
-      };
-      if (s.dir === 1) {
-        // 输出到下一节
-        belt1.opt = [belt2.index, 1]; // 传送带插槽默认为1
-      } else if (s.dir === -1) {
-        // 输出到上一节
-        belt2.opt = [belt1.index, 1]; // 传送带插槽默认为1
-        if (s.edge._onlyOnePriorityIpt) {
-          // 四向只有一个优先输入时，优先输入端使用黄带
-          belt1.level = 1;
-          belt2.level = 1;
-        }
-      }
-      const belt1_building = createBelt(belt1);
-      const belt2_building = createBelt(belt2);
-      buildList.push(belt1_building);
-      buildList.push(belt2_building);
-      _slotsBelts[i] = belt2_building; // 记录外接传送带建筑对象
-    } else if (Cfg.globalSetting.generateMode === 1) {
-      // 传送带直连模式 输出口只生成一个传送带节点
-      if (s.edge._onlyOnePriorityIpt) {
-        // 四向只有一个优先输入时，优先输入端使用绿带
-        belt1.level = 2;
-      } else {
-        // 否则使用蓝带
-        belt1.level = 3;
-      }
-      const belt1_building = createBelt(belt1);
-      buildList.push(belt1_building);
-      _slotsBelts[i] = belt1_building; // 记录外接传送带建筑对象
-    }
-  }
-  return { _fdir, _slotsBelts };
-}
-
-/**
- * 创建四向
+ * 创建四向分流器
  * @param {Object} opt
  * @param {number} opt.index 索引
  * @param {number[]} opt.offset 偏移 [x,y,z]
@@ -428,6 +609,8 @@ export function createFdir({
  * @param {number[]} opt.opt 输出 [outputObjIdx, outputToSlot]
  * @param {number[]} opt.ipt 输入 [inputObjIdx, inputFromSlot]
  * @param {number} opt.level 传送带等级(1,2,3) 默认1级带
+ * @param {number} opt.iconId 传送带标记图标id
+ * @param {number} opt.count 传送带标记数
  * @return {BuildingItem}
  */
 export function createBelt({
@@ -437,6 +620,7 @@ export function createBelt({
   ipt: [inputObjIdx = -1, inputFromSlot = 0] = [],
   level = 1,
   iconId,
+  count,
 } = {}) {
   let itemId;
   let modelIndex;
@@ -454,6 +638,15 @@ export function createBelt({
       itemId = 2003;
       modelIndex = 37;
       break;
+  }
+  let parameters = null;
+  if (iconId != null) {
+    parameters ??= {};
+    parameters.iconId = iconId;
+  }
+  if (count != null) {
+    parameters ??= {};
+    parameters.count = count;
   }
   return {
     index,
@@ -475,100 +668,8 @@ export function createBelt({
     inputOffset: 0,
     recipeId: 0,
     filterId: 0,
-    parameters: iconId == null ? null : { iconId },
+    parameters,
   };
-}
-
-/**
- * 创建流速器组（带两节传送带）
- * @param {number} startIndex 起始索引
- * @param {number[]} offset 偏移 [ox,oy,oz]
- * @param {GraphNode} node 节点
- * @param {object[]} list 建筑列表
- * @return {{_monitor:BuildingItem, _slotsBelts: BuildingItem[]}} 流速器组对象（_slotsBelts属性为插槽外接传送带建筑对象）
- */
-export function createMonitorGroup(
-  startIndex = 0,
-  [ox = 0, oy = 0, oz = 0] = [],
-  node,
-  buildList = []
-) {
-  let spawnItemOperator = 1; // 0:不勾选 1:生成货物 2:消耗货物
-  let passColorId = 1;
-  let failColorId = 1;
-  let beltLevel = 3; // 传送带等级(1,2,3) 默认蓝带
-  let targetCargoAmount = 60; // 目标流量(单位：0.1个)
-  if (Cfg.globalSetting.generateMode === 0) {
-    // 无带流配速黄带 使用绿带
-    targetCargoAmount = 60;
-    beltLevel = 3;
-  } else if (Cfg.globalSetting.generateMode === 1) {
-    // 直连传送带配速绿带 使用蓝带
-    targetCargoAmount = 120;
-    beltLevel = 3;
-  }
-  if (node.modelId === Cfg.ModelId.output || node.modelId === Cfg.ModelId.input) {
-    // 只有 信号输出、信号输入 才点亮流速器
-    passColorId = 113;
-    failColorId = 13;
-  } else if (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1) {
-    // 生成货物流速器 速度改为30/s，匹配优先口满带(用于提速初始化)
-    targetCargoAmount = 300;
-  }
-  const yOffset = -0.1; // 整体偏移，避免非瞬间建造时流速器绑定错位问题
-  const beltDistance = 0.7;
-  // 接流速器
-  let belt1 = {
-    index: startIndex + 1,
-    offset: [ox, oy + yOffset, oz],
-    level: beltLevel,
-  };
-  // 外接
-  let belt2 = {
-    index: startIndex + 2,
-    offset: [ox, oy + yOffset - beltDistance, oz],
-    iconId: node.signalId, // 传送带标记
-    level: beltLevel,
-  };
-  if (
-    node.modelId === Cfg.ModelId.output ||
-    (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1)
-  ) {
-    // 信号输出 或流速器 生成货物
-    spawnItemOperator = 1;
-    // 输出到下一节
-    belt1.opt = [belt2.index, 1]; // 传送带插槽默认为1
-  } else if (
-    node.modelId === Cfg.ModelId.input ||
-    (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === -1)
-  ) {
-    // 信号输入 或流速器 消耗货物
-    spawnItemOperator = 2;
-    if (node.modelId === Cfg.ModelId.input) {
-      // 输入口不自动消耗
-      spawnItemOperator = 1;
-    }
-    // 输出到上一节
-    belt2.opt = [belt1.index, 1]; // 传送带插槽默认为1
-  }
-  // 创建流速器
-  const _monitor = createMonitor({
-    index: startIndex,
-    offset: [ox, oy, oz],
-    spawnItemOperator, // 生成/消耗货物
-    cargoFilter: node.itemId,
-    passColorId,
-    failColorId,
-    targetCargoAmount,
-  });
-  buildList.push(_monitor);
-  // 创建底下传送带
-  const belt1_building = createBelt(belt1);
-  const belt2_building = createBelt(belt2);
-  buildList.push(belt1_building);
-  buildList.push(belt2_building);
-  const _slotsBelts = [belt2_building]; // 记录外接传送带建筑对象
-  return { _monitor, _slotsBelts };
 }
 
 /**
