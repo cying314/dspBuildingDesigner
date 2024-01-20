@@ -31,20 +31,26 @@ const inserterSize = { w: 1, h: 2, d: 1, cx: 0.5, cy: 1.5 };
 
 /**
  * 生成蓝图数据
+ * @param {Mapper.GraphData} graphData 图谱数据
  * @param {Mapper.GraphNode[]} nodes 节点集
  * @param {Map<string, Mapper.PackageModel>} packageMap 封装节点映射 hash->PackageModel
  * @param {string} graphName 蓝图名
  * @return {object} blueprint
  */
-export function generateBlueprint(nodes, packageMap, graphName) {
+export function generateBlueprint(graphData) {
+  const graphParse = Mapper.graphDataParse(graphData);
+  const packageMap = new Map();
+  graphParse.packages?.forEach((p) => {
+    packageMap.set(p.hash, p);
+  });
   const blueprint = {
     header: {
       layout: 10,
       icons: [0, 0, 0, 0, 0],
       time: new Date(),
       gameVersion: 0,
-      shortDesc: graphName,
-      desc: "本蓝图通过 DSP超距电路蓝图设计器 生成！\n作者b站id：晨隐_",
+      shortDesc: graphData.header.graphName,
+      desc: `本蓝图通过[DSP超距电路蓝图设计器]生成！\n作者b站id：晨隐_\n*蓝图粘贴时请尽量使用"沙盒瞬间建造"或断电建造，避免物品流动错位`,
     },
     version: 1,
     cursorOffset: { x: 0, y: 0 },
@@ -63,7 +69,7 @@ export function generateBlueprint(nodes, packageMap, graphName) {
     ],
   };
   blueprint.buildings = createbuildings({
-    nodes,
+    nodes: graphParse.nodes,
     packageMap,
   });
   return blueprint;
@@ -177,10 +183,6 @@ export function collateNodes(nodes, packageMap, res, isPackage) {
         for (let i = 0; i < 4; i++) {
           const s = n.slots[i];
           if (s.edge == null) continue;
-          // 移除可能存在的旧标识
-          if (s._onlyOnePriorityIpt) s._onlyOnePriorityIpt = undefined;
-          if (s._doubleInserter) s._doubleInserter = undefined;
-
           if (s.priority === 1) priorityIdx.push(i);
           if (s.dir === 1) outputIdx.push(i);
           else inputIdx.push(i);
@@ -246,27 +248,25 @@ export function collateNodes(nodes, packageMap, res, isPackage) {
       ) {
         throw "封装组件插槽节点数据异常！";
       }
-
       let outsideNodeSlot = outsideNode.slots[0];
       // 内置输入输出口未连接，跳过
       if (outsideNodeSlot.edge == null) return;
-      // 将内置输入输出口的连接线 链接到封装外的节点
-      if (outsideNodeSlot.dir == 1) {
-        // 信号输出口
-        outsideNodeSlot.edge.source = s.edge._source ?? s.edge.source;
-        outsideNodeSlot.edge.sourceSlot = s.edge._sourceSlot ?? s.edge.sourceSlot;
-        // 不直接修改外层对象的target，避免污染最外层的视图数据
-        s.edge._target = outsideNodeSlot.edge.target;
-        s.edge._targetSlot = outsideNodeSlot.edge.targetSlot;
+
+      // 将内置输入输出口的连接线 链接到封装外插槽连接的节点
+      if (s.dir == -1) {
+        // 封装模块的信号输出插槽
+        outsideNodeSlot.edge.source = s.edge.source;
+        outsideNodeSlot.edge.sourceSlot = s.edge.sourceSlot;
+        s.edge.sourceSlot.edge = outsideNodeSlot.edge;
       } else {
-        // 信号输入口
-        outsideNodeSlot.edge.target = s.edge._target ?? s.edge.target;
-        outsideNodeSlot.edge.targetSlot = s.edge._targetSlot ?? s.edge.targetSlot;
-        // 不直接修改外层对象的source，避免污染最外层的视图数据
-        s.edge._source = outsideNodeSlot.edge.source;
-        s.edge._sourceSlot = outsideNodeSlot.edge.sourceSlot;
+        // 封装模块的信号输入插槽
+        outsideNodeSlot.edge.target = s.edge.target;
+        outsideNodeSlot.edge.targetSlot = s.edge.targetSlot;
+        s.edge.targetSlot.edge = outsideNodeSlot.edge;
       }
-      // 断开原输入输出口连接
+      // 断开封装模块原插槽连接
+      s.edge = null;
+      // 断开封装内原输入输出口连接
       outsideNodeSlot.edge = null;
     });
 
@@ -524,12 +524,6 @@ export function generateInserter(edgeSet, idToBuildMap, builds) {
   // 分拣器布局
   let inserterList = [];
   edgeSet.forEach((e) => {
-    // 释放掉在整理节点过程中赋值的临时数据
-    e._target = null;
-    e._targetSlot = null;
-    e._source = null;
-    e._sourceSlot = null;
-
     let targetBuild = idToBuildMap.get(e.target.id);
     let sourceBuild = idToBuildMap.get(e.source.id);
     let targetBelt;

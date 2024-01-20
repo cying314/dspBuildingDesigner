@@ -2186,6 +2186,7 @@ export default class Graph {
 
   /**
    * 将当前图谱数据转换为持久化数据
+   * @return {Mapper.GraphData}
    */
   getGraphData() {
     return Mapper.toGraphData(
@@ -2202,6 +2203,7 @@ export default class Graph {
 
   /**
    * 将当前选中节点数据转换为持久化数据
+   * @return {Mapper.GraphData}
    */
   getSelectionGraphData() {
     return Mapper.toGraphData(
@@ -2405,11 +2407,8 @@ export default class Graph {
       const blueprintRes = {
         name: this.graphName,
       };
-      const blueprint = BuildingUtil.generateBlueprint(
-        this._nodes,
-        this.packageMap,
-        this.graphName
-      );
+      const graphData = this.getGraphData();
+      const blueprint = BuildingUtil.generateBlueprint(graphData);
       if (Cfg.globalSetting.generateMode === 0) {
         // 如果是无带流，多生成一个只有分拣器的蓝图
         const blueprint_onlyEdge = BuildingUtil.filterInserter(
