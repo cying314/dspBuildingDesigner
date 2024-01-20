@@ -12,12 +12,26 @@
       <div class="form">
         <el-radio-group v-model="globalSetting.generateMode" size="mini">
           <el-radio :label="0" :title="`使用分拣器进行无带流连接\n*需先提前粘贴分拣器，再在同位置粘贴完整蓝图\n*蓝图粘贴时请尽量使用[沙盒瞬间建造]`">
-            无带流(分拣器)
-            <i class="el-icon-question primary"></i>
+            <span>无带流(分拣器)</span>
+            <i class="el-icon-question primary" style="margin-left:5px"></i>
           </el-radio>
           <el-radio :label="1" :title="`直连传送带节点\n*需使用mod进行蓝图强制粘贴`">
-            传送带直连
-            <i class="if-icon-un-priority danger"></i>
+            <span>传送带直连</span>
+            <i class="if-icon-un-priority danger" style="margin-left:5px"></i>
+          </el-radio>
+        </el-radio-group>
+      </div>
+    </div>
+    <div class="item">
+      <div class="name">连接线方向：</div>
+      <div class="form">
+        <el-radio-group v-model="globalSetting.linkMode" size="mini" @change="$emit('updateLinkMode')">
+          <el-radio :label="0">
+            <span>传送带方向</span>
+          </el-radio>
+          <el-radio :label="1" :title="`物品流动方向与信号方向相反，因此信号方向为倒置的传送带方向`">
+            <span>信号方向</span>
+            <i class="el-icon-question primary" style="margin-left:5px"></i>
           </el-radio>
         </el-radio-group>
       </div>

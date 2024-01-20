@@ -103,7 +103,7 @@
               <span>基础组件</span>
               <i class="el-icon-question" style="margin-left:5px"></i>
             </span>
-            <el-button class="btn" type="text" icon="el-icon-refresh" size="small" @click="getBaseModels" :loading="baseModelsLoading">刷新</el-button>
+            <el-button class="btn" type="text" icon="el-icon-refresh" size="small" @click="getBaseModels(true)" :loading="baseModelsLoading">刷新</el-button>
           </div>
           <ul class="group">
             <li class="modelItem flex-between" v-for="data,index in baseModels" :key="'base_'+index" draggable @dragstart="handleItemDragStart()" @dragend="handleModelDragEnd(data)">
@@ -208,7 +208,7 @@
     </el-dialog>
     <!-- 全局设置 -->
     <el-dialog title="全局设置" custom-class="globalSettingDialog" :visible.sync="showGlobalSetting" width="500px" v-dialogDrag>
-      <GlobalSetting ref="layoutSettingRef" v-if="showGlobalSetting">
+      <GlobalSetting ref="layoutSettingRef" v-if="showGlobalSetting" @updateLinkMode="dspGraph.updateLinkMode()">
         <el-button size="small" @click="showGlobalSetting = false">关 闭</el-button>
       </GlobalSetting>
     </el-dialog>
@@ -475,10 +475,18 @@ export default {
       }
     },
     // 读取基础组件JSON
-    getBaseModels() {
+    getBaseModels(refresh) {
       if (this.baseModelsLoading) return;
       this.baseModelsLoading = true;
-      fetch("./static/data/models.json")
+      let headers = {};
+      if (refresh) {
+        // 忽略缓存，强制刷新
+        headers["Cache-Control"] = "no-cache";
+      }
+      fetch("./static/data/models.json", {
+        method: "GET",
+        headers: headers,
+      })
         .then((response) => response.json())
         .then((data) => {
           this.baseModels = data;

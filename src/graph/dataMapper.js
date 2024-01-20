@@ -195,7 +195,9 @@ export function toGraphData(
     if (weedOutUnusedPackage) {
       packages.forEach((p) => {
         if (usedPackageHashSet.has(p.hash) && p.childsHash?.length > 0) {
-          usedPackageHashSet.add(...p.childsHash);
+          p.childsHash.forEach(hash=>{
+            usedPackageHashSet.add(hash);
+          })
         }
       });
     }

@@ -55,7 +55,8 @@ export const color = {
   priorityInStroke: "rgb(33, 150, 243)", // 四向输入优先
   priorityInFill: "rgb(232, 236, 247)",
 
-  linkStroke: "rgba(33, 150, 243, 0.8)", // 连接线
+  linkStroke: "rgba(33, 150, 243, 0.8)", // 传送带方向连接线
+  reverseLinkStroke: "rgb(245, 152, 2, 0.8)", // 信号方向连接线
   tmpLineStroke: "rgba(170, 170, 170, 0.8)", // 临时连接线
   selectionStroke: "rgba(51, 51, 51, 0.5)", // 选择框
   selectionCornerStroke: "rgba(81, 81, 249, 0.8)", // 选择角框
@@ -210,4 +211,6 @@ export const globalSetting = {
   gridAlignment: true,
   /** 生成模式（0:无带流(分拣器连接)，1:直接连接） */
   generateMode: 0,
+  /** 连接线方向（0:传送带方向，1:信号方向） */
+  linkMode: 1,
 };

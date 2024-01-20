@@ -373,13 +373,17 @@ export default class Graph {
       const { minX = 0, minY = 0, w = 0, h = 0 } = graphData.header.boundingBox ?? {};
       // 将坐标转换为视图内坐标
       const coord = Util.offsetToCoord([ox, oy], this.transform);
-      let bboxOffset;
+      // 以包围盒中心为原点偏移
+      let bboxOffset = [coord[0] - (minX + w / 2), coord[1] - (minY + h / 2)];
       if (Cfg.globalSetting.gridAlignment) {
         // 网格对齐
-        const ga = Util.gridAlignment(-w / 2 + coord[0], -h / 2 + coord[1]);
-        bboxOffset = [-minX + ga[0], -minY + ga[1]];
-      } else {
-        bboxOffset = [-minX - w / 2 + coord[0], -minY - h / 2 + coord[1]];
+        if (graphData.data.nodes.length > 0) {
+          // 若存在节点，使用第一个节点中心做网格对齐
+          let { x = 0, y = 0 } = graphData.data.nodes[0];
+          let gridOffset = Util.getGridAlignmentOffset(x + bboxOffset[0], y + bboxOffset[1]);
+          bboxOffset[0] += gridOffset[0];
+          bboxOffset[1] += gridOffset[1];
+        }
       }
       const graphParse = Mapper.graphDataParse(
         graphData,
@@ -1548,10 +1552,20 @@ export default class Graph {
     nodeSlotUpdate.selectAll(".slot-dir").attr("d", (d) => {
       const r = Cfg.pointSize;
       let dAttr = `M${d.ox - r / 2},${d.oy} L${d.ox + r / 2},${d.oy}`;
-      if (d.dir === 1) {
-        return dAttr + ` M${d.ox},${d.oy + r / 2} L${d.ox},${d.oy - r / 2}`; // 输出口：＋
-      } else if (d.dir === -1) {
-        return dAttr; // 输入口：－
+      if (Cfg.globalSetting.linkMode === 0) {
+        // 传送带方向
+        if (d.dir === 1) {
+          return dAttr + ` M${d.ox},${d.oy + r / 2} L${d.ox},${d.oy - r / 2}`; // 输出口：＋
+        } else if (d.dir === -1) {
+          return dAttr; // 输入口：－
+        }
+      } else if (Cfg.globalSetting.linkMode === 1) {
+        // 信号方向（倒置插槽）
+        if (d.dir === -1) {
+          return dAttr + ` M${d.ox},${d.oy + r / 2} L${d.ox},${d.oy - r / 2}`; // 输入口：＋
+        } else if (d.dir === 1) {
+          return dAttr; // 输出口：－
+        }
       }
     });
     return nodeSlotUpdate;
@@ -1659,7 +1673,10 @@ export default class Graph {
 
   // 绘制连线
   buildLink() {
-    this.createArrow("arrow-link", Cfg.color.linkStroke);
+    this.createArrow(
+      "arrow-link",
+      Cfg.globalSetting.linkMode === 1 ? Cfg.color.reverseLinkStroke : Cfg.color.linkStroke
+    );
     this.$link = this.getLinkSel().join(
       (enter) => this.appendLink(enter, false),
       (update) => this.updateLink(update),
@@ -1683,8 +1700,12 @@ export default class Graph {
       })
       .attr("stroke-width", Cfg.strokeW.link)
       .attr("class", "link")
-      .style("stroke", Cfg.color.linkStroke)
+      .style(
+        "stroke",
+        Cfg.globalSetting.linkMode === 1 ? Cfg.color.reverseLinkStroke : Cfg.color.linkStroke
+      )
       .attr("fill", "none")
+      .style("stroke-dasharray", Cfg.globalSetting.linkMode === 1 ? "8,4" : null)
       .attr("marker-end", `url(#arrow-link)`);
     // 更新 连接线
     this.updateLink(edgePathEnter);
@@ -1700,6 +1721,24 @@ export default class Graph {
     // 更新连接线路径
     this.updateLinkPath(edgeSel);
     return edgeSel;
+  }
+
+  /**
+   * 更新连接线方向
+   */
+  updateLinkMode() {
+    // 更新插槽+-号
+    this.updateNodeSlot(this.$nodeSlot);
+    let linkColor =
+      Cfg.globalSetting.linkMode === 1 ? Cfg.color.reverseLinkStroke : Cfg.color.linkStroke;
+    // 更新箭头
+    this.createArrow("arrow-link", linkColor);
+    // 更新连接线
+    this.$link
+      .style("stroke", linkColor) // 颜色
+      .style("stroke-dasharray", Cfg.globalSetting.linkMode === 1 ? "8,4" : null); // 虚线实线
+    // 更新连接线方向
+    this.updateLinkPath(this.$link);
   }
 
   // 创建连接线箭头
@@ -1986,20 +2025,11 @@ export default class Graph {
     // 结束拖拽
     const dragend = () => {
       // 网格对齐
-      if (Cfg.globalSetting.gridAlignment && this._selection.boundingBox) {
-        let x, y;
-        const { minX, minY, w, h } = this._selection.boundingBox;
-        if (this._selection.nodeMap.size == 1) {
-          // 如果只选中一个节点，则使用包围盒中心对齐
-          x = minX + w / 2;
-          y = minY + h / 2;
-        } else {
-          // 选中多个节点则使用包围盒左上角对齐
-          x = minX;
-          y = minY;
-        }
+      if (Cfg.globalSetting.gridAlignment && this._selection.nodeMap.size >= 1) {
+        // 若存在选中节点，使用第一个节点中心做网格对齐
+        let node = this._selection.nodeMap.entries().next().value[1];
         // 获取网格对齐坐标偏移量
-        const [dtX, dtY] = Util.getGridAlignmentOffset(x, y);
+        const [dtX, dtY] = Util.getGridAlignmentOffset(node.x, node.y);
         if (dtX != 0 || dtY != 0) {
           this._selection.nodeMap.forEach((n) => {
             n.x += dtX;
@@ -2036,8 +2066,12 @@ export default class Graph {
     // 使圆点可拖动并在拖动时创建线段
     // 开始拖拽
     function dragstart(d) {
-      // 已占用插槽 || 不是输出口，显示红色边框提示
-      if (d.edge || d.dir !== 1) {
+      // 已占用插槽 || 不是输出口(连接线方向为信号方向 则倒置判断)，显示红色边框提示
+      if (
+        d.edge ||
+        (Cfg.globalSetting.linkMode === 0 && d.dir !== 1) ||
+        (Cfg.globalSetting.linkMode === 1 && d.dir !== -1)
+      ) {
         d3.select(this).style("stroke", Cfg.color.danger).style("stroke-width", Cfg.strokeW.bold);
         return;
       }
@@ -2067,8 +2101,13 @@ export default class Graph {
         .on("mouseenter.onDragLine", function () {
           d3.select(this)
             .style("stroke", (targetD) => {
-              // 同节点插槽 || 已占用插槽 || 不是输入口，显示红色边框提示
-              if (sourceD.node.id == targetD.node.id || targetD.edge || targetD.dir !== -1) {
+              // 同节点插槽 || 已占用插槽 || 不是输入口(连接线方向为信号方向 则倒置判断)，显示红色边框提示
+              if (
+                sourceD.node.id == targetD.node.id ||
+                targetD.edge ||
+                (Cfg.globalSetting.linkMode === 0 && targetD.dir !== -1) ||
+                (Cfg.globalSetting.linkMode === 1 && targetD.dir !== 1)
+              ) {
                 return Cfg.color.danger; // 红色
               }
               return Cfg.color.success; // 绿色
@@ -2118,7 +2157,12 @@ export default class Graph {
           return;
         }
         // 如果在另一个圆点上停止，则连接两个圆点
-        _this.addEdge(d.node.id, d.index, targetD.node.id, targetD.index);
+        if (Cfg.globalSetting.linkMode === 1) {
+          // 连接线方向为信号方向 倒置逻辑
+          _this.addEdge(targetD.node.id, targetD.index, d.node.id, d.index);
+        } else {
+          _this.addEdge(d.node.id, d.index, targetD.node.id, targetD.index);
+        }
       }
     }
 
@@ -2180,6 +2224,10 @@ export default class Graph {
       const startNodeY = d.source.y + d.sourceSlot.oy;
       const endNodeX = d.target.x + d.targetSlot.ox;
       const endNodeY = d.target.y + d.targetSlot.oy;
+      if (Cfg.globalSetting.linkMode === 1) {
+        // 连接线方向为信号方向（倒置）
+        return `M${endNodeX},${endNodeY} L${startNodeX},${startNodeY}`;
+      }
       return `M${startNodeX},${startNodeY} L${endNodeX},${endNodeY}`;
     });
   }
