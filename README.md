@@ -12,7 +12,7 @@ vue2开发的单页静态网页，用以戴森球计划游戏内超距电路蓝�
 
 - 页面截图：
 
-![image-20240121140420957](./raw/master/README.assets/image-20240121140420957.png)
+![image-20240121140420957](https://gitee.com/cying314/dsp-building-designer/raw/master/README.assets/image-20240121140420957.png)
 
 - 工具说明：
 
