@@ -3,7 +3,9 @@ export const defaultGraphName = "新蓝图1"; // 默认蓝图名
 export const watermark = {
   width: "300px",
   height: "300px",
-  content: decodeURIComponent("%E4%BD%9C%E8%80%85B%E7%AB%99id%EF%BC%9A%E6%99%A8%E9%9A%90_"),
+  content: decodeURIComponent(
+    "%E4%BD%9C%E8%80%85B%E7%AB%99%E5%90%8D%EF%BC%9A%E6%99%A8%E9%9A%90_%0A%E4%BA%A4%E6%B5%81%E7%BE%A4%EF%BC%9A546418541"
+  ),
 }; // 水印
 export const defaultScale = 1; // 默认画布初始化缩放
 export const minScale = 0.1; // 默认画布最小缩放

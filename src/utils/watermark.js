@@ -22,6 +22,7 @@ export function generateWMBase64({
   fillStyle = "rgba(184, 184, 184, 0.35)",
   content = "水印",
   rotate = "30",
+  lineHeight = 35,
 } = {}) {
   var canvas = document.createElement("canvas");
   canvas.setAttribute("width", width);
@@ -32,9 +33,13 @@ export function generateWMBase64({
   ctx.textBaseline = textBaseline;
   ctx.font = font;
   ctx.fillStyle = fillStyle;
-  ctx.translate(parseFloat(width) / 2, parseFloat(height) / 2);
+  var row = content.split("\n");
+  ctx.translate(parseFloat(width) / 2, parseFloat(height) / 2 - (row.length * lineHeight) / 2);
   ctx.rotate((Math.PI / 180) * rotate);
-  ctx.fillText(content, 0, 0);
+  // ctx.fillText(content, 0, 0);
+  for (var i = 0; i < row.length; i++) {
+    ctx.fillText(row[i], 0, (i + 1) * lineHeight);
+  }
   return canvas.toDataURL();
 }
 

@@ -24,6 +24,8 @@
             <el-button type="primary" icon="el-icon-delete" title="删除(Delete)" @click="dspGraph.handleDelete()"></el-button>
             <el-divider direction="vertical"></el-divider>
             <el-button type="primary" icon="el-icon-setting" title="全局设置" @click="showGlobalSetting=true"></el-button>
+            <el-button type="primary" icon="el-icon-question" title="工具说明" @click="showTips=true"></el-button>
+            <el-divider direction="vertical"></el-divider>
             <el-button type="primary" icon="el-icon-location-information" title="重置画布定位" @click="dspGraph.resetPosition(true)"></el-button>
             <el-button
               type="primary"
@@ -212,6 +214,12 @@
         <el-button size="small" @click="showGlobalSetting = false">关 闭</el-button>
       </GlobalSetting>
     </el-dialog>
+    <!-- 工具说明 -->
+    <el-dialog title="工具说明" custom-class="tipsDialog" :visible.sync="showTips" width="700px" v-dialogDrag>
+      <Tips ref="layoutSettingRef" v-if="showTips">
+        <el-button size="small" @click="showTips = false">关 闭</el-button>
+      </Tips>
+    </el-dialog>
   </div>
 </template>
 
@@ -222,11 +230,13 @@ import * as Util from "@/graph/graphUtil.js";
 import * as ItemsUtil from "@/utils/itemsUtil.js";
 import LayoutSetting from "@/components/LayoutSetting.vue";
 import GlobalSetting from "@/components/GlobalSetting.vue";
+import Tips from "@/components/Tips.vue";
 export default {
   name: "Designer",
   components: {
     LayoutSetting,
     GlobalSetting,
+    Tips,
   },
   data() {
     return {
@@ -268,6 +278,8 @@ export default {
       // 生成蓝图
       showBlueprintRes: false,
       blueprintRes: null,
+      // 工具说明
+      showTips: false,
     };
   },
   watch: {
@@ -1098,6 +1110,12 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
 }
 .globalSettingDialog {
   .el-dialog__body {
+    padding-bottom: 15px;
+  }
+}
+.tipsDialog {
+  .el-dialog__body {
+    padding-top: 0;
     padding-bottom: 15px;
   }
 }
