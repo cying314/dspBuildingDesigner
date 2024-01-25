@@ -271,6 +271,8 @@ export function collateNodes(nodes, packageMap, res, isPackage) {
         outsideNodeSlot.edge.targetSlot = s.edge.targetSlot;
         s.edge.targetSlot.edge = outsideNodeSlot.edge;
       }
+      // 记录这条连接
+      res.edgeSet.add(outsideNodeSlot.edge);
       // 断开封装模块原插槽连接
       s.edge = null;
       // 断开封装内原输入输出口连接
