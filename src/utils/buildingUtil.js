@@ -272,8 +272,16 @@ export function collateNodes(nodes, packageMap, res, isPackage) {
         s.edge.targetSlot.edge = outsideNodeSlot.edge;
       }
       // 记录这条连接
-      res.edgeSet.add(outsideNodeSlot.edge);
+      if (
+        outsideNodeSlot.edge.target.modelId !== Cfg.ModelId.package &&
+        outsideNodeSlot.edge.source.modelId !== Cfg.ModelId.package &&
+        outsideNodeSlot.edge.target.modelId !== Cfg.ModelId.set_zero &&
+        outsideNodeSlot.edge.source.modelId !== Cfg.ModelId.set_zero
+      ) {
+        res.edgeSet.add(outsideNodeSlot.edge);
+      }
       // 断开封装模块原插槽连接
+      res.edgeSet.delete(s.edge); // 移除可能存在的连续封装模块的连线
       s.edge = null;
       // 断开封装内原输入输出口连接
       outsideNodeSlot.edge = null;
