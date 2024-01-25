@@ -60,12 +60,13 @@ export function coordToOffset([cx, cy], { x, y, k }) {
  * 限制每行字符数，切换字符串
  * @param {string} text
  * @param {number} lineWidth 一行容纳多少个字符(非中文算0.5个字符)
- * @return {string[]} 分割字符串数组
+ * @return {{lines:string[], maxWordNum:number}} {lines:分割字符串数组, maxWordNum:最长的行有多少个字符}
  */
 export function splitLines(text, lineWidth = Cfg.lineWordNum) {
   text = text?.trim() || Cfg.defaultText;
   if (text.length == 0) return [];
   var totalWidth = 0;
+  var maxWordNum = 0;
   var lines = [];
   var line = "";
   for (var i = 0; i < text.length; i++) {
@@ -92,6 +93,7 @@ export function splitLines(text, lineWidth = Cfg.lineWordNum) {
       totalWidth = charWidth;
     } else {
       totalWidth += charWidth;
+      if (totalWidth > maxWordNum) maxWordNum = totalWidth;
       line += char;
     }
   }
@@ -99,7 +101,10 @@ export function splitLines(text, lineWidth = Cfg.lineWordNum) {
   if (line !== "") {
     lines.push(line);
   }
-  return lines;
+  return {
+    maxWordNum,
+    lines,
+  };
 }
 
 /**
@@ -110,7 +115,7 @@ export function splitLines(text, lineWidth = Cfg.lineWordNum) {
 export function getLineNum(text, lineWidth = Cfg.lineWordNum) {
   text = text?.trim() || Cfg.defaultText;
   if (text.length == 0) return 1;
-  return splitLines(text, lineWidth).length;
+  return splitLines(text, lineWidth).lines.length;
 }
 
 /**

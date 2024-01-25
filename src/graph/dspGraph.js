@@ -743,8 +743,8 @@ export default class Graph {
    */
   changeSlotDir(slot) {
     const modelId = slot?.node?.modelId;
-    if (modelId === Cfg.ModelId.package) {
-      // 双击封装模块插槽，断开连接
+    if (modelId === Cfg.ModelId.package || modelId === Cfg.ModelId.set_zero) {
+      // 双击封装模块插槽 || 置0，断开连接
       this.deleteEdge(slot.edge);
     }
     // 只有四向、流速器、信号输出、信号输入 可调转输入输出口
@@ -1246,6 +1246,14 @@ export default class Graph {
           if (d.text) {
             _this.createNodeText(bg);
           }
+        } else if (d.modelId === Cfg.ModelId.set_zero) {
+          // 置零
+          bg.append("circle")
+            .attr("class", "item-bg")
+            .attr("r", d.w / 2)
+            .style("fill", Cfg.color.set_zero)
+            .style("stroke", Cfg.color.priorityInStroke)
+            .style("stroke-width", Cfg.strokeW.light);
         } else {
           // 其他模型：矩形
           let fill = Cfg.color.nodeFill;
@@ -1284,7 +1292,7 @@ export default class Graph {
         .attr("class", "node-text")
         .style("font-size", Cfg.fontSize + "px")
         .attr("text-anchor", "middle")
-        .on("dblclick.editCount", function (d) {
+        .on("dblclick.editText", function (d) {
           // 双击文本，创建输入框
           d3.event.stopPropagation(); // 阻止创建事件传播
           _this.handleChangeNodeText(d);
@@ -1297,10 +1305,11 @@ export default class Graph {
       let isMultilineText = d.modelId === Cfg.ModelId.text;
       if (isMultilineText) {
         // 创建多行文本
-        const lines = Util.splitLines(d.text);
+        const { lines, maxWordNum } = Util.splitLines(d.text);
         if (d.modelId === Cfg.ModelId.text) {
-          // 文本域根据实际文本行数修改高度
+          // 文本域根据实际文本修改宽度和高度
           d.h = lines.length * Cfg.lineHeight;
+          d.w = Math.max(10, maxWordNum * Cfg.fontSize);
         }
         _this.createTspan(textEl, lines);
       } else {

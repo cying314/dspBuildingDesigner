@@ -166,9 +166,13 @@ export function collateNodes(nodes, packageMap, res, isPackage) {
         hasEdge = true;
         if (
           s.edge.target.modelId !== Cfg.ModelId.package &&
-          s.edge.source.modelId !== Cfg.ModelId.package
+          s.edge.source.modelId !== Cfg.ModelId.package &&
+          s.edge.target.modelId !== Cfg.ModelId.set_zero &&
+          s.edge.source.modelId !== Cfg.ModelId.set_zero
         ) {
-          // 记录连线（排除连在封装模块节点的连线：封装节点不新建连线，而是修改内置连线目标外置）
+          // 记录连线（排除连在封装模块/置零节点的连线）
+          // 封装节点不新建连线，而是修改内置连线目标外置
+          // 置0不生成消耗建筑，不连接
           res.edgeSet.add(s.edge);
         }
       }
@@ -225,6 +229,9 @@ export function collateNodes(nodes, packageMap, res, isPackage) {
         break;
       case Cfg.ModelId.package: // 封装模块
         packageNodeList.push(n);
+        break;
+      case Cfg.ModelId.set_zero: // 置零
+        // 置0不生成消耗建筑
         break;
     }
   });

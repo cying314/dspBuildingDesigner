@@ -70,6 +70,8 @@ export const color = {
   item_6005: "rgb(75, 204, 85)", // 绿塘
   item_6006: "rgb(255, 255, 255)", // 白糖
   item_default: "rgb(0, 0, 0)", // 未知物品
+
+  set_zero: "#ccc", // 置零
 }; // 颜色
 export const filterItem = [
   { id: 6001, name: "蓝糖", color: color.item_6001 },
@@ -88,6 +90,7 @@ export const ModelId = {
   /** 信号输出口(生成) */ output: 2,
   /** 信号输入口(消耗) */ input: 3,
   /** 封装模块节点 */ package: 4,
+  /** 置0 */ set_zero: 5,
 };
 /**
  * @typedef {Object} NodeModelConfig
@@ -124,6 +127,11 @@ export const nodeModels = [
     name: "信号输入(消耗)",
     modelId: ModelId.input,
     icon: "if-icon-end",
+  },
+  {
+    name: "置0",
+    modelId: ModelId.set_zero,
+    icon: "if-icon-set-zero",
   },
 ];
 /**

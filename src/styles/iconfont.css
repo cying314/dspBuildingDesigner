@@ -26,6 +26,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.if-icon-set-zero:before {
+  content: "\e68d";
+}
+
 .if-icon-count:before {
   content: "\e627";
 }

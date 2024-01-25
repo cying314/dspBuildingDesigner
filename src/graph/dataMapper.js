@@ -195,9 +195,9 @@ export function toGraphData(
     if (weedOutUnusedPackage) {
       packages.forEach((p) => {
         if (usedPackageHashSet.has(p.hash) && p.childsHash?.length > 0) {
-          p.childsHash.forEach(hash=>{
+          p.childsHash.forEach((hash) => {
             usedPackageHashSet.add(hash);
-          })
+          });
         }
       });
     }
@@ -347,8 +347,9 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
   const d = { ...other, id: nodeId, modelId, x: ox, y: oy };
   switch (modelId) {
     case Cfg.ModelId.text: // 文本
-      d.w = Cfg.lineWordNum * Cfg.fontSize;
-      d.h = Util.getLineNum(d.text) * Cfg.lineHeight; // 根据实际文本行数修改高度
+      var { lines, maxWordNum } = Util.splitLines(d.text);
+      d.w = Math.max(10, maxWordNum * Cfg.fontSize); // 根据实际文本修改宽度和高度
+      d.h = lines.length * Cfg.lineHeight;
       break;
     case Cfg.ModelId.fdir: // 四向分流器
       d.w = d.h = Cfg.nodeSize;
@@ -393,6 +394,10 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
           d.slots[0].dir = slot.dir; // 插槽方向
         }
       }
+      break;
+    case Cfg.ModelId.set_zero: // 置零
+      d.w = d.h = Cfg.nodeSize / 2; // 一半四向宽
+      d.slots = [{ dir: -1 }]; // 默认输入
       break;
     case Cfg.ModelId.package: // 封装模块节点
       // if (d.packageHash == null) throw "封装模块hash不能为空！";
