@@ -7,6 +7,25 @@ export const watermark = {
     "%E4%BD%9C%E8%80%85B%E7%AB%99%E5%90%8D%EF%BC%9A%E6%99%A8%E9%9A%90_%0A%E4%BA%A4%E6%B5%81%E7%BE%A4%EF%BC%9A546418541"
   ),
 }; // 水印
+
+/**
+ * 基础模块获取路径
+ */
+export const baseModelsConfig = [
+  { name: "基础结构_与或", path: "./static/data/基础结构_与或.json" },
+  { name: "基础结构_非", path: "./static/data/基础结构_非.json" },
+  { name: "与门 | 或门", path: "./static/data/与门_或门.json" },
+  { name: "非门 | 复制", path: "./static/data/非门_复制.json" },
+  { name: "异或门", path: "./static/data/异或门.json" },
+  { name: "8路信号复制", path: "./static/data/8路信号复制.json" },
+  { name: "全加器", path: "./static/data/全加器.json" },
+  { name: "2选1选择器", path: "./static/data/2选1选择器.json" },
+  { name: "比较器", path: "./static/data/比较器.json" },
+  { name: "D触发器", path: "./static/data/D触发器.json" },
+  { name: "8位二十译码", path: "./static/data/8位二十译码.json" },
+  { name: "七段译码", path: "./static/data/七段译码.json" },
+];
+
 export const defaultScale = 1; // 默认画布初始化缩放
 export const minScale = 0.1; // 默认画布最小缩放
 export const maxScale = 5; // 默认画布最大缩放

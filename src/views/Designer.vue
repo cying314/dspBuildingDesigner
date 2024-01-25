@@ -495,24 +495,27 @@ export default {
         // 忽略缓存，强制刷新
         headers["Cache-Control"] = "no-cache";
       }
-      fetch("./static/data/models.json", {
-        method: "GET",
-        headers: headers,
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          this.baseModels = data;
-        })
-        .catch((e) => {
-          this.$notify({
-            title: "读取基础组件失败！",
-            message: e,
-            type: "warning",
-          });
-        })
-        .finally(() => {
-          this.baseModelsLoading = false;
-        });
+      this.baseModels = [];
+      let p = Promise.resolve();
+      Cfg.baseModelsConfig.forEach((config) => {
+        // 依次获取
+        p = p.then(() =>
+          fetch(config.path, {
+            method: "GET",
+            headers: headers,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              this.baseModels.push(data);
+            })
+            .catch(() => {
+              Util._err(`读取基础组件[${config.name}]失败！`);
+            })
+        );
+      });
+      p.finally(() => {
+        this.baseModelsLoading = false;
+      });
     },
     changeSelectModel(val) {
       if (this.selectModel != val) {
