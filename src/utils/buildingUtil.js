@@ -1,4 +1,5 @@
 import * as Cfg from "@/graph/graphConfig.js";
+import * as ItemsUtil from "@/utils/itemsUtil.js";
 import * as Util from "@/graph/graphUtil.js";
 import * as Mapper from "@/graph/dataMapper";
 /**
@@ -195,10 +196,11 @@ export function collateNodes(nodes, packageMap, res, isPackage) {
         if (priorityIdx.length == 1 && n.slots[priorityIdx[0]].dir === -1) {
           n.slots[priorityIdx[0]]._onlyOnePriorityIpt = true;
         }
-        // 无带流模式下，四向是否两进一出，标记输出口接两个分拣器
-        if (Cfg.globalSetting.generateMode === 0 && inputIdx.length == 2 && outputIdx.length == 1) {
-          n.slots[outputIdx[0]]._doubleInserter = true;
-        }
+        // 集装分拣器可满带速，无需两个分拣器了
+        // // 无带流模式下，四向是否两进一出，标记输出口接两个分拣器
+        // if (Cfg.globalSetting.generateMode === 0 && inputIdx.length == 2 && outputIdx.length == 1) {
+        //   n.slots[outputIdx[0]]._doubleInserter = true;
+        // }
 
         var fdir = createFdirGroup(n, res.builds.length);
         res.fdirList.push(fdir);
@@ -403,9 +405,9 @@ export function createFdirGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0] =
         // 输出到上一节
         belt2.opt = [belt1.index, 1]; // 传送带插槽默认为1
         if (s._onlyOnePriorityIpt) {
-          // 四向只有一个优先输入时，优先输入端使用黄带
-          belt1.level = 1;
-          belt2.level = 1;
+          // 四向只有一个优先输入时，优先输入端使用绿带
+          belt1.level = 2;
+          belt2.level = 2;
         }
       }
       const belt1_building = createBelt(belt1);
@@ -455,17 +457,18 @@ export function createMonitorGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0
   let spawnItemOperator = 1; // 0:不勾选 1:生成货物 2:消耗货物
   let passColorId = 1;
   let failColorId = 1;
+  // 集装分拣器更新后，无带流和直连带都是配速绿带 使用蓝带
   let beltLevel = 3; // 传送带等级(1,2,3) 默认蓝带
-  let targetCargoAmount = 60; // 目标流量(单位：0.1个)
-  if (Cfg.globalSetting.generateMode === 0) {
-    // 无带流配速黄带 使用绿带
-    targetCargoAmount = 60;
-    beltLevel = 3;
-  } else if (Cfg.globalSetting.generateMode === 1) {
-    // 直连传送带配速绿带 使用蓝带
-    targetCargoAmount = 120;
-    beltLevel = 3;
-  }
+  let targetCargoAmount = 120; // 目标流量(单位：0.1个)
+  // if (Cfg.globalSetting.generateMode === 0) {
+  //   // 无带流配速黄带 使用绿带
+  //   targetCargoAmount = 60;
+  //   beltLevel = 3;
+  // } else if (Cfg.globalSetting.generateMode === 1) {
+  //   // 直连传送带配速绿带 使用蓝带
+  //   targetCargoAmount = 120;
+  //   beltLevel = 3;
+  // }
   if (node.modelId === Cfg.ModelId.output || node.modelId === Cfg.ModelId.input) {
     // 只有 信号输出、信号输入 才点亮流速器
     passColorId = 113;
@@ -474,6 +477,17 @@ export function createMonitorGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0
     // 生成货物流速器 速度改为30/s，匹配优先口满带(用于提速初始化)
     targetCargoAmount = 300;
   }
+
+  // 无带流使用集装分拣器，需要叠满层货物，避免集装分拣器自己叠层
+  // if (Cfg.globalSetting.generateMode === 0) {
+  // 为避免显示元件需要做两套，直连模式也叠层
+  targetCargoAmount *= 4;
+  if (node.modelId === Cfg.ModelId.output) {
+    // 信号输出口的生成货物需要配速绿带，不然120*4不会叠满4层
+    beltLevel = 2;
+  }
+  // }
+
   const yOffset = -0.1; // 整体偏移，避免非瞬间建造时流速器绑定错位问题
   const beltDistance = 0.7; // 传送带间距
   // 接流速器
@@ -565,16 +579,18 @@ export function generateInserter(edgeSet, idToBuildMap, builds) {
       });
       builds.push(inserter1);
       inserterList.push(inserter1);
-      if (e.targetSlot?._doubleInserter || e.sourceSlot?._doubleInserter) {
-        // 四向两进一出，输出口接两个分拣器（配速混带输出）
-        const inserter2 = createInserter({
-          index: builds.length,
-          outputObjIdx,
-          inputObjIdx,
-        });
-        builds.push(inserter2);
-        inserterList.push(inserter2);
-      }
+
+      // 集装分拣器可满带速，无需两个分拣器了
+      // if (e.targetSlot?._doubleInserter || e.sourceSlot?._doubleInserter) {
+      //   // 四向两进一出，输出口接两个分拣器（配速混带输出）
+      //   const inserter2 = createInserter({
+      //     index: builds.length,
+      //     outputObjIdx,
+      //     inputObjIdx,
+      //   });
+      //   builds.push(inserter2);
+      //   inserterList.push(inserter2);
+      // }
     } else if (Cfg.globalSetting.generateMode === 1) {
       // 传送带直连模式 修改传送带输出口到另一个传送带
       if (targetBelt && sourceBelt) {
@@ -780,7 +796,7 @@ export function createMonitor({
  * @param {number[]} opt.offset 偏移 [x,y,z]
  * @param {number} opt.outputObjIdx 输出目标索引
  * @param {number} opt.inputObjIdx 输入目标索引
- * @param {number} opt.level 分拣器等级(1,2,3) 默认极速分拣器
+ * @param {number} opt.level 分拣器等级(1,2,3,4) 默认集装分拣器
  * @return {BuildingItem}
  */
 export function createInserter({
@@ -788,7 +804,7 @@ export function createInserter({
   offset: [x = 0, y = 0, z = 0] = [],
   outputObjIdx = -1,
   inputObjIdx = -1,
-  level = 3,
+  level = 4,
 } = {}) {
   let itemId;
   let modelIndex;
@@ -802,9 +818,13 @@ export function createInserter({
       modelIndex = 42;
       break;
     case 3:
-    default:
       itemId = 2013;
       modelIndex = 43;
+      break;
+    case 4:
+    default:
+      itemId = 2014;
+      modelIndex = 483;
       break;
   }
   return {
@@ -877,7 +897,7 @@ export function filterInserter(blueprint, rename) {
     _blueprint.header = { ..._blueprint.header, shortDesc: rename };
   }
   blueprint.buildings.forEach((b) => {
-    if (b.itemId == 2011 || b.itemId == 2012 || b.itemId == 2013) {
+    if (ItemsUtil.isInserter(b.itemId)) {
       // 筛选分拣器，输入输出口绑定到单点传送带
       let _b = {
         ...b,
