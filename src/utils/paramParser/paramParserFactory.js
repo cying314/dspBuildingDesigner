@@ -280,6 +280,7 @@ export const turretParamParser = new ParamParser(128, {
             oVal >> 6 & 3, // 太空优先级 -> 0:关闭 1:低优先 2:均衡 3:高优先
         ]
     }), // 攻击设置优先级
+    phasePos: FunParamOpt.of(3, (pVal) => pVal * 60, (oVal) => oVal / 60), // 干扰塔相位偏移(单位：秒) -> 0-5
 });
 
 // 默认 ParamParser

@@ -21,11 +21,37 @@ export const inserterBuildIds = new Set([
   2011, // 分拣器
   2012, // 高速分拣器
   2013, // 极速分拣器
+  2014, // 集装分拣器
 ]);
 
 /** 是否 分拣器 */
 export function isInserter(id) {
   return inserterBuildIds.has(id);
+}
+
+/**
+ * 获取分拣器速度
+ * @param itemId 物品ID
+ * @param length 分拣器长度(默认1)
+ */
+export function getInserterSpeed(itemId, length) {
+  let speed;
+  switch (itemId) {
+    case 2011:
+      speed = 1.5;
+      break;
+    case 2012:
+      speed = 3;
+      break;
+    case 2013:
+      speed = 6;
+      break;
+    case 2014:
+      speed = 30;
+      break;
+  }
+  // 计入分拣器长度影响的速度
+  return speed / (length || 1);
 }
 
 /** 制造厂类(需指定制造配方的建筑) 建筑id */
@@ -425,6 +451,8 @@ export const turretBuildIds = new Set([
   3003, // 聚爆加农炮
   3004, // 磁化电浆炮
   3005, // 导弹防御塔
+  3006, // 干扰塔
+  3010, // 近程电浆塔
 ]);
 
 /** 是否 炮台 */
