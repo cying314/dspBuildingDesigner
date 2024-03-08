@@ -182,20 +182,36 @@ export function collateNodes(nodes, packageMap, res, isPackage) {
     if (!hasEdge) return;
     switch (n.modelId) {
       case Cfg.ModelId.fdir: // 四向
-        var priorityIdx = []; // 优先插槽索引
+        var priorityInIdx = []; // 优先输入插槽索引
+        var priorityOutIdx = []; // 优先输出插槽索引
         var inputIdx = []; // 输入插槽索引
         var outputIdx = []; // 输出插槽索引
         for (let i = 0; i < 4; i++) {
           const s = n.slots[i];
           if (s.edge == null) continue;
-          if (s.priority === 1) priorityIdx.push(i);
-          if (s.dir === 1) outputIdx.push(i);
-          else inputIdx.push(i);
+          if (s.dir === 1) {
+            // 输出
+            outputIdx.push(i);
+            if (s.priority === 1) priorityOutIdx.push(i);
+          } else {
+            // 输入
+            inputIdx.push(i);
+            if (s.priority === 1) priorityInIdx.push(i);
+          }
         }
-        // 四向只有一个优先输入时，标记优先输入边使用配速带（无带：配黄带，直连：配绿带）
-        if (priorityIdx.length == 1 && n.slots[priorityIdx[0]].dir === -1) {
-          n.slots[priorityIdx[0]]._onlyOnePriorityIpt = true;
+        // 四向两进两出，且没有带过滤的优先输出，优先输入口使用配速带（无带：配黄带，直连：配绿带）
+        if (
+          inputIdx.length == 2 &&
+          outputIdx.length == 2 &&
+          (priorityOutIdx.length == 0 || !n.slots[priorityOutIdx[0]].filterId) &&
+          priorityInIdx.length == 1
+        ) {
+          n.slots[priorityInIdx[0]]._onlyOnePriorityIpt = true;
         }
+        // // 四向只有一个优先输入时，标记优先输入边使用配速带（无带：配黄带，直连：配绿带）
+        // if (priorityInIdx.length == 1) {
+        //   n.slots[priorityInIdx[0]]._onlyOnePriorityIpt = true;
+        // }
         // 集装分拣器可满带速，无需两个分拣器了
         // // 无带流模式下，四向是否两进一出，标记输出口接两个分拣器
         // if (Cfg.globalSetting.generateMode === 0 && inputIdx.length == 2 && outputIdx.length == 1) {
