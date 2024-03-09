@@ -11,8 +11,8 @@
               <el-button slot="trigger" type="primary" icon="el-icon-folder-opened" title="载入文件"></el-button>
             </el-upload>
             <el-divider direction="vertical"></el-divider>
-            <el-button type="primary" icon="if-icon-save" title="保存(Ctrl+S)" @click="dspGraph.handleSave()"></el-button>
-            <el-button type="primary" icon="if-icon-json" title="保存为JSON文件(Ctrl+D)" @click="dspGraph.handleSaveAsJson()"></el-button>
+            <el-button type="primary" icon="if-icon-save" title="保存到浏览器缓存(Ctrl+S)" @click="dspGraph.handleSave()"></el-button>
+            <el-button type="primary" icon="if-icon-json" title="导出工程为JSON文件(Ctrl+D)" @click="dspGraph.handleSaveAsJson()"></el-button>
             <el-button type="primary" icon="if-icon-blueprint" title="导出蓝图(Ctrl+B)" @click="dspGraph.handleGenerateBlueprint()"></el-button>
             <el-divider direction="vertical"></el-divider>
             <el-button type="primary" icon="if-icon-undo" title="撤回(Ctrl+Z)" :disabled="!(dspGraph?._undoList?.length>1)" @click="dspGraph.handleUndo()"></el-button>

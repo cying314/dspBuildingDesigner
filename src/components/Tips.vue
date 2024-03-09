@@ -87,15 +87,19 @@
       </li>
       <li>
         <b>Ctrl+S：</b>
-        <span>保存</span>
+        <span>保存到浏览器缓存</span>
       </li>
       <li>
         <b>Ctrl+D：</b>
-        <span>导出过程文件为JSON</span>
+        <span>导出工程为JSON文件</span>
       </li>
       <li>
         <b>Ctrl+B：</b>
         <span>导出蓝图</span>
+      </li>
+      <li>
+        <b>方向键↑↓←→：</b>
+        <span>移动选中节点</span>
       </li>
       <li>
         <b>双击插槽：</b>

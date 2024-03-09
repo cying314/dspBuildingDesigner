@@ -172,6 +172,8 @@ export default class Graph {
         }
       })
       .on("mousedown.selection", () => {
+        // 手动激活画布，防止绑定在画布上的按键事件不生效
+        this._canvasDOM?.focus();
         // 监听右键框选
         this.bindSelectionWindowEvent();
       })
@@ -226,13 +228,6 @@ export default class Graph {
   bindKeyEvent() {
     d3.select("body").on("keydown." + this.uniqueTag, () => {
       // 删除、保存、导出事件绑定在整个页面上，避免未聚焦画布时，触发浏览器默认事件
-      switch (d3.event.keyCode) {
-        case 46: // delete键
-          // 删除
-          d3.event.preventDefault();
-          this.handleDelete();
-          break;
-      }
       if (d3.event.ctrlKey) {
         switch (d3.event.keyCode) {
           case 83: // Ctrl+S键
@@ -249,6 +244,14 @@ export default class Graph {
             // 导出蓝图
             d3.event.preventDefault();
             this.handleGenerateBlueprint();
+            break;
+        }
+      } else {
+        switch (d3.event.keyCode) {
+          case 46: // delete键
+            // 删除
+            d3.event.preventDefault();
+            this.handleDelete();
             break;
         }
       }
@@ -290,6 +293,21 @@ export default class Graph {
                 // 重做
                 this.handleRedo();
               }
+              break;
+          }
+        } else {
+          switch (d3.event.keyCode) {
+            case 37: // 左方向键
+              this.moveSelectNode(-Cfg.gridStep, 0);
+              break;
+            case 38: // 上方向键
+              this.moveSelectNode(0, -Cfg.gridStep);
+              break;
+            case 39: // 右方向键
+              this.moveSelectNode(Cfg.gridStep, 0);
+              break;
+            case 40: // 下方向键
+              this.moveSelectNode(0, Cfg.gridStep);
               break;
           }
         }
@@ -735,6 +753,22 @@ export default class Graph {
    */
   handleSelectionSendToBack() {
     this.nodesSendToBack(this._selection.nodeMap);
+  }
+
+  /**
+   * 相对移动所有选中节点
+   */
+  moveSelectNode(moveX, moveY) {
+    if (!(this._selection.nodeMap?.size > 0)) return;
+    // 更新节点位置
+    this._selection.nodeMap.forEach((n) => {
+      n.x += moveX;
+      n.y += moveY;
+    });
+    // 相对移动选中节点包围盒
+    this.moveSelectionBox(moveX, moveY);
+    // 更新节点、连接线
+    this.buildTick();
   }
 
   /**
