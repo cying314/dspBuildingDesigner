@@ -1,0 +1,83 @@
+[
+  {
+    "isGroup": true,
+    "expand": false,
+    "name": "基础结构",
+    "list": [
+      {
+        "name": "基础结构_与或",
+        "path": "./static/data/基础结构_与或.json"
+      },
+      {
+        "name": "基础结构_非",
+        "path": "./static/data/基础结构_非.json"
+      }
+    ]
+  },
+  {
+    "isGroup": true,
+    "expand": true,
+    "name": "组合电路模块",
+    "list": [
+      {
+        "name": "与门 | 或门",
+        "path": "./static/data/与门_或门.json"
+      },
+      {
+        "name": "非门 | 复制",
+        "path": "./static/data/非门_复制.json"
+      },
+      {
+        "name": "异或门",
+        "path": "./static/data/异或门.json"
+      },
+      {
+        "name": "8路信号复制",
+        "path": "./static/data/8路信号复制.json"
+      },
+      {
+        "name": "全加器",
+        "path": "./static/data/全加器.json"
+      },
+      {
+        "name": "2选1选择器",
+        "path": "./static/data/2选1选择器.json"
+      },
+      {
+        "name": "比较器",
+        "path": "./static/data/比较器.json"
+      },
+      {
+        "name": "8位二十译码",
+        "path": "./static/data/8位二十译码.json"
+      },
+      {
+        "name": "七段译码",
+        "path": "./static/data/七段译码.json"
+      }
+    ]
+  },
+  {
+    "isGroup": true,
+    "expand": true,
+    "name": "时序电路模块",
+    "list": [
+      {
+        "name": "RS'锁存_红-蓝",
+        "path": "./static/data/RS'锁存_红-蓝.json"
+      },
+      {
+        "name": "RS'锁存_蓝-红",
+        "path": "./static/data/RS'锁存_蓝-红.json"
+      },
+      {
+        "name": "D锁存",
+        "path": "./static/data/D锁存.json"
+      },
+      {
+        "name": "D触发器",
+        "path": "./static/data/D触发器.json"
+      }
+    ]
+  }
+]

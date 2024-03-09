@@ -55,85 +55,94 @@
           </div>
           <div class="groupName">节点</div>
           <ul class="group">
-            <li
-              class="modelItem flex-between"
-              v-for="node,index in nodeModels"
-              :key="'node_'+index"
-              draggable
-              @dragstart="handleItemDragStart()"
-              @dragend="handleNodeDragEnd(node.modelId)"
-              title="拖拽创建组件"
-            >
+            <li class="modelItem" v-for="node,index in nodeModels" :key="'node_'+index" draggable @dragstart="handleItemDragStart()" @dragend="handleNodeDragEnd(node.modelId)" title="拖拽创建组件">
               <span>
                 <i style="margin-right:10px" :class="node.icon"></i>
                 <span>{{node.name}}</span>
               </span>
               <div class="item_rt">
-                <el-checkbox v-if="dbcCreate" :value="selectModel=='node_'+index" @click.native.prevent="changeSelectModel('node_'+index)" title="勾选双击创建的组件"></el-checkbox>
+                <el-checkbox v-if="dbcCreate" :value="selectModelType=='node'&&selectModel==node" @click.native.prevent="changeSelectModel('node',node)" title="勾选双击创建的组件"></el-checkbox>
               </div>
             </li>
           </ul>
           <template v-if="dspGraph && dspGraph.packageMap.size > 0">
-            <div class="groupName" :title="`当前项目依赖到的所有封装模块\n这些模块将随着当前工程保存`">
-              <span>当前封装模块</span>
-              <i class="if-icon-un-priority" style="margin-left:5px;color:var(--color-warning)"></i>
+            <div class="groupName flex-between" :title="`当前项目依赖到的所有封装模块\n这些模块将随着当前工程保存`">
+              <span>
+                <span>当前封装模块</span>
+                <i class="if-icon-un-priority" style="margin-left:5px;color:var(--color-warning)"></i>
+              </span>
+              <el-button class="btn" type="text" :icon="packageExpand?'el-icon-arrow-up':'el-icon-arrow-down'" size="small" @click="packageExpand = !packageExpand">{{packageExpand?'折叠':'展开'}}</el-button>
             </div>
-            <ul class="group">
-              <li
-                class="modelItem flex-between"
-                v-for="data,index in dspGraph.packageMap"
-                :key="'package_'+data[0]"
-                draggable
-                @dragstart="handleItemDragStart()"
-                @dragend="handleNodeDragEnd(packageModelId, data[0])"
-              >
-                <span>
-                  <i style="margin-right:10px" class="el-icon-box"></i>
-                  <span>{{index+1+'. '}}{{data[1].name}}</span>
-                </span>
-                <div class="item_rt">
-                  <div class="item_btns">
-                    <el-button type="text" icon="el-icon-close" title="删除" @click="dspGraph.handleDeletePackage(data[1])"></el-button>
+            <transition name="expandTrans">
+              <ul class="group" v-show="packageExpand">
+                <li
+                  class="modelItem"
+                  v-for="data,index in dspGraph.packageMap"
+                  :key="'package_'+data[0]"
+                  draggable
+                  @dragstart="handleItemDragStart()"
+                  @dragend="handleNodeDragEnd(packageModelId, data[0])"
+                >
+                  <span>
+                    <i style="margin-right:10px" class="el-icon-box"></i>
+                    <span>{{index+1+'. '}}{{data[1].name}}</span>
+                  </span>
+                  <div class="item_rt">
+                    <div class="item_btns">
+                      <el-button type="text" icon="el-icon-close" title="删除" @click="dspGraph.handleDeletePackage(data[1])"></el-button>
+                    </div>
+                    <el-checkbox v-if="dbcCreate" :value="selectModelType=='package'&&selectModel==data[0]" @click.native.prevent="changeSelectModel('package',data[0])" title="勾选双击创建的组件"></el-checkbox>
                   </div>
-                  <el-checkbox v-if="dbcCreate" :value="selectModel=='package_'+data[0]" @click.native.prevent="changeSelectModel('package_'+data[0])" title="勾选双击创建的组件"></el-checkbox>
-                </div>
-              </li>
-            </ul>
+                </li>
+              </ul>
+            </transition>
           </template>
           <div class="groupName flex-between">
             <span :title="`作者提供的一些基础组件，将不定期更新\n欢迎联系作者提供优秀组件`">
               <span>基础组件</span>
               <i class="el-icon-question" style="margin-left:5px"></i>
             </span>
-            <el-button class="btn" type="text" icon="el-icon-refresh" size="small" @click="getBaseModels(true)" :loading="baseModelsLoading">刷新</el-button>
+            <div class="btns">
+              <el-button class="btn" type="text" :icon="baseExpand?'el-icon-arrow-up':'el-icon-arrow-down'" size="small" @click="baseExpand = !baseExpand">{{baseExpand?'折叠':'展开'}}</el-button>
+              <el-button class="btn" type="text" icon="el-icon-refresh" size="small" @click="getBaseModels(true)" :loading="baseModelsLoading">刷新</el-button>
+            </div>
           </div>
-          <ul class="group">
-            <li class="modelItem flex-between" v-for="data,index in baseModels" :key="'base_'+index" draggable @dragstart="handleItemDragStart()" @dragend="handleModelDragEnd(data)">
-              <span>{{index+1+'. '}}{{data.header?.graphName}}</span>
-              <div class="item_rt">
-                <el-checkbox v-if="dbcCreate" :value="selectModel=='base_'+index" @click.native.prevent="changeSelectModel('base_'+index)" title="勾选双击创建的组件"></el-checkbox>
-              </div>
-            </li>
-          </ul>
+          <transition name="expandTrans">
+            <BaseModelList
+              v-show="baseExpand"
+              :dbcCreate="dbcCreate"
+              :selectModelType="selectModelType"
+              :selectModel="selectModel"
+              :baseModels="baseModels"
+              @handleItemDragStart="handleItemDragStart"
+              @handleModelDragEnd="handleModelDragEnd"
+              @changeSelectModel="changeSelectModel"
+            ></BaseModelList>
+          </transition>
           <div class="groupName flex-between">
             <span title="将工程文件导出为JSON后，即可导入为组件">
               <span>导入组件</span>
               <i class="el-icon-question" style="margin-left:5px"></i>
             </span>
-            <el-button class="btn" type="text" icon="el-icon-refresh" size="small" @click="refreshUploadModels">刷新</el-button>
+            <div class="btns">
+              <el-button class="btn" type="text" :icon="uploadExpand?'el-icon-arrow-up':'el-icon-arrow-down'" size="small" @click="uploadExpand = !uploadExpand">{{uploadExpand?'折叠':'展开'}}</el-button>
+              <el-button class="btn" type="text" icon="el-icon-refresh" size="small" @click="refreshUploadModels">刷新</el-button>
+            </div>
           </div>
-          <ul class="group">
-            <li class="modelItem flex-between" v-for="data,index in uploadModels" :key="'upload_'+index" draggable @dragstart="handleItemDragStart()" @dragend="handleModelDragEnd(data)">
-              <span>{{index+1+'. '}}{{data.header?.graphName}}</span>
-              <div class="item_rt">
-                <div class="item_btns">
-                  <el-button type="text" icon="el-icon-download" title="下载" @click="downloadUploadModel(data)"></el-button>
-                  <el-button type="text" icon="el-icon-close" title="删除" @click="deleteUploadModel(index)"></el-button>
+          <transition name="expandTrans">
+            <ul class="group" v-show="uploadExpand">
+              <li class="modelItem" v-for="data,index in uploadModels" :key="'upload_'+index" draggable @dragstart="handleItemDragStart()" @dragend="handleModelDragEnd(data)">
+                <span>{{index+1+'. '}}{{data.header?.graphName}}</span>
+                <div class="item_rt">
+                  <div class="item_btns">
+                    <el-button type="text" icon="el-icon-download" title="下载" @click="downloadUploadModel(data)"></el-button>
+                    <el-button type="text" icon="el-icon-close" title="删除" @click="deleteUploadModel(index)"></el-button>
+                  </div>
+                  <el-checkbox v-if="dbcCreate" :value="selectModelType=='upload'&&selectModel==data" @click.native.prevent="changeSelectModel('upload',data)" title="勾选双击创建的组件"></el-checkbox>
                 </div>
-                <el-checkbox v-if="dbcCreate" :value="selectModel=='upload_'+index" @click.native.prevent="changeSelectModel('upload_'+index)" title="勾选双击创建的组件"></el-checkbox>
-              </div>
-            </li>
-          </ul>
+              </li>
+            </ul>
+          </transition>
           <el-upload class="uploader" drag action multiple :auto-upload="false" :show-file-list="false" accept=".json" :on-change="uploadModels_onChange">
             <i class="el-icon-upload"></i>
             <div class="el-upload__text">
@@ -231,12 +240,23 @@ import * as ItemsUtil from "@/utils/itemsUtil.js";
 import LayoutSetting from "@/components/LayoutSetting.vue";
 import GlobalSetting from "@/components/GlobalSetting.vue";
 import Tips from "@/components/Tips.vue";
+import BaseModelList from "@/components/BaseModelList.vue";
+/**
+ * @typedef {import("../graph/dataMapper.js").GraphData} GraphData
+ * @typedef {Object} BaseModel 基础组件对象
+ * @property {boolean} isGroup - 是否子目录
+ * @property {string} name - 名称
+ * @property {BaseModel[]} list - 目录内容列表（isGroup为true）
+ * @property {boolean} expand - 是否展开（isGroup为true）
+ * @property {GraphData} data - 图谱持久化数据（isGroup为false）
+ */
 export default {
   name: "Designer",
   components: {
     LayoutSetting,
     GlobalSetting,
     Tips,
+    BaseModelList,
   },
   data() {
     return {
@@ -267,12 +287,20 @@ export default {
       nodeModels: Cfg.nodeModels,
       // 基础组件
       baseModelsLoading: false,
+      /**
+       * @type {BaseModel[]} 基础组件对象列表
+       */
       baseModels: [],
+      baseExpand: true,
+      // 封装模块
       packageModelId: Cfg.ModelId.package,
+      packageExpand: true,
       // 导入组件
       uploadModels: [],
+      uploadExpand: true,
       // 勾选组件
-      selectModel: "node_1", // 默认选择四向
+      selectModelType: "node",
+      selectModel: Cfg.nodeModels[1], // 默认选择四向
       // 生成布局调整
       showLayoutSetting: false,
       // 生成蓝图
@@ -496,55 +524,101 @@ export default {
         headers["Cache-Control"] = "no-cache";
       }
       this.baseModels = [];
-      let p = Promise.resolve();
-      Cfg.baseModelsConfig.forEach((config) => {
-        // 依次获取
-        p = p.then(() =>
-          fetch(config.path, {
-            method: "GET",
-            headers: headers,
-          })
-            .then((response) => response.json())
-            .then((data) => {
-              this.baseModels.push(data);
-            })
-            .catch(() => {
-              Util._err(`读取基础组件[${config.name}]失败！`);
-            })
-        );
-      });
-      p.finally(() => {
-        this.baseModelsLoading = false;
-      });
+      // 获取基础组件配置
+      fetch("./static/data/baseModelsConfig.json", {
+        method: "GET",
+        headers: headers,
+      })
+        .then((response) => response.json())
+        .then((configList) => {
+          // 深度优先遍历基础组件配置，依次获取基础组件
+          let p = Promise.resolve();
+          this.fetchBaseModels(headers, this.baseModels, configList).forEach((fetchBind) => {
+            p = p.then(fetchBind);
+          });
+          p.finally(() => {
+            this.baseModelsLoading = false;
+          });
+        })
+        .catch(() => {
+          Util._err(`读取基础组件配置失败！`);
+          this.baseModelsLoading = false;
+        });
     },
-    changeSelectModel(val) {
-      if (this.selectModel != val) {
-        this.selectModel = val;
-      } else {
+    /**
+     * 深度优先遍历基础组件配置，依次获取基础组件
+     * @param {Object} headers 请求头
+     * @param {BaseModel[]} targetModelList 组件目录列表
+     * @param {Array} configList 基础组件配置列表
+     * @param {(()=>Promise)[]} fetchBindList 异步方法句柄
+     */
+    fetchBaseModels(headers, targetModelList, configList, fetchBindList = []) {
+      if (!configList) return fetchBindList;
+      for (let config of configList) {
+        // 深度优先，依次获取
+        if (config.isGroup) {
+          let subList = [];
+          fetchBindList.push(() => {
+            // 异步创建子列表
+            return new Promise((resolve) => {
+              targetModelList.push({
+                isGroup: true,
+                expand: !!config.expand,
+                name: config.name,
+                list: subList,
+              });
+              resolve();
+            });
+          });
+          this.fetchBaseModels(headers, subList, config.list ?? [], fetchBindList);
+        } else {
+          fetchBindList.push(() =>
+            fetch(config.path, {
+              method: "GET",
+              headers: headers,
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                targetModelList.push({
+                  isGroup: false,
+                  name: config.name,
+                  data: data,
+                });
+              })
+              .catch(() => {
+                Util._err(`读取基础组件[${config.name}]失败！`);
+              })
+          );
+        }
+      }
+      return fetchBindList;
+    },
+    changeSelectModel(type, val) {
+      if (this.selectModelType == type && this.selectModel == val) {
+        this.selectModelType = null;
         this.selectModel = null;
+      } else {
+        this.selectModelType = type;
+        this.selectModel = val;
       }
     },
     // 双击画布创建
     handleDblclick(event) {
-      if (!this.dbcCreate || this.selectModel == null) return;
-      let [type, index] = this.selectModel.split("_");
+      if (!this.dbcCreate || this.selectModelType == null || this.selectModel == null) return;
       let offset = [event.offsetX, event.offsetY];
-      switch (type) {
+      switch (this.selectModelType) {
         case "node": // 节点
-          if (!this.nodeModels[index]) return;
-          this.dspGraph.createNode(this.nodeModels[index].modelId, offset);
+          this.dspGraph.createNode(this.selectModel.modelId, offset);
           break;
         case "package": // 封装模块
-          if (!this.dspGraph.packageMap.has(index)) return;
-          this.dspGraph.createNode(Cfg.ModelId.package, offset, index);
+          if (!this.dspGraph.packageMap.has(this.selectModel)) return;
+          this.dspGraph.createNode(Cfg.ModelId.package, offset, this.selectModel);
           break;
         case "base": // 基础组件
-          if (!this.baseModels[index]) return;
-          this.dspGraph.appendGraphData(this.baseModels[index], offset);
+          this.dspGraph.appendGraphData(this.selectModel, offset);
           break;
         case "upload": // 导入组件
-          if (!this.uploadModels[index]) return;
-          this.dspGraph.appendGraphData(this.uploadModels[index], offset);
+          this.dspGraph.appendGraphData(this.selectModel, offset);
           break;
       }
     },
@@ -992,6 +1066,10 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
             font-size: 16px;
             line-height: 20px;
             min-height: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            cursor: grab;
             &:hover {
               background: $barColor;
             }
@@ -1000,11 +1078,11 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
             }
             .item_rt {
               flex-shrink: 0;
+              margin-left: auto;
               display: flex;
               align-items: center;
             }
             .item_btns {
-              margin-right: 5px;
               opacity: 0.4;
               .el-button {
                 padding: 0;
@@ -1012,6 +1090,9 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
             }
             &:hover .item_btns {
               opacity: 1;
+            }
+            .item_btns + .el-checkbox {
+              margin-left: 5px;
             }
           }
         }
@@ -1028,6 +1109,7 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
       }
       .bottomBtn {
         position: absolute;
+        z-index: 99;
         width: 100%;
         height: $bottomBarH;
         bottom: 0;
@@ -1151,6 +1233,31 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
   }
   .item + .item {
     margin-top: 20px;
+  }
+}
+</style>
+
+<style>
+/* 展开动画 */
+.expandTrans-enter-active {
+  animation: move 0.3s;
+}
+
+/* 折叠动画 */
+.expandTrans-leave-active {
+  animation: move 0.15s reverse;
+}
+
+@keyframes move {
+  from {
+    transform-origin: top;
+    transform: scaleY(0.5);
+    opacity: 0;
+  }
+  to {
+    transform-origin: top;
+    transform: scaleY(1);
+    opacity: 1;
   }
 }
 </style>
