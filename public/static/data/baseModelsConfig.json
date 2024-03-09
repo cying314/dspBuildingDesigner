@@ -63,12 +63,23 @@
     "name": "时序电路模块",
     "list": [
       {
-        "name": "RS'锁存_红-蓝",
-        "path": "./static/data/RS'锁存_红-蓝.json"
+        "name": "RS'锁存",
+        "path": "./static/data/RS'锁存.json"
       },
       {
-        "name": "RS'锁存_蓝-红",
-        "path": "./static/data/RS'锁存_蓝-红.json"
+        "isGroup": true,
+        "expand": false,
+        "name": "RS锁存异色版",
+        "list": [
+          {
+            "name": "RS'锁存_红转蓝",
+            "path": "./static/data/RS'锁存_红-蓝.json"
+          },
+          {
+            "name": "RS'锁存_蓝转红",
+            "path": "./static/data/RS'锁存_蓝-红.json"
+          }
+        ]
       },
       {
         "name": "D锁存",
@@ -77,6 +88,10 @@
       {
         "name": "D触发器",
         "path": "./static/data/D触发器.json"
+      },
+      {
+        "name": "主从触发器",
+        "path": "./static/data/主从触发器.json"
       }
     ]
   }
