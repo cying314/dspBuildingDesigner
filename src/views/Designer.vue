@@ -566,6 +566,7 @@ export default {
                 expand: !!config.expand,
                 name: config.name,
                 list: subList,
+                tip: config.tip,
               });
               resolve();
             });
@@ -583,6 +584,7 @@ export default {
                   isGroup: false,
                   name: config.name,
                   data: data,
+                  tip: config.tip,
                 });
               })
               .catch(() => {

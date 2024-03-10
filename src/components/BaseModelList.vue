@@ -4,6 +4,7 @@
       <template v-if="bm.isGroup">
         <li class="item groupTitle" :key="'title_'+index">
           <span>{{pIndex+(index+1)+'. '}}{{bm.name}}</span>
+          <i v-if="bm.tip" class="el-icon-warning-outline tipsIcon" :title="bm.tip"></i>
           <div class="item_rt">
             <div class="item_btns">
               <el-button type="text" :icon="bm.expand?'el-icon-arrow-up':'el-icon-arrow-down'" size="small" @click="$set(bm,'expand',!bm.expand)">{{bm.expand?'折叠':'展开'}}</el-button>
@@ -28,6 +29,7 @@
       </template>
       <li v-else-if="bm.data" class="item modelItem" :key="'base_'+index" draggable @dragstart="$emit('handleItemDragStart')" @dragend="$emit('handleModelDragEnd',bm.data)">
         <span>{{pIndex+(index+1)+'. '}}{{bm.name}}</span>
+        <i v-if="bm.tip" class="el-icon-warning-outline tipsIcon" :title="bm.tip"></i>
         <div class="item_rt">
           <el-checkbox v-if="dbcCreate" :value="selectModelType=='base'&&selectModel==bm.data" @click.native.prevent="$emit('changeSelectModel','base',bm.data)" title="勾选双击创建的组件"></el-checkbox>
         </div>
@@ -76,6 +78,10 @@ $barColor: $--color-primary-light-9;
     }
     &:hover {
       background: $barColor;
+    }
+    .tipsIcon {
+      margin-left: 5px;
+      color: var(--color-warning);
     }
     .item_rt {
       flex-shrink: 0;
