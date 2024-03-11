@@ -92,6 +92,10 @@
         "path": "./static/data/D触发器.json"
       },
       {
+        "name": "D触发器-v2",
+        "path": "./static/data/D触发器-v2.json"
+      },
+      {
         "name": "主从触发器",
         "tip": "基于锁存环带设计，可能导致不稳定，如：快速切换CLK输入导致Q、Q'同时输出中电平",
         "path": "./static/data/主从触发器.json"
