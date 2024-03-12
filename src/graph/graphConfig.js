@@ -14,8 +14,9 @@ export const defaultW = 1000; // 画布默认宽度（优先使用画布外层�
 export const defaultH = 600; // 画布默认高度（优先使用画布外层高度）
 export const strokeW = {
   link: 2, // 连接线宽度
-  light: 1.5, // 细边宽
   bold: 2.5, // 粗边宽
+  light: 1.5, // 窄边宽
+  thin: 1, // 细边宽
 };
 export const nodeSize = 60; // 节点默认宽高
 export const pointSize = 7; // 节点插槽圆点大小
@@ -47,6 +48,7 @@ export const color = {
   nodeStroke: "rgb(51, 51, 51)",
   packageNodeFill: "rgb(253, 243, 227)", // 封装节点
   packageNodeStroke: "rgb(100, 0, 0)",
+  packageNodeText: "#333",
   text: "#333",
   emptyText: "#ccc",
 
@@ -223,8 +225,45 @@ export function resetLayout() {
 export const globalSetting = {
   /** 是否网格对齐 */
   gridAlignment: true,
+  /** 是否显示网格线 */
+  showGridLine: true,
   /** 生成模式（0:无带流(分拣器连接)，1:直接连接） */
   generateMode: 0,
   /** 连接线方向（0:传送带方向，1:信号方向） */
   linkMode: 1,
+  /** 背景颜色 */
+  bgColor: "#ffffff",
 };
+/** 劫持全局设置数据做浏览器缓存 */
+for (let key in globalSetting) {
+  const defaultVal = globalSetting[key];
+  handleStorageProperty(globalSetting, key, defaultVal.constructor, defaultVal);
+}
+function handleStorageProperty(obj, key, type, defaultVal) {
+  Object.defineProperty(obj, key, {
+    get() {
+      const ls = window.localStorage.getItem(key);
+      if (ls === null) return defaultVal;
+      if (type === Boolean) {
+        return ls === "1";
+      } else if (type === Number) {
+        return isNaN(ls) ? defaultVal : +ls;
+      }
+      return ls;
+    },
+    set(val) {
+      if (obj["_" + key] !== val) {
+        obj["_" + key] = val;
+        if (val == null) {
+          window.localStorage.removeItem(key);
+        } else {
+          let ls = val;
+          if (type === Boolean) {
+            ls = ls ? "1" : "0";
+          }
+          window.localStorage.setItem(key, ls);
+        }
+      }
+    },
+  });
+}

@@ -33,7 +33,7 @@
               :key="globalSetting.gridAlignment?'on':'off'"
               :title="(globalSetting.gridAlignment?'取消':'')+'网格对齐'"
               :plain="globalSetting.gridAlignment"
-              @click="globalSetting.gridAlignment=!globalSetting.gridAlignment"
+              @click="globalSetting.gridAlignment=!globalSetting.gridAlignment,dspGraph.refreshBg(true)"
             ></el-button>
           </div>
         </el-scrollbar>
@@ -219,7 +219,7 @@
     </el-dialog>
     <!-- 全局设置 -->
     <el-dialog title="全局设置" custom-class="globalSettingDialog" :visible.sync="showGlobalSetting" width="500px" v-dialogDrag>
-      <GlobalSetting ref="layoutSettingRef" v-if="showGlobalSetting" @updateLinkMode="dspGraph.updateLinkMode()">
+      <GlobalSetting ref="layoutSettingRef" v-if="showGlobalSetting" :dspGraph="dspGraph">
         <el-button size="small" @click="showGlobalSetting = false">关 闭</el-button>
       </GlobalSetting>
     </el-dialog>

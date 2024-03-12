@@ -124,11 +124,8 @@ export default class Graph {
     let canvas = d3.select(this._canvasDOM);
     // 清空画布
     canvas.html(null);
-    // 画布设置水印背景
-    Watermark.setWatermarkBg({
-      EL: this._canvasDOM,
-      option: Cfg.watermark,
-    });
+    // 创建背景水印、网格线
+    this.refreshBg(true);
     // 缩放函数实例
     this._zoom = d3
       .zoom()
@@ -144,13 +141,8 @@ export default class Graph {
             ?.select("#box-wrap")
             .style("stroke-width", Util.fixedSize(Cfg.strokeW.light, this.transform.k));
         }
-        // 移动水印
-        d3.select(this._canvasDOM)
-          .style("background-position", `${x}px ${y}px`)
-          .style(
-            "background-size",
-            `${parseFloat(Cfg.watermark.width) * k}px ${parseFloat(Cfg.watermark.height) * k}px`
-          );
+        // 移动水印、网格线
+        this.refreshBg();
       });
 
     const stopZoomTransition = () => {
@@ -161,6 +153,7 @@ export default class Graph {
       .append("svg")
       .attr("width", "100%")
       .attr("height", "100%")
+      .attr("style", "position: relative;z-index: 2;") // 防止被背景覆盖
       .on("click.resetSelectNode", () => {
         // 单选空白处，重置选中节点
         this.resetSelectNode();
@@ -439,6 +432,89 @@ export default class Graph {
       Util._err("合并数据失败：" + e);
       throw e;
     }
+  }
+
+  // 重置刷新背景水印、网格线
+  refreshBg(resetBg) {
+    let canvas = d3.select(this._canvasDOM);
+    if (canvas.style("position") === "none") {
+      canvas.style("position", "relative");
+    }
+    let bgColorEl = canvas.select(".bgColor");
+    if (bgColorEl.empty()) {
+      bgColorEl = canvas
+        .insert("div")
+        .attr("class", "bgColor")
+        .attr(
+          "style",
+          `width: 100%;
+           height: 100%;
+           position: absolute;
+           z-index: 0;
+           top: 0;
+           left: 0;
+           pointer-events: none;`
+        );
+    }
+    let bgImgEl = canvas.select(".bgImg");
+    if (bgImgEl.empty()) {
+      bgImgEl = canvas
+        .insert("div")
+        .attr("class", "bgImg")
+        .attr(
+          "style",
+          `width: 100%;
+           height: 100%;
+           position: absolute;
+           z-index: 1;
+           top: 0;
+           left: 0;
+           pointer-events: none;`
+        );
+    }
+    // 显示网格线
+    let showGridLine = Cfg.globalSetting.gridAlignment && Cfg.globalSetting.showGridLine;
+    if (resetBg) {
+      // 画布水印背景
+      let bgImg = `url('${Watermark.generateWMBase64(Cfg.watermark)}')`;
+      if (showGridLine) {
+        bgImg += `, url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAABQCAYAAACOEfKtAAAAAXNSR0IArs4c6QAAASdJREFUeF7t27ENwkAUBUFfL4T0cTVfH4QUgyzhCkaWztKSr/mMX8o4Nv6std7neXPOz65njl0PO+8KEN9OgAGiAOYtMEAUwLwFBogCmLfAAFEA8xYYIApg3gIDRAHMW2CAKIB5CwwQBTBvgQGiAOYtMEAUwLwFBogCmLfAAFEA8xYYIApg3gIDRAHMW2CAKIB5CwwQBTBvgQGiAOYtMEAUwPwRC7yOxN96V/76P/h71xfoc0eARtj/RMzvCDBAFMC8BQaIApi3wABRAPMWGCAKYN4CA0QBzFtggCiAeQsMEAUwb4EBogDmLTBAFMC8BQaIApi3wABRAPMWGCAKYN4CA0QBzFtggCiAeQsMEAUwb4EBogDmLTBAFMC8BQaIApi3wABRAPMf8D8/Dnv+KHMAAAAASUVORK5CYII=)`;
+      }
+      bgImgEl.style("background-repeat", "repeat").style("background-image", bgImg);
+      // 背景色
+      let R = parseInt("0x" + Cfg.globalSetting.bgColor.slice(1, 3)) || 0;
+      let G = parseInt("0x" + Cfg.globalSetting.bgColor.slice(3, 5)) || 0;
+      let B = parseInt("0x" + Cfg.globalSetting.bgColor.slice(5, 7)) || 0;
+      bgColorEl.style("background-color", `rgba(${R},${G},${B},0.8)`);
+      // 计算灰度，根据灰度设置网格线和水印亮度
+      let Gray = R * 0.299 + G * 0.587 + B * 0.11;
+      if (Gray > 160 && Gray < 240) {
+        // 解决灰色背景色看不清网格线问题
+        bgImgEl.style("filter", `brightness(${100 - (1 - Gray / 255) * 100}%)`);
+      } else {
+        bgImgEl.style("filter", `brightness(${100 + (1 - Gray / 255) * 100}%)`);
+      }
+      // 灰度过半，黑色字体颜色变白色
+      let newTextColor = Gray > 128 ? "#000" : "#fff";
+      if (Cfg.color.text !== newTextColor) {
+        Cfg.color.text = newTextColor;
+        // 更新节点文字颜色
+        if (this.$node && !this.$node.empty()) {
+          this.$node
+            .filter((d) => d.modelId !== Cfg.ModelId.package)
+            .selectAll("tspan")
+            .style("fill", Cfg.color.text);
+        }
+      }
+    }
+    const { x, y, k } = this.transform;
+    let bgSize = `${parseFloat(Cfg.watermark.width) * k}px ${
+      parseFloat(Cfg.watermark.height) * k
+    }px`;
+    if (showGridLine) {
+      bgSize += `, ${Cfg.gridStep * 4 * k}px ${Cfg.gridStep * 4 * k}px`;
+    }
+    bgImgEl.style("background-position", `${x}px ${y}px`).style("background-size", bgSize);
   }
 
   /**
@@ -1348,11 +1424,14 @@ export default class Graph {
         _this.createTspan(textEl, lines);
       } else {
         // 创建单行文本
+        let textColor = Cfg.color.text;
+        // 封装模块节点字体颜色不随着背景色变动
+        if (d.modelId === Cfg.ModelId.package) textColor = Cfg.color.packageNodeText;
         textEl
           .append("tspan")
           .attr("x", 0)
           .attr("dy", Cfg.lineHeight / 3)
-          .style("fill", Cfg.color.text)
+          .style("fill", textColor)
           .text(d.text);
       }
     });
@@ -1446,6 +1525,7 @@ export default class Graph {
       .style("width", w + "px")
       .style("height", h + "px")
       .style("position", "absolute")
+      .style("z-index", "99")
       .style("left", offset[0] - w / 2 + "px")
       .style("top", offset[1] - h / 2 + "px")
       .text(defaultText) // 设置输入框的初始值为text元素的文本
@@ -1512,7 +1592,7 @@ export default class Graph {
           .attr("r", Cfg.packageSlotSize / 2)
           .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default)
           .style("stroke", d.dir === 1 ? Cfg.color.priorityInStroke : Cfg.color.priorityOutStroke)
-          .style("stroke-width", Cfg.strokeW.light);
+          .style("stroke-width", Cfg.strokeW.thin);
         // 插槽传送带标记id
         packageSlotBg
           .append("image")

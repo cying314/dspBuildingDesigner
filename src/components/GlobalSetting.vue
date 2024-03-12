@@ -4,7 +4,13 @@
     <div class="item">
       <div class="name">是否网格对齐：</div>
       <div class="form">
-        <el-switch v-model="globalSetting.gridAlignment" active-color="#13ce66" inactive-color="#f56c6c"></el-switch>
+        <el-switch v-model="globalSetting.gridAlignment" active-color="#13ce66" inactive-color="#f56c6c" @change="dspGraph.refreshBg(true)"></el-switch>
+      </div>
+    </div>
+    <div class="item" v-if="globalSetting.gridAlignment">
+      <div class="name">是否显示网格线：</div>
+      <div class="form">
+        <el-switch v-model="globalSetting.showGridLine" active-color="#13ce66" inactive-color="#f56c6c" @change="dspGraph.refreshBg(true)"></el-switch>
       </div>
     </div>
     <div class="item">
@@ -25,7 +31,7 @@
     <div class="item">
       <div class="name">连接线方向：</div>
       <div class="form">
-        <el-radio-group v-model="globalSetting.linkMode" size="mini" @change="$emit('updateLinkMode')">
+        <el-radio-group v-model="globalSetting.linkMode" size="mini" @change="dspGraph.updateLinkMode()">
           <el-radio :label="0">
             <span>传送带方向</span>
           </el-radio>
@@ -36,6 +42,19 @@
         </el-radio-group>
       </div>
     </div>
+    <div class="item">
+      <div class="name">背景色：</div>
+      <div class="form">
+        <el-color-picker
+          class="bgColorPicker"
+          popper-class="bgColorPickerPopper"
+          v-model="globalSetting.bgColor"
+          size="mini"
+          :predefine="['#FFFFFF', '#000000', '#F6FAFF', '#FDFFF0', '#E2E8EF']"
+          @change="dspGraph.refreshBg(true)"
+        />
+      </div>
+    </div>
     <div class="bottomBtns">
       <slot></slot>
     </div>
@@ -43,9 +62,18 @@
 </template>
 
 <script>
+import DspGraph from "@/graph/dspGraph.js";
 import * as Cfg from "@/graph/graphConfig.js";
 export default {
   name: "GlobalSetting",
+  props: {
+    /**
+     * 图谱实例
+     */
+    dspGraph: {
+      type: DspGraph,
+    },
+  },
   data() {
     return {
       globalSetting: Cfg.globalSetting,
@@ -78,6 +106,19 @@ export default {
   }
   .danger {
     color: $--color-danger;
+  }
+}
+.bgColorPicker {
+  ::v-deep .el-color-picker__trigger {
+    width: 80px;
+  }
+}
+</style>
+
+<style lang="scss">
+.bgColorPickerPopper {
+  .el-color-predefine__color-selector {
+    border: 1px solid #ccc;
   }
 }
 </style>
