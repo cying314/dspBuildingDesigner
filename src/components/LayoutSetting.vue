@@ -213,8 +213,14 @@ export default {
       let onMove = (e2) => {
         e2.stopPropagation();
         e2.preventDefault();
-        this.$set(item.start, "x", Math.round(x + (e2.pageX - startX) / this.scale));
-        this.$set(item.start, "y", Math.round(y - (e2.pageY - startY) / this.scale));
+        let x2 = x + (e2.pageX - startX) / this.scale;
+        let y2 = y - (e2.pageY - startY) / this.scale;
+        let modX = x2 % 0.5;
+        let modY = y2 % 0.5;
+        x2 = modX > 0.25 ? x2 - modX + 0.5 : x2 - modX;
+        y2 = modY > 0.25 ? y2 - modY + 0.5 : y2 - modY;
+        this.$set(item.start, "x", +x2.toFixed(1));
+        this.$set(item.start, "y", +y2.toFixed(1));
       };
       let onEnd = () => {
         document.body.removeEventListener("mousemove", onMove);
