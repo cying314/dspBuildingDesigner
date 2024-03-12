@@ -1,4 +1,4 @@
-export const version = "1.0.3"; // 工具版本
+export const version = "1.0.4"; // 工具版本
 export const defaultGraphName = "新蓝图1"; // 默认蓝图名
 export const watermark = {
   width: "300px",

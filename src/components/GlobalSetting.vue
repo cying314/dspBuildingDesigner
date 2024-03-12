@@ -50,7 +50,7 @@
           popper-class="bgColorPickerPopper"
           v-model="globalSetting.bgColor"
           size="mini"
-          :predefine="['#FFFFFF', '#000000', '#F6FAFF', '#FDFFF0', '#E2E8EF']"
+          :predefine="['#FFFFFF', '#F6FAFF', '#FDFFF0', '#E2E8EF', '#7D7D7D', '#000000']"
           @change="dspGraph.refreshBg(true)"
         />
       </div>
