@@ -982,6 +982,10 @@ export default class Graph {
     const s = node.slots;
     s[0].dir;
     const tmp = {};
+    let edges = [];
+    s.forEach((d) => {
+      if (d.edge) edges.push(d.edge);
+    });
     if (rotateDir === 0) {
       // 左旋90°
       copySlotConfig(tmp, s[0]);
@@ -1013,7 +1017,12 @@ export default class Graph {
     let nodeSel = this.$node.filter((d) => d.id === node.id);
     this.buildNodeSlot(nodeSel);
     // 重绘连线
-    this.buildLink();
+    let edgeSel = this.$link
+      .filter((d) => edges.includes(d))
+      .attr("id", (d) => {
+        return `${this.uniqueTag}_link-source-${d.source.id}-${d.sourceSlot.index}-target-${d.target.id}-${d.targetSlot.index}`;
+      });
+    this.updateLink(edgeSel);
     // 记录操作
     this.recordUndo();
   }
