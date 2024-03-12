@@ -494,16 +494,33 @@ export default class Graph {
       } else {
         bgImgEl.style("filter", `brightness(${100 + (1 - Gray / 255) * 100}%)`);
       }
-      // 灰度过半，黑色字体颜色变白色
-      let newTextColor = Gray > 128 ? "#000" : "#fff";
-      if (Cfg.color.text !== newTextColor) {
-        Cfg.color.text = newTextColor;
+      // 暗色背景下，修改提亮相关暗色颜色：字体颜色、临时连接线颜色、选择框颜色
+      let textColor = Gray > 128 ? Cfg.color.text_light : Cfg.color.text_dark;
+      let tmpLineStrokeColor =
+        Gray > 128 ? Cfg.color.tmpLineStroke_light : Cfg.color.tmpLineStroke_dark;
+      let selectionStrokeColor =
+        Gray > 128 ? Cfg.color.selectionStroke_light : Cfg.color.selectionStroke_dark;
+      // 字体颜色
+      if (Cfg.color.text !== textColor) {
+        Cfg.color.text = textColor;
         // 更新节点文字颜色
         if (this.$node && !this.$node.empty()) {
           this.$node
             .filter((d) => d.modelId !== Cfg.ModelId.package)
             .selectAll("tspan")
             .style("fill", Cfg.color.text);
+        }
+      }
+      // 临时连接线颜色
+      if (Cfg.color.tmpLineStroke !== tmpLineStrokeColor) {
+        Cfg.color.tmpLineStroke = tmpLineStrokeColor;
+      }
+      // 选择框颜色
+      if (Cfg.color.selectionStroke !== selectionStrokeColor) {
+        Cfg.color.selectionStroke = selectionStrokeColor;
+        // 更新选中节点包围盒
+        if (this._selection.boundingBox) {
+          this.updateSelectionBox();
         }
       }
     }

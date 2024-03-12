@@ -49,7 +49,9 @@ export const color = {
   packageNodeFill: "rgb(253, 243, 227)", // 封装节点
   packageNodeStroke: "rgb(100, 0, 0)",
   packageNodeText: "#333",
-  text: "#333",
+  text: "#333", // 默认字体颜色
+  text_light: "#333", // 亮色背景下 字体 颜色
+  text_dark: "#fff", // 暗色背景下 字体 颜色
   emptyText: "#ccc",
 
   slotFill: "#fff", // 插槽
@@ -61,8 +63,15 @@ export const color = {
 
   linkStroke: "rgba(33, 150, 243, 0.8)", // 传送带方向连接线
   reverseLinkStroke: "rgb(245, 152, 2, 0.8)", // 信号方向连接线
+
   tmpLineStroke: "rgba(170, 170, 170, 0.8)", // 临时连接线
+  tmpLineStroke_light: "rgba(170, 170, 170, 0.8)", // 亮色背景下 临时连接线 颜色
+  tmpLineStroke_dark: "rgba(255, 255, 255, 0.8)", // 暗色背景下 临时连接线 颜色
+
   selectionStroke: "rgba(51, 51, 51, 0.5)", // 选择框
+  selectionStroke_light: "rgba(51, 51, 51, 0.5)", // 亮色背景下 选择框 颜色
+  selectionStroke_dark: "rgba(255, 255, 255, 0.5)", // 暗色背景下 选择框 颜色
+
   selectionCornerStroke: "rgba(81, 81, 249, 0.8)", // 选择角框
 
   item_6001: "rgb(33, 150, 243)", // 蓝糖
