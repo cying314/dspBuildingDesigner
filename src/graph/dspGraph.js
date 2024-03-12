@@ -941,6 +941,67 @@ export default class Graph {
   }
 
   /**
+   * 变换四向插槽（旋转、翻转）
+   * @param {Mapper.GraphNode} node 节点对象
+   * @param {number} transformType 变换类型（0:左旋90°, 1:右旋90°, 2: 垂直翻转, 3: 水平翻转）
+   */
+  transformFdirSlot(node, rotateDir) {
+    const modelId = node?.modelId;
+    // 只有四向可旋转插槽
+    if (modelId !== Cfg.ModelId.fdir) return;
+    function copySlotConfig(target, source) {
+      target.dir = source.dir;
+      target.priority = source.priority;
+      target.filterId = source.filterId;
+      target.edge = source.edge;
+      if (target.edge) {
+        if (target.dir == 1) {
+          target.edge.sourceSlot = target;
+        } else {
+          target.edge.targetSlot = target;
+        }
+      }
+    }
+    const s = node.slots;
+    s[0].dir;
+    const tmp = {};
+    if (rotateDir === 0) {
+      // 左旋90°
+      copySlotConfig(tmp, s[0]);
+      copySlotConfig(s[0], s[1]);
+      copySlotConfig(s[1], s[2]);
+      copySlotConfig(s[2], s[3]);
+      copySlotConfig(s[3], tmp);
+    } else if (rotateDir === 1) {
+      // 右旋90°
+      copySlotConfig(tmp, s[0]);
+      copySlotConfig(s[0], s[3]);
+      copySlotConfig(s[3], s[2]);
+      copySlotConfig(s[2], s[1]);
+      copySlotConfig(s[1], tmp);
+    } else if (rotateDir === 2) {
+      // 垂直翻转
+      copySlotConfig(tmp, s[0]);
+      copySlotConfig(s[0], s[2]);
+      copySlotConfig(s[2], tmp);
+    } else if (rotateDir === 3) {
+      // 水平翻转
+      copySlotConfig(tmp, s[1]);
+      copySlotConfig(s[1], s[3]);
+      copySlotConfig(s[3], tmp);
+    } else {
+      return;
+    }
+    // 重绘节点插槽
+    let nodeSel = this.$node.filter((d) => d.id === node.id);
+    this.buildNodeSlot(nodeSel);
+    // 重绘连线
+    this.buildLink();
+    // 记录操作
+    this.recordUndo();
+  }
+
+  /**
    * 切换流速器 生成/消耗物品id
    * @param {Mapper.GraphNode} node 节点对象
    * @param {number} itemId 物品id

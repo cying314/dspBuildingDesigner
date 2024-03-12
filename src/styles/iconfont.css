@@ -26,6 +26,14 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.if-icon-vert-flip:before {
+  content: "\e75c";
+}
+
+.if-icon-hori-flip:before {
+  content: "\ea62";
+}
+
 .if-icon-set-zero:before {
   content: "\e68d";
 }

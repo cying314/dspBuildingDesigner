@@ -673,7 +673,37 @@ export default {
           },
         });
       }
-      if (modelId === Cfg.ModelId.package) {
+      if (modelId === Cfg.ModelId.fdir) {
+        // 选中四向
+        this.operMenuBtns.push({
+          title: "左旋转90°",
+          icon: "el-icon-refresh-left",
+          handler: () => {
+            this.dspGraph.transformFdirSlot(d, 0);
+          },
+        });
+        this.operMenuBtns.push({
+          title: "右旋转90°",
+          icon: "el-icon-refresh-right",
+          handler: () => {
+            this.dspGraph.transformFdirSlot(d, 1);
+          },
+        });
+        this.operMenuBtns.push({
+          title: "垂直翻转",
+          icon: "if-icon-vert-flip",
+          handler: () => {
+            this.dspGraph.transformFdirSlot(d, 2);
+          },
+        });
+        this.operMenuBtns.push({
+          title: "水平翻转",
+          icon: "if-icon-hori-flip",
+          handler: () => {
+            this.dspGraph.transformFdirSlot(d, 3);
+          },
+        });
+      } else if (modelId === Cfg.ModelId.package) {
         // 选中封装模块
         this.operMenuBtns.push({
           title: "展开封装模块",
