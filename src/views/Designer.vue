@@ -426,6 +426,9 @@ export default {
             .then(() => {
               this.graphName = graphData.header.graphName;
               this.dspGraph.resetGraphData(graphData);
+              // 初始化撤回、重做记录
+              this.dspGraph._redoList = [];
+              this.dspGraph._undoList = [graphData];
               Util._success("载入成功！");
             })
             .catch(() => {});
