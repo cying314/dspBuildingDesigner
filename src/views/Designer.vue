@@ -715,7 +715,8 @@ export default {
         });
       }
       if ([Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
-        // 流速器、信号输出、信号输入 切换生成/消耗物品id
+        // 流速器、信号输出、信号输入
+        // 切换生成/消耗物品id
         const dir = d.slots[0]?.dir ?? 1;
         let tag = dir == 1 ? "生成" : "消耗";
         this.operMenuBtns.push({
@@ -739,8 +740,12 @@ export default {
           },
         });
       }
-      if ([Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
-        // 信号输出、信号输入 切换传送带标记图标id
+      if (
+        [Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(
+          modelId
+        )
+      ) {
+        // 流速器、信号输出、信号输入 切换传送带标记图标id
         this.operMenuBtns.push({
           title: "切换传送带标记",
           icon: "el-icon-info",
@@ -770,7 +775,7 @@ export default {
             }
           },
         });
-        // 信号输出、信号输入 更改传送带标记数
+        // 流速器、信号输出、信号输入 更改传送带标记数
         this.operMenuBtns.push({
           title: "更改传送带标记数\n生成的输入输出口将根据标记数升序排列",
           icon: "if-icon-count",
@@ -780,11 +785,16 @@ export default {
         });
       }
       if (
-        [Cfg.ModelId.text, Cfg.ModelId.output, Cfg.ModelId.input, Cfg.ModelId.package].includes(
-          modelId
-        )
+        [
+          Cfg.ModelId.text,
+          Cfg.ModelId.monitor,
+          Cfg.ModelId.output,
+          Cfg.ModelId.input,
+          Cfg.ModelId.set_zero,
+          Cfg.ModelId.package,
+        ].includes(modelId)
       ) {
-        // 普通文本、信号输出、信号输入、封装模块 切换节点文本
+        // 普通文本、流速器、信号输出、信号输入、置零、封装模块 切换节点文本
         this.operMenuBtns.push({
           title: "更改节点文本描述",
           icon: "if-icon-textarea",

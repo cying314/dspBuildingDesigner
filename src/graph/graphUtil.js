@@ -428,12 +428,13 @@ export function _err(mes) {
 /**
  * 弹窗html内容提示确认
  */
-export function _confirmHtml(html) {
+export function _confirmHtml(html, otherOption = {}) {
   return MessageBox.confirm(html, "提示", {
     confirmButtonText: "确定",
     cancelButtonText: "取消",
     type: "warning",
     dangerouslyUseHTMLString: true, // 渲染html
+    ...otherOption,
   });
 }
 

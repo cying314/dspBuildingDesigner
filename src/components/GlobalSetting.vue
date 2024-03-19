@@ -55,6 +55,35 @@
         />
       </div>
     </div>
+    <div class="item">
+      <div class="name" title="开启时，框选节点时设置传送带标记，将批量修改至所有选中节点">
+        <span>批量设置图标：</span>
+        <i class="el-icon-question"></i>
+      </div>
+      <div class="form">
+        <el-switch v-model="globalSetting.selectionSettingSignal" active-color="#13ce66" inactive-color="#f56c6c"></el-switch>
+      </div>
+    </div>
+    <div class="item">
+      <div class="name" title="开启时，框选节点时设置标记数，将批量修改至所有选中节点">
+        <span>批量设置标记数：</span>
+        <i class="el-icon-question"></i>
+      </div>
+      <div class="form">
+        <el-radio-group v-model="globalSetting.selectionSettingCount" size="mini">
+          <el-radio :label="0">
+            <span>关</span>
+          </el-radio>
+          <el-radio :label="1">
+            <span>批量复制</span>
+          </el-radio>
+          <el-radio :label="2" :title="`根据选中节点次序自动编号`">
+            <span>自动排序</span>
+            <i class="el-icon-question primary" style="margin-left:5px"></i>
+          </el-radio>
+        </el-radio-group>
+      </div>
+    </div>
     <div class="bottomBtns">
       <slot></slot>
     </div>

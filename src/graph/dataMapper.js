@@ -467,6 +467,8 @@ export function nodeToData(node) {
     y: node.y,
     modelId: node.modelId,
     text: node.text || undefined,
+    signalId: node.signalId || undefined, // 传送带标记图标id
+    count: node.count || undefined, // 传送带标记数
   };
   if (modelId === Cfg.ModelId.fdir) {
     // 四向
@@ -489,8 +491,6 @@ export function nodeToData(node) {
   } else if ([Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
     // 流速器、信号输出、信号输入
     data.itemId = node.itemId; // 生成/消耗物品id
-    data.signalId = node.signalId || undefined; // 传送带标记图标id
-    data.count = node.count ?? undefined; // 传送带标记数
     data.slots =
       node.slots?.map((s) => ({
         // 固定插槽，不保存偏移

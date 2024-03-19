@@ -242,6 +242,10 @@ export const globalSetting = {
   linkMode: 1,
   /** 背景颜色 */
   bgColor: "#ffffff",
+  /** 批量设置图标 */
+  selectionSettingSignal: true,
+  /** 批量设置标记数（0:关，1:复制编号，2:自动排序） */
+  selectionSettingCount: 2,
 };
 /** 劫持全局设置数据做浏览器缓存 */
 for (let key in globalSetting) {

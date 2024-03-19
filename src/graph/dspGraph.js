@@ -1054,13 +1054,32 @@ export default class Graph {
    */
   changeNodeSignalId(node, signalId) {
     const modelId = node?.modelId;
-    // 只有信号输出、信号输入可切换
-    if (![Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) return;
+    // 只有流速器、信号输出、信号输入可切换
+    const allow = [Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input];
+    if (!allow.includes(modelId)) return;
+    const selectNodeIds = new Set();
+    if (Cfg.globalSetting.selectionSettingSignal) {
+      // 批量设置图标，不为关
+      this._selection.nodeMap.values().forEach((n) => {
+        if (!allow.includes(n.modelId)) return;
+        n.signalId = signalId;
+        selectNodeIds.add(n.id);
+      });
+      selectNodeIds.add(node.id);
+    }
     node.signalId = signalId;
-    // 重绘节点颜色
-    d3.select(`#${this.uniqueTag}_node-bg-${node.id}`)
-      .select("image")
-      .attr("xlink:href", ItemsUtil.getSignalImage(signalId));
+    let nodeBgSel;
+    if (selectNodeIds.size > 1) {
+      // 重绘所有选中节点标记图标
+      nodeBgSel = this.$node.filter((n) => selectNodeIds.has(n.id)).selectAll(".node-bg");
+    } else {
+      // 重绘单个节点标记图标
+      nodeBgSel = d3.select(`#${this.uniqueTag}_node-bg-${node.id}`);
+    }
+    nodeBgSel.select("image").remove();
+    if (signalId) {
+      this.createNodeSignal(nodeBgSel);
+    }
     // 记录操作
     this.recordUndo();
   }
@@ -1072,15 +1091,25 @@ export default class Graph {
   handleChangeNodeText(node) {
     let _this = this;
     const modelId = node?.modelId;
-    // 只有普通文本、信号输出、信号输入、封装模块可切换
+    // 只有普通文本、流速器、信号输出、信号输入、置零、封装模块可切换
     if (
-      ![Cfg.ModelId.text, Cfg.ModelId.output, Cfg.ModelId.input, Cfg.ModelId.package].includes(
-        modelId
-      )
+      ![
+        Cfg.ModelId.text,
+        Cfg.ModelId.monitor,
+        Cfg.ModelId.output,
+        Cfg.ModelId.input,
+        Cfg.ModelId.set_zero,
+        Cfg.ModelId.package,
+      ].includes(modelId)
     )
       return;
     let oy = 0;
-    if (modelId === Cfg.ModelId.output || modelId === Cfg.ModelId.input) {
+    if (
+      [Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input, Cfg.ModelId.set_zero].includes(
+        modelId
+      )
+    ) {
+      // 流速器、信号输出、信号输入、置零 向下偏移，其余居中
       oy = node.h / 2;
     }
     // 创建文本输入框
@@ -1152,8 +1181,31 @@ export default class Graph {
    */
   handleChangeNodeCount(node) {
     const modelId = node?.modelId;
-    // 只有信号输出、信号输入可切换
-    if (![Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) return;
+    // 只有流速器、信号输出、信号输入、置零可切换
+    const allow = [
+      Cfg.ModelId.monitor,
+      Cfg.ModelId.output,
+      Cfg.ModelId.input,
+      Cfg.ModelId.set_zero,
+    ];
+    if (!allow.includes(modelId)) return;
+
+    let curIdx = null;
+    const selectNodeIds = [];
+    const selectionSettingCount = Cfg.globalSetting.selectionSettingCount;
+    if (selectionSettingCount !== 0) {
+      // 批量设置标记数，不为关
+      this._selection.nodeMap.values().forEach((n, i) => {
+        if (!allow.includes(n.modelId)) return;
+        if (n.id == node.id) curIdx = i;
+        selectNodeIds.push(n.id);
+      });
+      if (curIdx === null) {
+        selectNodeIds.push(node.id);
+        curIdx = selectNodeIds.length - 1;
+      }
+    }
+
     // 创建文本输入框
     this.createInput({
       x: node.x - node.w / 2,
@@ -1163,19 +1215,43 @@ export default class Graph {
       minW: 30,
       minH: 15,
       defaultText: node.count,
-      callback: (val) => {
+      callback: async (val) => {
+        const count = isNaN(val) ? null : +val;
         // 获取tspan元素，修改文本
-        let nodeBgSel = d3.select(`#${this.uniqueTag}_node-bg-${node.id}`);
-        if (!+val) {
-          node.count = null;
-          nodeBgSel.select(".belt-count").remove();
-          return;
+        let nodeBgSel;
+        if (selectNodeIds.length > 1) {
+          // 重绘所有选中节点标记数
+          nodeBgSel = this.$node
+            .filter((n) => {
+              let idx = selectNodeIds.indexOf(n.id);
+              if (idx != -1) {
+                if (count == null) {
+                  n.count = null;
+                } else {
+                  if (selectionSettingCount == 2) {
+                    // 2:根据选中节点次序自动排序编号
+                    n.count = count + idx - curIdx;
+                  } else {
+                    // 1:填入相同编号
+                    n.count = count;
+                  }
+                  if (n.count == 0) n.count = null;
+                }
+                return true;
+              }
+              return false;
+            })
+            .selectAll(".node-bg");
+        } else {
+          // 重绘单个节点标记数
+          nodeBgSel = d3.select(`#${this.uniqueTag}_node-bg-${node.id}`);
+          node.count = count == 0 ? null : count;
         }
-        node.count = +val;
-        if (nodeBgSel.select(".belt-count tspan").text(node.count).empty()) {
-          // 若元素不存在则创建
-          this.createNodeCountText(nodeBgSel);
-        }
+        nodeBgSel.select(".belt-count").remove();
+
+        // 创建传送带标记数文本
+        this.createNodeCountText(nodeBgSel.filter((d) => !!d.count));
+
         // 记录操作
         this.recordUndo();
       },
@@ -1400,20 +1476,6 @@ export default class Graph {
                 : Cfg.color.priorityInStroke
             )
             .style("stroke-width", Cfg.strokeW.bold);
-          bg.append("image")
-            .attr("xlink:href", ItemsUtil.getSignalImage(d.signalId))
-            .attr("x", d.w / 2 - Cfg.signalSize / 2)
-            .attr("y", d.h / 2 - Cfg.signalSize / 2)
-            .attr("width", Cfg.signalSize)
-            .attr("height", Cfg.signalSize);
-          // 创建节点文本
-          if (d.text) {
-            _this.createNodeText(bg);
-          }
-          // 创建传送带标记数文本
-          if (+d.count) {
-            _this.createNodeCountText(bg);
-          }
         } else if (d.modelId === Cfg.ModelId.monitor) {
           // 流速器模型
           bg.append("rect")
@@ -1430,6 +1492,7 @@ export default class Graph {
         } else if (d.modelId === Cfg.ModelId.package) {
           // 封装模块节点
           bg.append("rect")
+            .attr("class", "item-bg")
             .attr("x", -d.w / 2)
             .attr("y", -d.h / 2)
             .attr("width", d.w)
@@ -1439,10 +1502,6 @@ export default class Graph {
             .style("fill", Cfg.color.packageNodeFill)
             .style("stroke", Cfg.color.packageNodeStroke)
             .style("stroke-width", Cfg.strokeW.light);
-          // 创建节点文本
-          if (d.text) {
-            _this.createNodeText(bg);
-          }
         } else if (d.modelId === Cfg.ModelId.set_zero) {
           // 置零
           bg.append("circle")
@@ -1457,6 +1516,7 @@ export default class Graph {
           bg = d3
             .select(this)
             .append("rect")
+            .attr("class", "item-bg")
             .attr("x", -d.w / 2)
             .attr("y", -d.h / 2)
             .attr("width", d.w)
@@ -1467,7 +1527,34 @@ export default class Graph {
             .style("stroke", Cfg.color.nodeStroke)
             .style("stroke-width", Cfg.strokeW.light);
         }
+
+        // 创建节点图标
+        if (d.signalId) {
+          _this.createNodeSignal(bg);
+        }
+        // 创建节点文本
+        if (d.text) {
+          _this.createNodeText(bg);
+        }
+        // 创建传送带标记数文本
+        if (+d.count) {
+          _this.createNodeCountText(bg);
+        }
       });
+  }
+
+  /**
+   * 绘制节点图标
+   * @param {d3.Selection<SVGGElement, Mapper.GraphNode>} nodeBgSel
+   */
+  createNodeSignal(nodeBgSel) {
+    nodeBgSel
+      .append("image")
+      .attr("xlink:href", (d) => ItemsUtil.getSignalImage(d.signalId))
+      .attr("x", (d) => d.w / 2 - Cfg.signalSize / 2)
+      .attr("y", (d) => d.h / 2 - Cfg.signalSize / 2)
+      .attr("width", Cfg.signalSize)
+      .attr("height", Cfg.signalSize);
   }
 
   /**
@@ -1481,7 +1568,15 @@ export default class Graph {
       textSel = nodeBgSel
         .append("text")
         .attr("y", (d) => {
-          if (d.modelId === Cfg.ModelId.output || d.modelId === Cfg.ModelId.input) {
+          if (
+            [
+              Cfg.ModelId.monitor,
+              Cfg.ModelId.output,
+              Cfg.ModelId.input,
+              Cfg.ModelId.set_zero,
+            ].includes(d.modelId)
+          ) {
+            // 流速器、信号输出、信号输入、置零 向下偏移，其余居中
             return d.h;
           }
           return null;
