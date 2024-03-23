@@ -1186,10 +1186,8 @@ export default class Graph {
       Cfg.ModelId.monitor,
       Cfg.ModelId.output,
       Cfg.ModelId.input,
-      Cfg.ModelId.set_zero,
     ];
     if (!allow.includes(modelId)) return;
-
     let curIdx = null;
     const selectNodeIds = [];
     const selectionSettingCount = Cfg.globalSetting.selectionSettingCount;
