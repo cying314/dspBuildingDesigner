@@ -84,6 +84,15 @@
         </el-radio-group>
       </div>
     </div>
+    <div class="item">
+      <div class="name" :title="`导出JSON工程文件时，剔除未引用的封装模块、画布位置、布局配置等信息\n用于导出纯粹的模块组件数据`">
+        <span>简化导出JSON数据：</span>
+        <i class="el-icon-question"></i>
+      </div>
+      <div class="form">
+        <el-switch v-model="globalSetting.reducedData" active-color="#13ce66" inactive-color="#f56c6c"></el-switch>
+      </div>
+    </div>
     <div class="bottomBtns">
       <slot></slot>
     </div>

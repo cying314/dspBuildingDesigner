@@ -246,6 +246,8 @@ export const globalSetting = {
   selectionSettingSignal: true,
   /** 批量设置标记数（0:关，1:复制编号，2:自动排序） */
   selectionSettingCount: 2,
+  /** 简化导出JSON数据 */
+  reducedData: false,
 };
 /** 劫持全局设置数据做浏览器缓存 */
 for (let key in globalSetting) {

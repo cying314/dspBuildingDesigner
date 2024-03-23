@@ -28,6 +28,45 @@
         "path": "./static/data/非门_复制.json"
       },
       {
+        "isGroup": true,
+        "expand": false,
+        "name": "异色基础门",
+        "list": [
+          {
+            "name": "与或门_蓝",
+            "path": "./static/data/与或门_蓝.json"
+          },
+          {
+            "name": "与或门_黄",
+            "path": "./static/data/与或门_黄.json"
+          },
+          {
+            "name": "复制非门_红转蓝",
+            "path": "./static/data/复制非门_红-蓝.json"
+          },
+          {
+            "name": "复制非门_蓝转红",
+            "path": "./static/data/复制非门_蓝-红.json"
+          },
+          {
+            "name": "复制非门_红转黄",
+            "path": "./static/data/复制非门_红-黄.json"
+          },
+          {
+            "name": "复制非门_黄转红",
+            "path": "./static/data/复制非门_黄-红.json"
+          },
+          {
+            "name": "复制非门_蓝转黄",
+            "path": "./static/data/复制非门_蓝-黄.json"
+          },
+          {
+            "name": "复制非门_黄转蓝",
+            "path": "./static/data/复制非门_黄-蓝.json"
+          }
+        ]
+      },
+      {
         "name": "异或门",
         "path": "./static/data/异或门.json"
       },
@@ -44,8 +83,38 @@
         "path": "./static/data/2选1选择器.json"
       },
       {
+        "isGroup": true,
+        "expand": true,
         "name": "比较器",
-        "path": "./static/data/比较器.json"
+        "list": [
+          {
+            "name": "1位比较器-v1",
+            "path": "./static/data/1位比较器-v1.json"
+          },
+          {
+            "name": "1位比较器-v2",
+            "path": "./static/data/1位比较器-v2.json"
+          },
+          {
+            "name": "8位比较器",
+            "path": "./static/data/8位比较器.json"
+          },
+          {
+            "isGroup": true,
+            "expand": false,
+            "name": "异色比较模块",
+            "list": [
+              {
+                "name": "1位比较器_红-蓝",
+                "path": "./static/data/1位比较器_红-蓝.json"
+              },
+              {
+                "name": "级联比较器_红-蓝",
+                "path": "./static/data/级联比较器_红-蓝.json"
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "8位二十译码",
@@ -88,8 +157,8 @@
         "path": "./static/data/D锁存.json"
       },
       {
-        "name": "D触发器",
-        "path": "./static/data/D触发器.json"
+        "name": "D触发器-v1",
+        "path": "./static/data/D触发器-v1.json"
       },
       {
         "name": "D触发器-v2",

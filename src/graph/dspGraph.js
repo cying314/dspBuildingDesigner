@@ -1060,7 +1060,7 @@ export default class Graph {
     const selectNodeIds = new Set();
     if (Cfg.globalSetting.selectionSettingSignal) {
       // 批量设置图标，不为关
-      this._selection.nodeMap.values().forEach((n) => {
+      this._selection.nodeMap.forEach((n) => {
         if (!allow.includes(n.modelId)) return;
         n.signalId = signalId;
         selectNodeIds.add(n.id);
@@ -1195,7 +1195,9 @@ export default class Graph {
     const selectionSettingCount = Cfg.globalSetting.selectionSettingCount;
     if (selectionSettingCount !== 0) {
       // 批量设置标记数，不为关
-      this._selection.nodeMap.values().forEach((n, i) => {
+      let i = -1;
+      this._selection.nodeMap.forEach((n) => {
+        i++;
         if (!allow.includes(n.modelId)) return;
         if (n.id == node.id) curIdx = i;
         selectNodeIds.push(n.id);
@@ -2539,9 +2541,10 @@ export default class Graph {
 
   /**
    * 将当前图谱数据转换为持久化数据
+   * @param {boolean} weedOutUnusedPackage 是否剔除未引用的封装模块（默认否）
    * @return {Mapper.GraphData}
    */
-  getGraphData() {
+  getGraphData(weedOutUnusedPackage = false) {
     return Mapper.toGraphData(
       this._nodes,
       this._edges,
@@ -2550,7 +2553,7 @@ export default class Graph {
         graphName: this.graphName,
       },
       Array.from(this.packageMap.values()),
-      false
+      weedOutUnusedPackage
     );
   }
 
@@ -2714,7 +2717,7 @@ export default class Graph {
       return false;
     }
     try {
-      const graphData = this.getGraphData();
+      const graphData = this.getGraphData(Cfg.globalSetting.reducedData);
       Util.saveGraphDataAsJson(graphData);
       Util._success("导出成功！");
     } catch (e) {

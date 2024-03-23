@@ -264,10 +264,61 @@ export function saveAsTxt(content, fileName = "默认", fileSuffix = "txt") {
 export function saveGraphDataAsJson(graphData) {
   try {
     let fileName = graphData.header.graphName ?? Cfg.defaultGraphName;
+    if (Cfg.globalSetting.reducedData) {
+      // 简化导出JSON数据
+      reducedGraphData(graphData);
+    }
     saveAsTxt(JSON.stringify(graphData), fileName, "json");
   } catch (e) {
     this.warning("导出JSON文件失败！");
     throw e;
+  }
+}
+
+/**
+ * 简化图谱持久化数据
+ * @param {GraphData} graphData
+ */
+function reducedGraphData(graphData) {
+  if (!checkGraphData(graphData)) return;
+  // 剔除画布位置信息
+  graphData.header.transform = { x: 0, y: 0, k: 1 };
+  // 剔除生成蓝图布局信息
+  delete graphData.header.layout;
+  // 节点位置统一移动画布到左上角，并将坐标取整2位小数
+  const { minX: omX, minY: omY, w: ow, h: oh } = graphData.header.boundingBox;
+  // 计算距离左上角的空白距离（对齐网格线）
+  const Space = Cfg.gridStep * 2 + Cfg.selectionMargin;
+  let spX = Space;
+  let spY = Space;
+  if (graphData.data.nodes.length > 0) {
+    // 若存在节点，使用第一个节点中心做网格对齐
+    let { x = 0, y = 0 } = graphData.data.nodes[0];
+    let gridOffset = getGridAlignmentOffset(x - omX + spX, y - omY + spY);
+    spX += gridOffset[0];
+    spY += gridOffset[1];
+  }
+  if (omX != spX || omY != spY) {
+    graphData.header.boundingBox.minX = spX;
+    graphData.header.boundingBox.minY = spY;
+    graphData.header.boundingBox.maxX = +(+ow + spX).toFixed(2);
+    graphData.header.boundingBox.maxY = +(+oh + spY).toFixed(2);
+    graphData.header.boundingBox.w = +(+ow).toFixed(2);
+    graphData.header.boundingBox.h = +(+oh).toFixed(2);
+    graphData.data.nodes.forEach((n) => {
+      n.x = +(n.x - omX + spX).toFixed(2);
+      n.y = +(n.y - omY + spY).toFixed(2);
+    });
+  }
+  if (graphData.packages?.length > 0) {
+    // 递归处理引用封装模块数据
+    for (let p of graphData.packages) {
+      if (p?.graphData?.header?.graphName === Cfg.defaultGraphName && p?.name) {
+        // 默认蓝图名改为模块名
+        p.graphData.header.graphName = p.name;
+      }
+      reducedGraphData(p.graphData);
+    }
   }
 }
 
