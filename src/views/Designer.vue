@@ -40,7 +40,7 @@
       </div>
       <div class="rt">
         <span class="label">蓝图名：</span>
-        <el-input class="ipt" v-model="graphName" maxlength="30" size="mini" clearable></el-input>
+        <el-input class="ipt" v-model="graphName" maxlength="30" size="mini" clearable @keydown.native.stop></el-input>
       </div>
     </div>
     <div class="content">
@@ -740,11 +740,7 @@ export default {
           },
         });
       }
-      if (
-        [Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(
-          modelId
-        )
-      ) {
+      if ([Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
         // 流速器、信号输出、信号输入 切换传送带标记图标id
         this.operMenuBtns.push({
           title: "切换传送带标记",
