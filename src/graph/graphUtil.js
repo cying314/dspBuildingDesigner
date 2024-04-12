@@ -78,7 +78,7 @@ export function splitLines(text, lineWidth = Cfg.lineWordNum) {
       totalWidth = 0;
       continue;
     }
-    var charWidth = this.getWidthByCharCode(char.charCodeAt(0));
+    var charWidth = getWidthByCharCode(char.charCodeAt(0));
     // 检查是否需要换行
     if (totalWidth + charWidth > lineWidth) {
       lines.push(line);
@@ -108,7 +108,7 @@ export function splitLines(text, lineWidth = Cfg.lineWordNum) {
 export function getStringWidth(text) {
   let width = 0;
   for (var i = 0; i < text.length; i++) {
-    width += this.getWidthByCharCode(text.charCodeAt(i));
+    width += getWidthByCharCode(text.charCodeAt(i));
   }
   return width;
 }
