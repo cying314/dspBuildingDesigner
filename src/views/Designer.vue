@@ -673,7 +673,36 @@ export default {
           },
         });
       }
-      if (modelId === Cfg.ModelId.fdir) {
+      if (modelId === Cfg.ModelId.text) {
+        // 选中普通文本
+        if (d.textAlign != 1) {
+          this.operMenuBtns.push({
+            title: "文本左对齐",
+            icon: "if-icon-align-left",
+            handler: () => {
+              this.dspGraph.changeTextAlign(d, 1);
+            },
+          });
+        }
+        if (d.textAlign == 1 || d.textAlign == 2) {
+          this.operMenuBtns.push({
+            title: "文本居中对齐",
+            icon: "if-icon-align-center",
+            handler: () => {
+              this.dspGraph.changeTextAlign(d, 0);
+            },
+          });
+        }
+        if (d.textAlign != 2) {
+          this.operMenuBtns.push({
+            title: "文本右对齐",
+            icon: "if-icon-align-right",
+            handler: () => {
+              this.dspGraph.changeTextAlign(d, 2);
+            },
+          });
+        }
+      } else if (modelId === Cfg.ModelId.fdir) {
         // 选中四向
         this.operMenuBtns.push({
           title: "左旋转90°",

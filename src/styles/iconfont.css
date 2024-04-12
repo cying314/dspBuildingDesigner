@@ -26,6 +26,18 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.if-icon-align-left:before {
+  content: "\e637";
+}
+
+.if-icon-align-right:before {
+  content: "\e638";
+}
+
+.if-icon-align-center:before {
+  content: "\e639";
+}
+
 .if-icon-vert-flip:before {
   content: "\e75c";
 }
@@ -113,3 +125,4 @@
 .if-icon-blueprint:before {
   content: "\ea60";
 }
+

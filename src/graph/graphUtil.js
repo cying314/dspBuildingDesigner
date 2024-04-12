@@ -73,19 +73,12 @@ export function splitLines(text, lineWidth = Cfg.lineWordNum) {
     var char = text[i];
     if (char === "\n") {
       // 换行符
-      lines.push(line + "\n");
+      lines.push(line);
       line = "";
       totalWidth = 0;
       continue;
     }
-    var charWidth;
-    if (/[\u4e00-\u9fa5]/.test(char)) {
-      // 中文字符
-      charWidth = 1;
-    } else {
-      // 英文字符
-      charWidth = 0.5;
-    }
+    var charWidth = this.getWidthByCharCode(char.charCodeAt(0));
     // 检查是否需要换行
     if (totalWidth + charWidth > lineWidth) {
       lines.push(line);
@@ -105,6 +98,36 @@ export function splitLines(text, lineWidth = Cfg.lineWordNum) {
     maxWordNum,
     lines,
   };
+}
+
+/**
+ * 获取字符串宽度
+ * @param {string} text
+ * @return {number} 字符串宽度(非中文算0.5)
+ */
+export function getStringWidth(text) {
+  let width = 0;
+  for (var i = 0; i < text.length; i++) {
+    width += this.getWidthByCharCode(text.charCodeAt(i));
+  }
+  return width;
+}
+
+/**
+ * 获取字符宽度
+ * @param {number} charCode
+ * @return {number} 字符宽度(非中文算0.5)
+ */
+export function getWidthByCharCode(charCode) {
+  if (
+    (charCode >= 0x3000 && charCode <= 0x9fff) || // 顿号、句号等中文符号-中文字符
+    (charCode >= 0xff00 && charCode <= 0xffef) // 全角字符
+  ) {
+    return 1;
+  } else {
+    // 其他字符
+    return 0.5;
+  }
 }
 
 /**

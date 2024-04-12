@@ -250,6 +250,7 @@ export function toGraphData(
  * @property {number} w - 节点宽度
  * @property {number} h - 节点高度
  * @property {string} text - 节点文本
+ * @property {number} textAlign - 文本对齐方向（0:居中对齐 1:左对齐 2:右对齐）
  * @property {number} itemId - 生成/消耗物品id
  * @property {number} signalId - 传送带标记图标id
  * @property {number} count - 传送带标记数
@@ -291,7 +292,10 @@ export function initGraphNode(d) {
     text: _toStr(d.text, d.modelId == Cfg.ModelId.text ? Cfg.defaultText : null),
     slots: [],
   };
-  if (node.modelId === Cfg.ModelId.package) {
+  if (node.modelId === Cfg.ModelId.text) {
+    // 普通文本
+    node.textAlign = _toInt(d.textAlign, 0);
+  } else if (node.modelId === Cfg.ModelId.package) {
     // 封装模块节点
     node.packageHash = _toStr(d.packageHash); // 封装模块hash
   } else if (node.modelId === Cfg.ModelId.input || node.modelId === Cfg.ModelId.output) {
@@ -467,6 +471,7 @@ export function nodeToData(node) {
     y: node.y,
     modelId: node.modelId,
     text: node.text || undefined,
+    textAlign: node.textAlign || undefined,
     signalId: node.signalId || undefined, // 传送带标记图标id
     count: node.count || undefined, // 传送带标记数
   };

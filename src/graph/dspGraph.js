@@ -1085,6 +1085,22 @@ export default class Graph {
   }
 
   /**
+   * 修改普通文本对齐方向
+   *  @param {Mapper.GraphNode} node 节点对象
+   *  @param {number} textAlign 文本对齐方向（0:居中对齐 1:左对齐 2:右对齐）
+   */
+  changeTextAlign(node, textAlign) {
+    const modelId = node?.modelId;
+    if (modelId !== Cfg.ModelId.text) return;
+    node.textAlign = textAlign;
+    let nodeBgSel = d3.select(`#${this.uniqueTag}_node-bg-${node.id}`);
+    // 重绘节点文本
+    this.createNodeText(nodeBgSel);
+    // 记录操作
+    this.recordUndo();
+  }
+
+  /**
    * 创建输入框 修改节点文本（输出输入口）
    * @param {Mapper.GraphNode} node 节点对象
    */
@@ -1593,13 +1609,15 @@ export default class Graph {
       let isMultilineText = d.modelId === Cfg.ModelId.text;
       if (isMultilineText) {
         // 创建多行文本
+        textEl.style("font-family", "黑体"); // 使用严格2:1等宽字体
+        textEl.style("white-space", "pre"); // 保留连续空格宽度
         const { lines, maxWordNum } = Util.splitLines(d.text);
         if (d.modelId === Cfg.ModelId.text) {
           // 文本域根据实际文本修改宽度和高度
           d.h = lines.length * Cfg.lineHeight;
           d.w = Math.max(10, maxWordNum * Cfg.fontSize);
         }
-        _this.createTspan(textEl, lines);
+        _this.createTspan(textEl, lines, d.textAlign);
       } else {
         // 创建单行文本
         let textColor = Cfg.color.text;
@@ -1646,14 +1664,25 @@ export default class Graph {
    * 创建多行文本
    * @param {d3.Selection} Sel
    * @param {string[]} texts
+   * @param {string} textAlign 对齐方向 0:center 1:left 2:right 默认居中对齐
    */
-  createTspan(Sel, texts = []) {
+  createTspan(Sel, texts = [], textAlign = 0) {
     if (!Sel) throw "文本容器Selection不能为空";
     let startY = Cfg.lineHeight / 3 - (Cfg.lineHeight / 2) * (texts.length - 1); // 首行偏移量(居中对齐)
     if (texts.length > 0) {
       texts.forEach((text, i) => {
         Sel.append("tspan")
-          .attr("x", 0)
+          .attr("x", (d) => {
+            if (textAlign === 1) {
+              // 左对齐
+              return -d.w / 2 + (Util.getStringWidth(text) * Cfg.fontSize) / 2;
+            } else if (textAlign === 2) {
+              // 右对齐
+              return d.w / 2 - (Util.getStringWidth(text) * Cfg.fontSize) / 2;
+            }
+            // 居中对齐
+            return 0;
+          })
           .attr("dy", i == 0 ? startY : Cfg.lineHeight)
           .style("fill", Cfg.color.text)
           .text(text.trim().length == 0 ? String.fromCharCode(8203) : text); // 空串使用零宽空格，否则不会占一行
