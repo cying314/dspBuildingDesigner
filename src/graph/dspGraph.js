@@ -1182,11 +1182,7 @@ export default class Graph {
   handleChangeNodeCount(node) {
     const modelId = node?.modelId;
     // 只有流速器、信号输出、信号输入、置零可切换
-    const allow = [
-      Cfg.ModelId.monitor,
-      Cfg.ModelId.output,
-      Cfg.ModelId.input,
-    ];
+    const allow = [Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input];
     if (!allow.includes(modelId)) return;
     let curIdx = null;
     const selectNodeIds = [];
@@ -2827,6 +2823,7 @@ export default class Graph {
     graphData.header.hash = graphDataHash;
 
     let defaultName = "模块" + (this.packageMap.size + 1) + "(双击更名)";
+    let repalcePackage = false; // 是否覆盖原有节点
     // 查询已有封装
     let packageModel = this.packageMap.get(graphDataHash);
     if (packageModel != null) {
@@ -2835,6 +2832,7 @@ export default class Graph {
       try {
         await Util._confirmHtml(`存在相同结构的封装，是否覆盖更新封装数据？<br/>
         相似模块名：<span style="font-weight:bold;color:var(--color-warning)">${packageModel.name}</span>`);
+        repalcePackage = true;
       } catch {
         // 取消 不更新
         return false;
@@ -2937,7 +2935,50 @@ export default class Graph {
     // 追加引用封装模块
     this.appendPackages(graphData.packages);
     this.packageMap.set(graphDataHash, packageModel);
+
+    // 覆盖刷新原有节点
+    if (repalcePackage) {
+      this.refreshPackageNode(graphDataHash);
+    }
     return packageModel;
+  }
+
+  /**
+   * 刷新原有封装模块节点
+   * @param {string} packageHash 封装模块hash
+   */
+  refreshPackageNode(packageHash) {
+    const packageModel = this.packageMap.get(packageHash);
+    if (packageModel == null) return;
+    const d = packageModel.initNodeData;
+    this._nodes.forEach((n) => {
+      if (n.modelId === Cfg.ModelId.package && n.packageHash === packageHash) {
+        n.text = d.text;
+        n.w = d.w;
+        n.h = d.h;
+        n.slots.forEach((s, i) => {
+          let ds = d.slots[i];
+          if (ds) {
+            s.packageNodeId = ds.packageNodeId;
+            s.itemId = ds.itemId;
+            s.signalId = ds.signalId;
+            s.count = ds.count;
+            s.text = ds.text;
+            s.dir = ds.dir;
+          }
+        });
+      }
+    });
+    // 重置视图中的元素分层
+    this.buildGroup();
+    // 重绘节点
+    this.buildNode();
+    // 重绘连线
+    this.buildLink();
+    // 重绘选择框
+    this.buildBox();
+    // 记录操作
+    this.recordUndo();
   }
 
   /**
@@ -3031,9 +3072,9 @@ export default class Graph {
   appendPackages(packages) {
     if (packages?.length > 0) {
       packages.forEach((p) => {
-        if (!this.packageMap.has(p.hash)) {
-          this.packageMap.set(p.hash, p);
-        }
+        // if (!this.packageMap.has(p.hash)) {
+        this.packageMap.set(p.hash, p);
+        // }
       });
     }
   }
