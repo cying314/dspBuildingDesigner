@@ -28,10 +28,11 @@
         </el-radio-group>
       </div>
     </div>
+    <hr class="divider" />
     <div class="item">
       <div class="name">连接线方向：</div>
       <div class="form">
-        <el-radio-group v-model="globalSetting.linkMode" size="mini" @change="dspGraph.updateLinkMode()">
+        <el-radio-group v-model="globalSetting.linkDir" size="mini" @change="dspGraph.updateLinkDir()">
           <el-radio :label="0">
             <span>传送带方向</span>
           </el-radio>
@@ -40,6 +41,21 @@
             <i class="el-icon-question primary" style="margin-left:5px"></i>
           </el-radio>
         </el-radio-group>
+      </div>
+    </div>
+    <div class="item">
+      <div class="name">连接线模式：</div>
+      <div class="form">
+        <el-radio-group v-model="globalSetting.linkMode" size="mini" @change="dspGraph.updateLinkMode()">
+          <el-radio :label="0">直线</el-radio>
+          <el-radio :label="1">曲线</el-radio>
+        </el-radio-group>
+      </div>
+    </div>
+    <div class="item" v-if="globalSetting.linkMode==1">
+      <div class="name">连接曲线曲率：</div>
+      <div class="form">
+        <el-slider style="width:250px" v-model="curvePointOffset" :min="0" :max="60" :step="1" :marks="{0:'0', 15:'15', 30: '30', 60:'60'}" @change="changeCurvePointOffset"></el-slider>
       </div>
     </div>
     <div class="item">
@@ -55,6 +71,7 @@
         />
       </div>
     </div>
+    <hr class="divider" />
     <div class="item">
       <div class="name" title="开启时，框选节点时设置传送带标记，将批量修改至所有选中节点">
         <span>批量设置图标：</span>
@@ -115,7 +132,19 @@ export default {
   data() {
     return {
       globalSetting: Cfg.globalSetting,
+      curvePointOffset: Cfg.globalSetting.curvePointOffset,
+      curvePointOffsetTimer: null,
     };
+  },
+  methods: {
+    changeCurvePointOffset(val) {
+      // 曲线曲率调整 防抖
+      clearTimeout(this.curvePointOffsetTimer);
+      this.curvePointOffsetTimer = setTimeout(() => {
+        this.globalSetting.curvePointOffset = val;
+        this.dspGraph.updateLinkMode();
+      }, 300);
+    },
   },
 };
 </script>
@@ -133,6 +162,14 @@ export default {
   }
   .item + .item {
     margin-top: 15px;
+  }
+  .divider {
+    margin: 10px 0;
+    opacity: 0.2;
+  }
+  .el-slider ::v-deep .el-slider__marks .el-slider__marks-text {
+    white-space: nowrap;
+    font-size: 12px;
   }
   .bottomBtns {
     margin-top: 20px;

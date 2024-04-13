@@ -239,7 +239,11 @@ export const globalSetting = {
   /** 生成模式（0:无带流(分拣器连接)，1:直接连接） */
   generateMode: 0,
   /** 连接线方向（0:传送带方向，1:信号方向） */
+  linkDir: 1,
+  /** 连接线模式（0:直线，1:曲线） */
   linkMode: 1,
+  /** 曲线曲率调整（曲线控制点偏移量，连接线为曲线时生效） */
+  curvePointOffset: 30,
   /** 背景颜色 */
   bgColor: "#ffffff",
   /** 批量设置图标 */

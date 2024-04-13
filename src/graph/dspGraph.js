@@ -1882,14 +1882,14 @@ export default class Graph {
     nodeSlotUpdate.selectAll(".slot-dir").attr("d", (d) => {
       const r = Cfg.pointSize;
       let dAttr = `M${d.ox - r / 2},${d.oy} L${d.ox + r / 2},${d.oy}`;
-      if (Cfg.globalSetting.linkMode === 0) {
+      if (Cfg.globalSetting.linkDir === 0) {
         // 传送带方向
         if (d.dir === 1) {
           return dAttr + ` M${d.ox},${d.oy + r / 2} L${d.ox},${d.oy - r / 2}`; // 输出口：＋
         } else if (d.dir === -1) {
           return dAttr; // 输入口：－
         }
-      } else if (Cfg.globalSetting.linkMode === 1) {
+      } else if (Cfg.globalSetting.linkDir === 1) {
         // 信号方向（倒置插槽）
         if (d.dir === -1) {
           return dAttr + ` M${d.ox},${d.oy + r / 2} L${d.ox},${d.oy - r / 2}`; // 输入口：＋
@@ -2005,7 +2005,7 @@ export default class Graph {
   buildLink() {
     this.createArrow(
       "arrow-link",
-      Cfg.globalSetting.linkMode === 1 ? Cfg.color.reverseLinkStroke : Cfg.color.linkStroke
+      Cfg.globalSetting.linkDir === 1 ? Cfg.color.reverseLinkStroke : Cfg.color.linkStroke
     );
     this.$link = this.getLinkSel().join(
       (enter) => this.appendLink(enter, false),
@@ -2032,10 +2032,10 @@ export default class Graph {
       .attr("class", "link")
       .style(
         "stroke",
-        Cfg.globalSetting.linkMode === 1 ? Cfg.color.reverseLinkStroke : Cfg.color.linkStroke
+        Cfg.globalSetting.linkDir === 1 ? Cfg.color.reverseLinkStroke : Cfg.color.linkStroke
       )
       .attr("fill", "none")
-      .style("stroke-dasharray", Cfg.globalSetting.linkMode === 1 ? "8,4" : null)
+      .style("stroke-dasharray", Cfg.globalSetting.linkDir === 1 ? "8,4" : null)
       .attr("marker-end", `url(#arrow-link)`);
     // 更新 连接线
     this.updateLink(edgePathEnter);
@@ -2056,18 +2056,26 @@ export default class Graph {
   /**
    * 更新连接线方向
    */
-  updateLinkMode() {
+  updateLinkDir() {
     // 更新插槽+-号
     this.updateNodeSlot(this.$nodeSlot);
     let linkColor =
-      Cfg.globalSetting.linkMode === 1 ? Cfg.color.reverseLinkStroke : Cfg.color.linkStroke;
+      Cfg.globalSetting.linkDir === 1 ? Cfg.color.reverseLinkStroke : Cfg.color.linkStroke;
     // 更新箭头
     this.createArrow("arrow-link", linkColor);
     // 更新连接线
     this.$link
       .style("stroke", linkColor) // 颜色
-      .style("stroke-dasharray", Cfg.globalSetting.linkMode === 1 ? "8,4" : null); // 虚线实线
-    // 更新连接线方向
+      .style("stroke-dasharray", Cfg.globalSetting.linkDir === 1 ? "8,4" : null); // 虚线实线
+    // 更新连接线路径
+    this.updateLinkPath(this.$link);
+  }
+
+  /**
+   * 更新连接线模式
+   */
+  updateLinkMode() {
+    // 更新连接线路径
     this.updateLinkPath(this.$link);
   }
 
@@ -2399,8 +2407,8 @@ export default class Graph {
       // 已占用插槽 || 不是输出口(连接线方向为信号方向 则倒置判断)，显示红色边框提示
       if (
         d.edge ||
-        (Cfg.globalSetting.linkMode === 0 && d.dir !== 1) ||
-        (Cfg.globalSetting.linkMode === 1 && d.dir !== -1)
+        (Cfg.globalSetting.linkDir === 0 && d.dir !== 1) ||
+        (Cfg.globalSetting.linkDir === 1 && d.dir !== -1)
       ) {
         d3.select(this).style("stroke", Cfg.color.danger).style("stroke-width", Cfg.strokeW.bold);
         return;
@@ -2435,8 +2443,8 @@ export default class Graph {
               if (
                 sourceD.node.id == targetD.node.id ||
                 targetD.edge ||
-                (Cfg.globalSetting.linkMode === 0 && targetD.dir !== -1) ||
-                (Cfg.globalSetting.linkMode === 1 && targetD.dir !== 1)
+                (Cfg.globalSetting.linkDir === 0 && targetD.dir !== -1) ||
+                (Cfg.globalSetting.linkDir === 1 && targetD.dir !== 1)
               ) {
                 return Cfg.color.danger; // 红色
               }
@@ -2458,7 +2466,10 @@ export default class Graph {
         .select(`#${_this.uniqueTag}_dragLine`)
         .attr(
           "d",
-          `M${d.node.x + d.ox},${d.node.y + d.oy} ${d.node.x + d3.event.x},${d.node.y + d3.event.y}`
+          _this.getPath(
+            { x: d.node.x + d.ox, y: d.node.y + d.oy, slot: d },
+            { x: d.node.x + d3.event.x, y: d.node.y + d3.event.y }
+          )
         );
     }
 
@@ -2487,7 +2498,7 @@ export default class Graph {
           return;
         }
         // 如果在另一个圆点上停止，则连接两个圆点
-        if (Cfg.globalSetting.linkMode === 1) {
+        if (Cfg.globalSetting.linkDir === 1) {
           // 连接线方向为信号方向 倒置逻辑
           _this.addEdge(targetD.node.id, targetD.index, d.node.id, d.index);
         } else {
@@ -2550,16 +2561,124 @@ export default class Graph {
    */
   updateLinkPath(edgeSel) {
     edgeSel?.attr("d", (d) => {
-      const startNodeX = d.source.x + d.sourceSlot.ox;
-      const startNodeY = d.source.y + d.sourceSlot.oy;
-      const endNodeX = d.target.x + d.targetSlot.ox;
-      const endNodeY = d.target.y + d.targetSlot.oy;
-      if (Cfg.globalSetting.linkMode === 1) {
+      var start = {
+        x: d.source.x + d.sourceSlot.ox,
+        y: d.source.y + d.sourceSlot.oy,
+        slot: d.sourceSlot,
+      };
+      var end = {
+        x: d.target.x + d.targetSlot.ox,
+        y: d.target.y + d.targetSlot.oy,
+        slot: d.targetSlot,
+      };
+      if (Cfg.globalSetting.linkDir === 1) {
         // 连接线方向为信号方向（倒置）
-        return `M${endNodeX},${endNodeY} L${startNodeX},${startNodeY}`;
+        [end, start] = [start, end];
       }
-      return `M${startNodeX},${startNodeY} L${endNodeX},${endNodeY}`;
+      return this.getPath(start, end);
     });
+  }
+
+  /**
+   * 生成svg路径
+   * @param {{x:number, y:number, slot:Mapper.GraphNodeSlot}} start 起点
+   * @param {{x:number, y:number, slot:Mapper.GraphNodeSlot}} end 终点
+   */
+  getPath(start, end) {
+    const path = d3.path();
+    path.moveTo(start.x, start.y);
+
+    // 曲线模式
+    if (Cfg.globalSetting.linkMode == 1) {
+      const offset = Math.min(5, Cfg.globalSetting.curvePointOffset); // 起终点偏移量
+      const curvePointOffset = offset + Cfg.globalSetting.curvePointOffset; // 曲线控制点偏移量
+      let startDir = start.slot == null ? 0 : this.getSlotLinkDir(start.slot); // 起点方向 (0:不偏移 1:上 2:右 3:下 4:左)
+      let endDir = end.slot == null ? 0 : this.getSlotLinkDir(end.slot); // 终点方向 (0:不偏移 1:上 2:右 3:下 4:左)
+      const points = []; // 曲线控制点
+      if (startDir > 0) {
+        // 起点偏移
+        if (startDir == 1) {
+          path.lineTo(start.x, start.y - offset);
+          points.push({ x: start.x, y: start.y - curvePointOffset });
+        } else if (startDir == 2) {
+          path.lineTo(start.x + offset, start.y);
+          points.push({ x: start.x + curvePointOffset, y: start.y });
+        } else if (startDir == 3) {
+          path.lineTo(start.x, start.y + offset);
+          points.push({ x: start.x, y: start.y + curvePointOffset });
+        } else if (startDir == 4) {
+          path.lineTo(start.x - offset, start.y);
+          points.push({ x: start.x - curvePointOffset, y: start.y });
+        }
+      }
+      let offsetEndX = end.x;
+      let offsetEndY = end.y;
+      if (endDir > 0) {
+        // 终点偏移
+        if (endDir == 1) {
+          offsetEndY -= offset;
+          points.push({ x: end.x, y: end.y - curvePointOffset });
+        } else if (endDir == 2) {
+          offsetEndX += offset;
+          points.push({ x: end.x + curvePointOffset, y: end.y });
+        } else if (endDir == 3) {
+          offsetEndY += offset;
+          points.push({ x: end.x, y: end.y + curvePointOffset });
+        } else if (endDir == 4) {
+          offsetEndX -= offset;
+          points.push({ x: end.x - curvePointOffset, y: end.y });
+        }
+      }
+      if (points.length == 1) {
+        // 二次贝塞尔
+        path.quadraticCurveTo(points[0].x, points[0].y, offsetEndX, offsetEndY);
+        if (offsetEndX != end.x || offsetEndY != end.y) {
+          path.lineTo(end.x, end.y);
+        }
+      } else if (points.length == 2) {
+        // 三次贝塞尔
+        path.bezierCurveTo(
+          points[0].x,
+          points[0].y,
+          points[1].x,
+          points[1].y,
+          offsetEndX,
+          offsetEndY
+        );
+        if (offsetEndX != end.x || offsetEndY != end.y) {
+          path.lineTo(end.x, end.y);
+        }
+      } else {
+        // 无控制点
+        path.lineTo(end.x, end.y);
+      }
+    } else {
+      // 直线模式
+      path.lineTo(end.x, end.y);
+    }
+    return path.toString();
+  }
+
+  /**
+   * 获取节点插槽 曲线连接线朝向
+   * @param {Mapper.GraphNodeSlot} slot 插槽对象
+   * @return {number} 0:不偏移 1:上 2:右 3:下 4:左
+   */
+  getSlotLinkDir(slot) {
+    let dir = 0;
+    switch (slot.node.modelId) {
+      case Cfg.ModelId.fdir: // 四向
+        dir = slot.index + 1;
+        break;
+      case Cfg.ModelId.package: // 封装模块节点
+        if (slot.dir == 1) {
+          dir = 3;
+        } else {
+          dir = 1;
+        }
+        break;
+    }
+    return dir;
   }
 
   /**
