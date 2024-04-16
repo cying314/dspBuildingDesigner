@@ -2035,7 +2035,10 @@ export default class Graph {
         Cfg.globalSetting.linkDir === 1 ? Cfg.color.reverseLinkStroke : Cfg.color.linkStroke
       )
       .attr("fill", "none")
-      .style("stroke-dasharray", Cfg.globalSetting.linkDir === 1 ? "8,4" : null)
+      .style(
+        "stroke-dasharray",
+        Cfg.globalSetting.linkDir === 1 ? Cfg.color.reverseLinkStrokeDasharray : null
+      )
       .attr("marker-end", `url(#arrow-link)`);
     // 更新 连接线
     this.updateLink(edgePathEnter);
@@ -2066,7 +2069,10 @@ export default class Graph {
     // 更新连接线
     this.$link
       .style("stroke", linkColor) // 颜色
-      .style("stroke-dasharray", Cfg.globalSetting.linkDir === 1 ? "8,4" : null); // 虚线实线
+      .style(
+        "stroke-dasharray",
+        Cfg.globalSetting.linkDir === 1 ? Cfg.color.reverseLinkStrokeDasharray : null
+      ); // 虚线实线
     // 更新连接线路径
     this.updateLinkPath(this.$link);
   }

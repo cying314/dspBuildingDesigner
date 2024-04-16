@@ -62,7 +62,8 @@ export const color = {
   priorityInFill: "rgb(232, 236, 247)",
 
   linkStroke: "rgba(33, 150, 243, 0.8)", // 传送带方向连接线
-  reverseLinkStroke: "rgb(245, 152, 2, 0.8)", // 信号方向连接线
+  reverseLinkStroke: "rgb(245, 135, 0, 0.8)", // 信号方向连接线
+  reverseLinkStrokeDasharray: "24, 4", // 信号方向连接线虚线
 
   tmpLineStroke: "rgba(170, 170, 170, 0.8)", // 临时连接线
   tmpLineStroke_light: "rgba(170, 170, 170, 0.8)", // 亮色背景下 临时连接线 颜色
