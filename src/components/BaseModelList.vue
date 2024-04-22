@@ -2,9 +2,12 @@
   <ul class="group" v-if="baseModels">
     <template v-for="bm,index in baseModels">
       <template v-if="bm.isGroup">
-        <li class="item groupTitle" :key="'title_'+index">
-          <span>{{pIndex+(index+1)+'. '}}{{bm.name}}</span>
-          <i v-if="bm.tip" class="el-icon-warning-outline tipsIcon" :title="bm.tip"></i>
+        <li class="item groupTitle" :key="'title_'+index" :title="bm.name">
+          <span class="item_lt" @click="$set(bm,'expand',!bm.expand)">
+            <span>{{pIndex+(index+1)+'. '}}</span>
+            <span class="name">{{bm.name}}</span>
+            <i v-if="bm.tip" class="el-icon-warning-outline tipsIcon" :title="bm.tip"></i>
+          </span>
           <div class="item_rt">
             <div class="item_btns">
               <el-button type="text" :icon="bm.expand?'el-icon-arrow-up':'el-icon-arrow-down'" size="small" @click="$set(bm,'expand',!bm.expand)">{{bm.expand?'折叠':'展开'}}</el-button>
@@ -27,9 +30,12 @@
           </li>
         </transition>
       </template>
-      <li v-else-if="bm.data" class="item modelItem" :key="'base_'+index" draggable @dragstart="$emit('handleItemDragStart')" @dragend="$emit('handleModelDragEnd',bm.data)">
-        <span>{{pIndex+(index+1)+'. '}}{{bm.name}}</span>
-        <i v-if="bm.tip" class="el-icon-warning-outline tipsIcon" :title="bm.tip"></i>
+      <li v-else-if="bm.data" class="item modelItem" :key="'base_'+index" draggable @dragstart="$emit('handleItemDragStart')" @dragend="$emit('handleModelDragEnd',bm.data)" :title="bm.name">
+        <span class="item_lt">
+          <span>{{pIndex+(index+1)+'. '}}</span>
+          <span class="name">{{bm.name}}</span>
+          <i v-if="bm.tip" class="el-icon-warning-outline tipsIcon" :title="bm.tip"></i>
+        </span>
         <div class="item_rt">
           <el-checkbox v-if="dbcCreate" :value="selectModelType=='base'&&selectModel==bm.data" @click.native.prevent="$emit('changeSelectModel','base',bm.data)" title="勾选双击创建的组件"></el-checkbox>
         </div>
@@ -83,6 +89,13 @@ $barColor: $--color-primary-light-9;
       margin-left: 5px;
       color: var(--color-warning);
     }
+    .item_lt {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .item_rt {
       flex-shrink: 0;
       margin-left: auto;
@@ -105,9 +118,15 @@ $barColor: $--color-primary-light-9;
     }
     &.groupTitle {
       margin-bottom: 5px;
+      .item_lt {
+        cursor: pointer;
+      }
     }
     &.modelItem {
       cursor: grab;
+      &:hover {
+        color: $--color-primary;
+      }
     }
   }
   .subGroup {

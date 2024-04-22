@@ -56,9 +56,9 @@
           <div class="groupName">节点</div>
           <ul class="group">
             <li class="modelItem" v-for="node,index in nodeModels" :key="'node_'+index" draggable @dragstart="handleItemDragStart()" @dragend="handleNodeDragEnd(node.modelId)" title="拖拽创建组件">
-              <span>
-                <i style="margin-right:10px" :class="node.icon"></i>
-                <span>{{node.name}}</span>
+              <span class="item_lt">
+                <i class="icon" :class="node.icon"></i>
+                <span class="name" :title="node.name">{{node.name}}</span>
               </span>
               <div class="item_rt">
                 <el-checkbox v-if="dbcCreate" :value="selectModelType=='node'&&selectModel==node" @click.native.prevent="changeSelectModel('node',node)" title="勾选双击创建的组件"></el-checkbox>
@@ -76,16 +76,17 @@
             <transition name="expandTrans">
               <ul class="group" v-show="packageExpand">
                 <li
-                  class="modelItem"
+                  class="modelItem packageModels"
                   v-for="data,index in dspGraph.packageMap"
                   :key="'package_'+data[0]"
                   draggable
                   @dragstart="handleItemDragStart()"
                   @dragend="handleNodeDragEnd(packageModelId, data[0])"
+                  :title="data[1].name"
                 >
-                  <span>
-                    <i style="margin-right:10px" class="el-icon-box"></i>
-                    <span>{{index+1+'. '}}{{data[1].name}}</span>
+                  <span class="item_lt">
+                    <i class="icon el-icon-box"></i>
+                    <span class="name">{{index+1+'. '}}{{data[1].name}}</span>
                   </span>
                   <div class="item_rt">
                     <div class="item_btns">
@@ -131,8 +132,19 @@
           </div>
           <transition name="expandTrans">
             <ul class="group" v-show="uploadExpand">
-              <li class="modelItem" v-for="data,index in uploadModels" :key="'upload_'+index" draggable @dragstart="handleItemDragStart()" @dragend="handleModelDragEnd(data)">
-                <span>{{index+1+'. '}}{{data.header?.graphName}}</span>
+              <li
+                class="modelItem uploadModels"
+                v-for="data,index in uploadModels"
+                :key="'upload_'+index"
+                draggable
+                @dragstart="handleItemDragStart()"
+                @dragend="handleModelDragEnd(data)"
+                :title="data.header?.graphName"
+              >
+                <span class="item_lt">
+                  <span>{{index+1+'. '}}</span>
+                  <span class="name">{{data.header?.graphName}}</span>
+                </span>
                 <div class="item_rt">
                   <div class="item_btns">
                     <el-button type="text" icon="el-icon-download" title="下载" @click="downloadUploadModel(data)"></el-button>
@@ -1145,6 +1157,24 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
             }
             & + .modelItem {
               margin-top: 5px;
+            }
+            &.packageModels,
+            &.uploadModels {
+              font-size: 14px;
+              padding: 1px 5px;
+              .item_lt:hover {
+                color: $--color-primary;
+              }
+            }
+            .item_lt {
+              flex: 1;
+              min-width: 0;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+              .icon {
+                margin-right: 10px;
+              }
             }
             .item_rt {
               flex-shrink: 0;
