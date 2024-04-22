@@ -3113,6 +3113,8 @@ export default class Graph {
         n.slots.forEach((s, i) => {
           let ds = d.slots[i];
           if (ds) {
+            s.ox = ds.ox;
+            s.oy = ds.oy;
             s.packageNodeId = ds.packageNodeId;
             s.itemId = ds.itemId;
             s.signalId = ds.signalId;
