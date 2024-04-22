@@ -184,16 +184,12 @@
         ]
       },
       {
-        "name": "D锁存",
-        "path": "./static/data/D锁存.json"
+        "name": "D锁存-v2",
+        "path": "./static/data/D锁存-v2.json"
       },
       {
-        "name": "D触发器-v1",
-        "path": "./static/data/D触发器-v1.json"
-      },
-      {
-        "name": "D触发器-v2",
-        "path": "./static/data/D触发器-v2.json"
+        "name": "D触发器-v3",
+        "path": "./static/data/D触发器-v3.json"
       },
       {
         "name": "主从触发器",
