@@ -153,7 +153,7 @@ export const nodeModels = [
 /**
  * @typedef {Object} BuildingLayout 建筑布局信息
  * @property {string} name - 建筑名称
- * @property {{x,y}} start - 布局起点 {x,y}
+ * @property {{x,y,z}} start - 布局起点 {x,y,z}
  * @property {number} maxW - 最大宽度（纬线方向）
  * @property {number} maxH - 最大长度（经线方向）
  * @property {number} maxD - 最大高度
@@ -166,7 +166,7 @@ export function getDefaultLayout() {
     /** @type {BuildingLayout} 四向分流器 生成布局配置 */
     fdirLayout: {
       name: "四向分流器",
-      start: { x: 0, y: 0 },
+      start: { x: 0, y: 0, z: 0 },
       maxW: 20,
       maxH: 20,
       maxD: 10,
@@ -177,7 +177,7 @@ export function getDefaultLayout() {
     /** @type {BuildingLayout} 分拣器 生成布局配置 */
     inserterLayout: {
       name: "分拣器",
-      start: { x: -1, y: -1 },
+      start: { x: -1, y: -1, z: 0 },
       maxW: 15,
       maxH: 10,
       maxD: 10,
@@ -188,7 +188,7 @@ export function getDefaultLayout() {
     /** @type {BuildingLayout} 流速器-回收 生成布局配置 */
     monitorLayout: {
       name: "流速器-回收",
-      start: { x: -1, y: 0 },
+      start: { x: -1, y: 0, z: 0 },
       maxW: 15,
       maxH: 10,
       maxD: 10,
@@ -199,7 +199,7 @@ export function getDefaultLayout() {
     /** @type {BuildingLayout} 流速器-信号输出 生成布局配置 */
     outputLayout: {
       name: "流速器-信号输出",
-      start: { x: 0.5, y: -1 },
+      start: { x: 0.5, y: -1, z: 0 },
       maxW: 30,
       maxH: 2,
       maxD: 1,
@@ -210,7 +210,7 @@ export function getDefaultLayout() {
     /** @type {BuildingLayout} 流速器-信号输入 生成布局配置 */
     inputLayout: {
       name: "流速器-信号输入",
-      start: { x: 0.5, y: -4 },
+      start: { x: 0.5, y: -4, z: 0 },
       maxW: 30,
       maxH: 2,
       maxD: 1,

@@ -12,6 +12,23 @@ import * as Util from "./graphUtil.js";
  * @property {stirng[]} packageHashList - 引用封装模块hash列表（嵌套封装模块中，只记录hash，不记录对象）
  */
 /**
+ * @typedef {Object} BuildingLayoutData 建筑布局 持久化数据
+ * @property {{x,y,z}} start - 布局起点 {x,y,z}
+ * @property {number} maxW - 最大宽度（纬线方向）
+ * @property {number} maxH - 最大长度（经线方向）
+ * @property {number} maxD - 最大高度
+ * @property {number} dir - 展开方向 (0:左上, 1:右上, 2:右下, 3:左下)
+ * @property {number} space - 建筑间隔
+ */
+/**
+ * @typedef {Object} HeaderLayoutData 生成蓝图布局 持久化数据
+ * @property {BuildingLayoutData} fdirLayout - 四向分流器
+ * @property {BuildingLayoutData} inserterLayout - 分拣器
+ * @property {BuildingLayoutData} monitorLayout - 流速器-回收
+ * @property {BuildingLayoutData} outputLayout - 流速器-信号输出
+ * @property {BuildingLayoutData} inputLayout - 流速器-信号输入
+ */
+/**
  * @typedef {Object} HeaderData 头部信息
  * @property {string} hash - 图谱数据hash值（仅在封装模块packages中输出）
  * @property {string} version - 数据对应工具版本
@@ -19,7 +36,7 @@ import * as Util from "./graphUtil.js";
  * @property {string} graphName - 蓝图名
  * @property {{x, y, k}} transform - 画布位移、缩放 { x, y, k }
  * @property {{minX, minY, maxX, maxY, w, h}} boundingBox - 节点包围盒边界信息 {minX, minY, maxX, maxY, w, h}
- * @property {object} layout - 生成蓝图布局 { fdirLayout: { start: { x, y }, maxW, maxH, maxD }, ...}
+ * @property {HeaderLayoutData} layout - 生成蓝图布局
  */
 /**
  * @typedef {Object} PackageModel 封装节点
@@ -229,13 +246,14 @@ export function toGraphData(
   const _lay = (graphData.header.layout = {});
   Object.keys(Cfg.layoutSetting).forEach((key) => {
     let {
-      start: { x = 0, y = 0 } = {},
+      start: { x = 0, y = 0, z = 0 } = {},
       maxW = 0,
       maxH = 0,
       maxD = 0,
       dir = 0,
+      space = 0,
     } = Cfg.layoutSetting[key];
-    _lay[key] = { start: { x, y }, maxW, maxH, maxD, dir };
+    _lay[key] = { start: { x, y, z }, maxW, maxH, maxD, dir, space };
   });
   return graphData;
 }

@@ -340,12 +340,13 @@ export default class Graph {
           let _lay = header.layout[key];
           if (Object.hasOwnProperty.call(Cfg.layoutSetting, key)) {
             let _cfgLay = Cfg.layoutSetting[key];
-            let { x = 0, y = 0 } = _lay.start ?? {};
-            _cfgLay.start = { x, y };
+            let { x = 0, y = 0, z = 0 } = _lay.start ?? {};
+            _cfgLay.start = { x, y, z };
             _cfgLay.maxW = _lay.maxW ?? 0;
             _cfgLay.maxH = _lay.maxH ?? 0;
             _cfgLay.maxD = _lay.maxD ?? 0;
             _cfgLay.dir = _lay.dir ?? 0;
+            _cfgLay.space = _lay.space ?? 0;
           }
         });
       }

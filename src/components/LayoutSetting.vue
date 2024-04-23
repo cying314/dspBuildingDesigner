@@ -11,7 +11,7 @@
       :cell-style="layoutTableCellStyle"
     >
       <el-table-column prop="name" label="组件" align="center" width="120" show-overflow-tooltip></el-table-column>
-      <el-table-column label="布局起点 (X, Y)" align="center" min-width="60">
+      <el-table-column label="布局起点 (X, Y, Z)" align="center" min-width="60">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.start.x" :min="-9999" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
@@ -21,7 +21,12 @@
           <el-input-number v-model="row.start.y" :min="-9999" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="最大宽长高 (W, H, T)" align="center" min-width="60px">
+      <el-table-column label="布局起点Z" align="center" min-width="60">
+        <template slot-scope="{ row }">
+          <el-input-number v-model="row.start.z" :min="0" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
+        </template>
+      </el-table-column>
+      <el-table-column label="最大宽长高 (W, H, T)" align="center" min-width="60">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.maxW" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
@@ -36,12 +41,12 @@
           <el-input-number v-model="row.maxD" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="建筑间隔" align="center" min-width="60">
+      <el-table-column label="建筑间隔" align="center" min-width="70">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.space" :min="0" :max="10" :step="0.01" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="展开方向" align="center" width="90">
+      <el-table-column label="展开方向" align="center" width="85">
         <template slot-scope="{ row }">
           <el-select v-model="row.dir" size="mini">
             <el-option label="左上" :value="0"></el-option>
@@ -284,7 +289,7 @@ export default {
           y = -item.start.y;
           break;
       }
-      return {
+      const style = {
         transform: `translate(${this.ox}px, ${this.oy}px)`,
         left: this.scale * x + "px",
         top: this.scale * y + "px",
@@ -292,6 +297,12 @@ export default {
         width: this.scale * w + "px",
         height: this.scale * h + "px",
       };
+      if (item.start.z > 0) {
+        style.zIndex = item.start.z + 1;
+        let blur = Math.min(10, item.start.z / 5);
+        style.boxShadow = `0 0 ${blur}px ${blur}px rgba(200, 200, 200, 0.5)`;
+      }
+      return style;
     },
     // 网格样式
     layoutGridStyle() {
@@ -315,17 +326,17 @@ export default {
     },
     // 表格 合并表头样式
     layoutTableHeaderCellStyle({ column, rowIndex, columnIndex }) {
-      // 将第2列(起始y)，第4/5列(最大h,d)隐去
-      if ((columnIndex == 2) | (columnIndex == 4) | (columnIndex == 5)) {
+      // 将第2/3列(起始y,z)，第5/6列(最大h,d)隐去
+      if (columnIndex == 2 || columnIndex == 3 || columnIndex == 5 || columnIndex == 6) {
         return { display: "none" };
       }
       if ((rowIndex == 0) & (columnIndex == 1)) {
         this.$nextTick(() => {
           // 第1列(起始x) 改为占据三列
-          document.querySelector(`.${column.id}`).setAttribute("colspan", "2");
+          document.querySelector(`.${column.id}`).setAttribute("colspan", "3");
         });
       }
-      if ((rowIndex == 0) & (columnIndex == 3)) {
+      if ((rowIndex == 0) & (columnIndex == 4)) {
         this.$nextTick(() => {
           // 第3列(最大w) 改为占据三列
           document.querySelector(`.${column.id}`).setAttribute("colspan", "3");
@@ -351,6 +362,7 @@ export default {
         text-align: left;
         height: 24px;
         line-height: 24px;
+        font-size: 12px;
       }
     }
   }

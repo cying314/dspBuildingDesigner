@@ -199,7 +199,7 @@ export function collateNodes(nodes, packageMap, res, isPackage) {
             if (s.priority === 1) priorityInIdx.push(i);
           }
         }
-        // 四向两进两出，且没有带过滤的优先输出，优先输入口使用配速带（无带：配黄带，直连：配绿带）
+        // 四向两进两出，且没有带过滤的优先输出，优先输入口使用配速带（配绿带）
         if (
           inputIdx.length == 2 &&
           outputIdx.length == 2 &&
@@ -324,7 +324,7 @@ export function formatBuildsLayout(builds, size, layout, isStack = false) {
     builds.length,
     size,
     layout,
-    [layout.start.x, layout.start.y, 0],
+    [layout.start.x, layout.start.y, layout.start.z],
     layout.name
   );
   for (let i = 0; i < builds.length; i++) {
