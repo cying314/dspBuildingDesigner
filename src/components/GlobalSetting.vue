@@ -13,21 +13,6 @@
         <el-switch v-model="globalSetting.showGridLine" active-color="#13ce66" inactive-color="#f56c6c" @change="dspGraph.refreshBg(true)"></el-switch>
       </div>
     </div>
-    <div class="item">
-      <div class="name">蓝图生成模式：</div>
-      <div class="form">
-        <el-radio-group v-model="globalSetting.generateMode" size="mini">
-          <el-radio :label="0" :title="`使用分拣器进行无带流连接\n*需先提前粘贴分拣器，再在同位置粘贴完整蓝图\n*蓝图粘贴时请尽量使用[沙盒瞬间建造]`">
-            <span>无带流(分拣器)</span>
-            <i class="el-icon-question primary" style="margin-left:5px"></i>
-          </el-radio>
-          <el-radio :label="1" :title="`直连传送带节点\n*需使用mod进行蓝图强制粘贴`">
-            <span>传送带直连</span>
-            <i class="if-icon-un-priority danger" style="margin-left:5px"></i>
-          </el-radio>
-        </el-radio-group>
-      </div>
-    </div>
     <hr class="divider" />
     <div class="item">
       <div class="name">连接线方向：</div>
@@ -92,11 +77,46 @@
             <span>关</span>
           </el-radio>
           <el-radio :label="1">
-            <span>批量复制</span>
+            <span>复制编号</span>
           </el-radio>
           <el-radio :label="2" :title="`根据选中节点次序自动编号`">
-            <span>自动排序</span>
+            <span>自动编号</span>
             <i class="el-icon-question primary" style="margin-left:5px"></i>
+          </el-radio>
+        </el-radio-group>
+      </div>
+    </div>
+    <div class="item">
+      <div class="name" title="开启时，框选节点时设置物品(颜色)，将批量修改至所有选中节点">
+        <span>批量设置物品(颜色)：</span>
+        <i class="el-icon-question"></i>
+      </div>
+      <div class="form">
+        <el-radio-group v-model="globalSetting.selectionSettingItemId" size="mini">
+          <el-radio :label="0">
+            <span>关</span>
+          </el-radio>
+          <el-radio :label="1">
+            <span>同色替换</span>
+          </el-radio>
+          <el-radio :label="2">
+            <span>全部替换</span>
+          </el-radio>
+        </el-radio-group>
+      </div>
+    </div>
+    <hr class="divider" />
+    <div class="item">
+      <div class="name">蓝图生成模式：</div>
+      <div class="form">
+        <el-radio-group v-model="globalSetting.generateMode" size="mini">
+          <el-radio :label="0" :title="`使用分拣器进行无带流连接\n*需先提前粘贴分拣器，再在同位置粘贴完整蓝图\n*蓝图粘贴时请尽量使用[沙盒瞬间建造]`">
+            <span>无带流(分拣器)</span>
+            <i class="el-icon-question primary" style="margin-left:5px"></i>
+          </el-radio>
+          <el-radio :label="1" :title="`直连传送带节点\n*需使用mod进行蓝图强制粘贴`">
+            <span>传送带直连</span>
+            <i class="if-icon-un-priority danger" style="margin-left:5px"></i>
           </el-radio>
         </el-radio-group>
       </div>

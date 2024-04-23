@@ -1035,13 +1035,35 @@ export default class Graph {
   changeNodeItemId(node, itemId) {
     const modelId = node?.modelId;
     // 只有流速器、信号输出、信号输入可切换
-    if (![Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) return;
-    node.itemId = itemId;
-    // 重绘节点颜色
-    d3.select(`#${this.uniqueTag}_node-bg-${node.id} .item-bg`).style(
-      "fill",
-      Cfg.filterItemMap.get(itemId)?.color ?? Cfg.color.item_default
-    );
+    const allow = [Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input];
+    if (!allow.includes(modelId)) return;
+    const selectNodeIds = new Set();
+    if (Cfg.globalSetting.selectionSettingItemId !== 0) {
+      // 批量设置物品，不为关
+      let originItemId = node.itemId;
+      this._selection.nodeMap.forEach((n) => {
+        if (!allow.includes(n.modelId)) return;
+        if (Cfg.globalSetting.selectionSettingItemId === 2 || n.itemId == originItemId) {
+          n.itemId = itemId;
+          selectNodeIds.add(n.id);
+        }
+      });
+      selectNodeIds.add(node.id);
+    }
+
+    const fill = Cfg.filterItemMap.get(itemId)?.color ?? Cfg.color.item_default;
+    if (selectNodeIds.size > 1) {
+      // 重绘多个节点颜色
+      this.$node
+        .filter((n) => selectNodeIds.has(n.id))
+        .selectAll(".node-bg .item-bg")
+        .style("fill", fill);
+    } else {
+      // 设置单个节点
+      node.itemId = itemId;
+      // 重绘单个节点颜色
+      d3.select(`#${this.uniqueTag}_node-bg-${node.id} .item-bg`).style("fill", fill);
+    }
 
     // 记录操作
     this.recordUndo();

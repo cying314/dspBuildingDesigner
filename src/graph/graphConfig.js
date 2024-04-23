@@ -237,8 +237,7 @@ export const globalSetting = {
   gridAlignment: true,
   /** 是否显示网格线 */
   showGridLine: true,
-  /** 生成模式（0:无带流(分拣器连接)，1:直接连接） */
-  generateMode: 0,
+
   /** 连接线方向（0:传送带方向，1:信号方向） */
   linkDir: 1,
   /** 连接线模式（0:直线，1:曲线） */
@@ -247,10 +246,16 @@ export const globalSetting = {
   curvePointOffset: 30,
   /** 背景颜色 */
   bgColor: "#ffffff",
+
   /** 批量设置图标 */
   selectionSettingSignal: true,
-  /** 批量设置标记数（0:关，1:复制编号，2:自动排序） */
+  /** 批量设置标记数（0:关，1:复制编号，2:自动编号） */
   selectionSettingCount: 2,
+  /** 批量设置物品(颜色)（0:关，1:同色替换，2:全部替换） */
+  selectionSettingItemId: 0,
+
+  /** 生成模式（0:无带流(分拣器连接)，1:直接连接） */
+  generateMode: 0,
   /** 简化导出JSON数据 */
   reducedData: false,
 };
