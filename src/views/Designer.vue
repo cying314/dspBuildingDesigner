@@ -179,6 +179,28 @@
         </div>
       </div>
     </div>
+    <!-- 替换节点引用封装模块 -->
+    <el-dialog title="替换模块为" custom-class="changeModelDialog" :visible.sync="showChangeModelDialog" width="350px" center v-dialogDrag @before-close="closeChangeModelDialog">
+      <template v-if="dspGraph && dspGraph.packageMap.size > 0">
+        <div class="hint">*选择当前工程引用的封装模块</div>
+        <ul class="wrap">
+          <li class="item" v-for="data,index in dspGraph.packageMap" :key="index" :title="data[1].name" @click.prevent="selectChangeHash=data[0]">
+            <span class="lt">
+              <i class="icon el-icon-box"></i>
+              <span class="name">{{index+1+'. '}}{{data[1].name}}</span>
+            </span>
+            <div class="rt">
+              <el-checkbox :value="selectChangeHash==data[0]" title="勾选要替换的模块" @click.native.prevent="selectChangeHash=data[0]"></el-checkbox>
+            </div>
+          </li>
+        </ul>
+      </template>
+      <el-empty v-else description="当前工程没有封装模块"></el-empty>
+      <div slot="footer" class="dialog-footer">
+        <el-button size="mini" @click="closeChangeModelDialog">取 消</el-button>
+        <el-button type="primary" size="mini" @click="confirmChangeModel">确 定</el-button>
+      </div>
+    </el-dialog>
     <!-- 生成布局调整 -->
     <el-dialog title="生成布局调整" custom-class="layoutSettingDialog" :visible.sync="showLayoutSetting" width="700px" top="5vh" v-dialogDrag>
       <LayoutSetting ref="layoutSettingRef" v-if="showLayoutSetting">
@@ -320,6 +342,10 @@ export default {
       blueprintRes: null,
       // 工具说明
       showTips: false,
+      // 选择替换模块
+      showChangeModelDialog: false,
+      selectChangeHash: null,
+      operChangeNode: null,
     };
   },
   watch: {
@@ -355,6 +381,21 @@ export default {
     });
   },
   methods: {
+    // 替换节点封装模块
+    confirmChangeModel() {
+      if (this.selectChangeHash == null) {
+        return Util._warn("请勾选要替换的模块！");
+      }
+      if (!this.dspGraph.packageMap.has(this.selectChangeHash) || this.operChangeNode == null)
+        return;
+      this.dspGraph.handleChangeNodePackage(this.operChangeNode, this.selectChangeHash);
+      this.closeChangeModelDialog();
+    },
+    closeChangeModelDialog() {
+      this.operChangeNode = null;
+      this.selectChangeHash = null;
+      this.showChangeModelDialog = false;
+    },
     closeBlueprintRes(done) {
       this.$confirm("确定关闭生成结果么?", "提示", {
         confirmButtonText: "确定",
@@ -752,6 +793,15 @@ export default {
           handler: () => {
             // 组合封装选中节点
             this.dspGraph.unfoldPackage(d);
+          },
+        });
+        this.operMenuBtns.push({
+          title: "替换为其他模块",
+          icon: "el-icon-news",
+          handler: () => {
+            // 替换节点引用的封装模块
+            this.operChangeNode = d;
+            this.showChangeModelDialog = true;
           },
         });
       }
@@ -1288,6 +1338,80 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
 </style>
 
 <style lang="scss">
+.changeModelDialog {
+  .el-dialog__header {
+    padding-top: 15px;
+  }
+  .el-dialog__body {
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+  .hint {
+    font-size: 12px;
+    line-height: 20px;
+    margin-bottom: 5px;
+    color: #999;
+  }
+  .wrap {
+    list-style: none;
+    max-height: 350px;
+    overflow-y: auto;
+    &::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+      background-color: transparent;
+    }
+    &::-webkit-scrollbar-track {
+      -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0);
+      background-color: #f1f1f1;
+      -webkit-border-radius: 2px;
+      -moz-border-radius: 2px;
+      border-radius: 2px;
+    }
+    &::-webkit-scrollbar-thumb {
+      -webkit-border-radius: 2em;
+      -moz-border-radius: 2em;
+      border-radius: 2em;
+      background-color: #c1c1c1;
+    }
+    &::-webkit-scrollbar-corner {
+      background: #eff1f4;
+    }
+    .item {
+      padding: 1px 5px;
+      margin-left: 10px;
+      font-size: 14px;
+      line-height: 20px;
+      min-height: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      cursor: pointer;
+      &:hover {
+        background: $--color-primary-light-9;
+      }
+      & + .item {
+        margin-top: 5px;
+      }
+      .lt {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        .icon {
+          margin-right: 10px;
+        }
+      }
+      .rt {
+        flex-shrink: 0;
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+      }
+    }
+  }
+}
 .layoutSettingDialog {
   .el-dialog__body {
     padding-top: 10px;

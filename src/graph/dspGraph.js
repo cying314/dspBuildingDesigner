@@ -3234,4 +3234,134 @@ export default class Graph {
       });
     }
   }
+
+  /**
+   * 替换指定节点的引用封装模块
+   * @param  {Mapper.GraphNode} node 节点对象
+   * @param {string} packageHash 封装模块hash
+   *
+   */
+  async handleChangeNodePackage(node, packageHash) {
+    const modelId = node?.modelId;
+    if (modelId !== Cfg.ModelId.package) return;
+    const packageModel = this.packageMap.get(packageHash);
+    if (packageModel == null) return;
+    const d = packageModel.initNodeData;
+    const originHash = node.packageHash;
+    let hasOtherSameNode =
+      this._nodes.findIndex(
+        (n) => n.modelId === Cfg.ModelId.package && n.packageHash === originHash && n.id != node.id
+      ) != -1;
+    let repalceAll = false;
+    if (hasOtherSameNode) {
+      try {
+        await Util._confirmHtml(`存在相同结构的其他节点，是否更改到所有相似节点？`, {
+          confirmButtonText: "是",
+          cancelButtonText: "否，仅更改选中节点",
+        });
+        repalceAll = true;
+      } catch {
+        // 取消
+      }
+    }
+
+    const slotToIdxMap = new Map();
+    const inputSlots = []; // dir:1
+    const outputSlots = []; // dir:-1
+    d.slots.forEach((ds) => {
+      if (ds.dir === 1) inputSlots.push(ds);
+      else outputSlots.push(ds);
+    });
+    // 插槽根据x坐标偏移升序排列（x坐标偏移根据标记数升序）
+    inputSlots
+      .sort((a, b) => a.ox - b.ox)
+      .forEach((ds, i) => {
+        slotToIdxMap.set(ds, i + 1);
+      });
+    outputSlots
+      .sort((a, b) => a.ox - b.ox)
+      .forEach((ds, i) => {
+        slotToIdxMap.set(ds, -(i + 1));
+      });
+
+    if (repalceAll) {
+      // 更改到所有相似节点
+      this._nodes.forEach((n) => {
+        if (n.modelId === Cfg.ModelId.package && n.packageHash === originHash) {
+          this.changeNodePackage(n, d, slotToIdxMap);
+        }
+      });
+    } else {
+      // 仅更改一个节点
+      this.changeNodePackage(node, d, slotToIdxMap);
+    }
+
+    // 重置视图中的元素分层
+    this.buildGroup();
+    // 重绘节点
+    this.buildNode();
+    // 重绘连线
+    this.buildLink();
+    // 重绘选择框
+    this.buildBox();
+    // 记录操作
+    this.recordUndo();
+  }
+
+  /**
+   * 处理替换节点封装模块数据
+   * @param  {Mapper.GraphNode} node 节点对象
+   * @param {Mapper.NodeData} initNodeData 封装节点初始化数据
+   * @param {Map<Mapper.NodeSlotData, number>} slotToIdxMap 封装插槽->索引 dir*(index+1)
+   */
+  changeNodePackage(node, initNodeData, slotToIdxMap) {
+    node.packageHash = initNodeData.packageHash;
+    node.w = initNodeData.w;
+    node.h = initNodeData.h;
+    node.text = initNodeData.text;
+    const idxToSlotMap = new Map();
+    const inputSlots = []; // dir:1
+    const outputSlots = []; // dir:-1
+    node.slots.forEach((s) => {
+      if (s.dir === 1) inputSlots.push(s);
+      else outputSlots.push(s);
+    });
+    // 插槽根据x坐标偏移升序排列（x坐标偏移根据标记数升序）
+    inputSlots
+      .sort((a, b) => a.ox - b.ox)
+      .forEach((s, i) => {
+        idxToSlotMap.set(i + 1, s);
+      });
+    outputSlots
+      .sort((a, b) => a.ox - b.ox)
+      .forEach((s, i) => {
+        idxToSlotMap.set(-(i + 1), s);
+      });
+    node.slots = initNodeData.slots.map((ds, i) => {
+      let newSlot = {
+        ...ds,
+        index: i,
+        node: node,
+      };
+      // 区分输入输出，按插槽顺序匹配连线
+      let idx = slotToIdxMap.get(ds);
+      if (idxToSlotMap.has(idx)) {
+        let nSlot = idxToSlotMap.get(idx);
+        idxToSlotMap.delete(idx);
+        if (nSlot.edge) {
+          newSlot.edge = nSlot.edge;
+          if (ds.dir === 1) {
+            nSlot.edge.sourceSlot = newSlot;
+          } else {
+            nSlot.edge.targetSlot = newSlot;
+          }
+        }
+      }
+      return newSlot;
+    });
+    idxToSlotMap.forEach((s) => {
+      // 未匹配插槽的连线断开
+      this.deleteEdge(s.edge, false);
+    });
+  }
 }
