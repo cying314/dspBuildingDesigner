@@ -3115,38 +3115,20 @@ export default class Graph {
 
     // 覆盖刷新原有节点
     if (repalcePackage) {
-      this.refreshPackageNode(graphDataHash);
+      this.refreshPackageAllNode(graphDataHash);
     }
     return packageModel;
   }
 
   /**
-   * 刷新原有封装模块节点
+   * 刷新指定封装模块所有节点
    * @param {string} packageHash 封装模块hash
    */
-  refreshPackageNode(packageHash) {
+  refreshPackageAllNode(packageHash) {
     const packageModel = this.packageMap.get(packageHash);
     if (packageModel == null) return;
-    const d = packageModel.initNodeData;
     this._nodes.forEach((n) => {
-      if (n.modelId === Cfg.ModelId.package && n.packageHash === packageHash) {
-        n.text = d.text;
-        n.w = d.w;
-        n.h = d.h;
-        n.slots.forEach((s, i) => {
-          let ds = d.slots[i];
-          if (ds) {
-            s.ox = ds.ox;
-            s.oy = ds.oy;
-            s.packageNodeId = ds.packageNodeId;
-            s.itemId = ds.itemId;
-            s.signalId = ds.signalId;
-            s.count = ds.count;
-            s.text = ds.text;
-            s.dir = ds.dir;
-          }
-        });
-      }
+      this.refreshPackageNode(n, packageModel.initNodeData);
     });
     // 重置视图中的元素分层
     this.buildGroup();
@@ -3158,6 +3140,45 @@ export default class Graph {
     this.buildBox();
     // 记录操作
     this.recordUndo();
+  }
+
+  /**
+   * 刷新指定封装模块节点数据
+   * @param {Mapper.GraphNode} node 节点对象
+   * @param {Mapper.NodeData} initNodeData 封装节点初始化数据
+   * @param {boolean} rebuild 是否重绘
+   */
+  refreshPackageNode(node, initNodeData, rebuild = false) {
+    if (node.modelId === Cfg.ModelId.package && node.packageHash === initNodeData.packageHash) {
+      node.text = initNodeData.text;
+      node.w = initNodeData.w;
+      node.h = initNodeData.h;
+      node.slots.forEach((s, i) => {
+        let ds = initNodeData.slots[i];
+        if (ds) {
+          s.ox = ds.ox;
+          s.oy = ds.oy;
+          s.packageNodeId = ds.packageNodeId;
+          s.itemId = ds.itemId;
+          s.signalId = ds.signalId;
+          s.count = ds.count;
+          s.text = ds.text;
+          s.dir = ds.dir;
+        }
+      });
+      if (rebuild) {
+        // 重置视图中的元素分层
+        this.buildGroup();
+        // 重绘节点
+        this.buildNode();
+        // 重绘连线
+        this.buildLink();
+        // 重绘选择框
+        this.buildBox();
+        // 记录操作
+        this.recordUndo();
+      }
+    }
   }
 
   /**
@@ -3286,6 +3307,16 @@ export default class Graph {
       } catch {
         // 取消
       }
+    }
+
+    if (node.packageHash == packageHash) {
+      // 若是相同封装，则只做刷新
+      if (repalceAll) {
+        this.refreshPackageAllNode(packageHash);
+      } else {
+        this.refreshPackageNode(node, d, true);
+      }
+      return;
     }
 
     const slotToIdxMap = new Map();
