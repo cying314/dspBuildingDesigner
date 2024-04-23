@@ -1018,11 +1018,7 @@ export default class Graph {
     let nodeSel = this.$node.filter((d) => d.id === node.id);
     this.buildNodeSlot(nodeSel);
     // 重绘连线
-    let edgeSel = this.$link
-      .filter((d) => edges.includes(d))
-      .attr("id", (d) => {
-        return `${this.uniqueTag}_link-source-${d.source.id}-${d.sourceSlot.index}-target-${d.target.id}-${d.targetSlot.index}`;
-      });
+    let edgeSel = this.$link.filter((d) => edges.includes(d)).attr("id", (d) => this.getLinkId(d));
     this.updateLink(edgeSel);
     // 记录操作
     this.recordUndo();
@@ -1402,6 +1398,14 @@ export default class Graph {
         this._edges,
         (d) => `${d.source.id}-${d.sourceSlot.index}_${d.target.id}-${d.targetSlot.index}`
       );
+  }
+
+  /**
+   * 获取连接线id
+   * @param {Mapper.GraphEdge} d
+   */
+  getLinkId(d) {
+    return `${this.uniqueTag}_link-source-${d.source.id}-${d.sourceSlot.index}-target-${d.target.id}-${d.targetSlot.index}`;
   }
 
   /**
@@ -1856,8 +1860,9 @@ export default class Graph {
       .style("fill", Cfg.color.slotFill)
       .style("stroke", Cfg.color.slotStroke)
       .style("stroke-width", Cfg.strokeW.light)
-      .on("click", () => {
+      .on("click", (d) => {
         d3.event.stopPropagation(); // 点击插槽不触发选中节点
+        this.highlightEdge(d.edge);
       })
       .on("dblclick.changeSlotDir", (d) => {
         // 双击插槽，切换插槽输入输出方向
@@ -1884,6 +1889,27 @@ export default class Graph {
     // 更新新增的节点插槽
     this.updateNodeSlot(nodeSlotGEnter);
     return nodeSlotGEnter;
+  }
+
+  /**
+   * 高亮连接线
+   * @param {Mapper.GraphEdge} edge
+   */
+  highlightEdge(edge) {
+    if (edge == null) return;
+    this.$linkGroup.selectAll(".highlight").classed("highlight", false).style("filter", null);
+    this.$linkGroup
+      .select("#" + this.getLinkId(edge))
+      .classed("highlight", true)
+      .style("filter", function () {
+        return `drop-shadow(2px 2px 2px ${d3.select(this).style("stroke")})`;
+      });
+  }
+
+  refreshHighlightEdge() {
+    this.$linkGroup.selectAll(".highlight").style("filter", function () {
+      return `drop-shadow(2px 2px 2px ${d3.select(this).style("stroke")})`;
+    });
   }
 
   /**
@@ -2048,9 +2074,7 @@ export default class Graph {
     // 创建 连接线
     const edgePathEnter = edgeEnter
       .append("path")
-      .attr("id", (d) => {
-        return `${this.uniqueTag}_link-source-${d.source.id}-${d.sourceSlot.index}-target-${d.target.id}-${d.targetSlot.index}`;
-      })
+      .attr("id", (d) => this.getLinkId(d))
       .attr("stroke-width", Cfg.strokeW.link)
       .attr("class", "link")
       .style(
@@ -2098,6 +2122,8 @@ export default class Graph {
       ); // 虚线实线
     // 更新连接线路径
     this.updateLinkPath(this.$link);
+    // 刷新高亮连接线
+    this.refreshHighlightEdge();
   }
 
   /**
