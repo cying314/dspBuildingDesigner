@@ -262,33 +262,42 @@ export const globalSetting = {
 /** 劫持全局设置数据做浏览器缓存 */
 for (let key in globalSetting) {
   const defaultVal = globalSetting[key];
-  handleStorageProperty(globalSetting, key, defaultVal.constructor, defaultVal);
+  const type = defaultVal.constructor;
+  handleStorageProperty(globalSetting, key, type, defaultVal);
 }
 function handleStorageProperty(obj, key, type, defaultVal) {
+  const proxyKey = "_" + key;
+  globalSetting[proxyKey] = getStorage(key, type, defaultVal);
   Object.defineProperty(obj, key, {
     get() {
-      const ls = window.localStorage.getItem(key);
-      if (ls === null) return defaultVal;
-      if (type === Boolean) {
-        return ls === "1";
-      } else if (type === Number) {
-        return isNaN(ls) ? defaultVal : +ls;
-      }
-      return ls;
+      return obj[proxyKey];
     },
     set(val) {
-      if (obj["_" + key] !== val) {
-        obj["_" + key] = val;
-        if (val == null) {
-          window.localStorage.removeItem(key);
-        } else {
-          let ls = val;
-          if (type === Boolean) {
-            ls = ls ? "1" : "0";
-          }
-          window.localStorage.setItem(key, ls);
-        }
+      val ??= defaultVal;
+      if (obj[proxyKey] !== val) {
+        obj[proxyKey] = val;
+        setStorage(key, type, val);
       }
     },
   });
+}
+function getStorage(key, type, defaultVal) {
+  const val = window.localStorage.getItem(key);
+  if (val === null) return defaultVal;
+  if (type === Boolean) {
+    return val === "1";
+  } else if (type === Number) {
+    return isNaN(val) ? defaultVal : +val;
+  }
+  return val;
+}
+function setStorage(key, type, val) {
+  if (val == null) {
+    window.localStorage.removeItem(key);
+  } else {
+    if (type === Boolean) {
+      val = val ? "1" : "0";
+    }
+    window.localStorage.setItem(key, val);
+  }
 }
