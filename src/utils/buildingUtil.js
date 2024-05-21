@@ -319,8 +319,18 @@ export function collateNodes(nodes, packageMap, res, isPackage) {
  * @param {boolean} isStack 是否堆叠建筑
  */
 export function formatBuildsLayout(builds, size, layout, isStack = false) {
+  let cubeLayoutFun;
+  switch (Cfg.globalSetting.layoutMode) {
+    case 1: // 逐行铺满
+      cubeLayoutFun = sequentialCubeLayout;
+      break;
+    case 0:
+    default: // 原点扩散（默认）
+      cubeLayoutFun = centralCubeLayout;
+      break;
+  }
   // 生成布局坐标数组
-  let layoutCoords = centralCubeLayout(
+  let layoutCoords = cubeLayoutFun(
     builds.length,
     size,
     layout,
@@ -927,13 +937,12 @@ export function filterInserter(blueprint, rename) {
 }
 
 /**
- * 求中心扩散布局坐标（优先叠满层，再原点扩散布局）
+ * 求原点扩散布局坐标（优先叠满层，再原点扩散布局）
  * @description 优先叠满层，水平方向再从原点往外扩展
  * @param {number} n 建筑数量
  * @param {BuildingSize} size 建筑大小信息
  * @param {Cfg.BuildingLayout} layout 建筑布局信息
  * @param {number[]} start 起始点 [ox,oy,oz]
- * @param {number} dir
  * @param {string} title 建筑名（用于异常提示）
  * @return {[x,y,z][]} 坐标数组
  */
@@ -991,7 +1000,7 @@ export function centralCubeLayout(
     let num = Math.floor(i / maxLayer);
     // 水平方向一格一格往外扩展
     if (num >= layoutRow * layoutCol) {
-      if (layoutRow > layoutCol && layoutCol < maxCol) {
+      if ((layoutRow > layoutCol && layoutCol < maxCol) || layoutRow + 1 > maxRow) {
         layoutCol++;
         fixedCol = true;
       } else {
@@ -1016,8 +1025,8 @@ export function centralCubeLayout(
 }
 
 /**
- * 求依次排列布局坐标（层、列、行）
- * @description 依次优先填充摆放 层、列、行（z、x、y）
+ * 求逐行铺满布局坐标（层、行、列）
+ * @description 依次优先填充摆放 层、行、列（z、x、y）
  * @param {number} n 建筑数量
  * @param {BuildingSize} size 建筑大小信息
  * @param {Cfg.BuildingLayout} layout 建筑布局信息
@@ -1070,7 +1079,7 @@ export function sequentialCubeLayout(
   // 初始化建筑坐标数组
   let cubes = [];
 
-  // 依次优先填充摆放 层、列、行（z、x、y）
+  // 依次优先填充摆放 层、行、列（z、x、y）
   for (let i = 0; i < n; i++) {
     // 所在行（纵向索引）
     let col = Math.floor(i / (maxRow * maxLayer));

@@ -71,17 +71,30 @@
     </div>
     <div class="bottomBtns">
       <div class="lt">
-        <span>蓝图生成模式：</span>
-        <el-radio-group v-model="globalSetting.generateMode" size="mini">
-          <el-radio :label="0" :title="`使用分拣器进行无带流连接\n*需先提前粘贴分拣器，再在同位置粘贴完整蓝图\n*蓝图粘贴时请尽量使用沙盒瞬间建造`">
-            <span>无带流(分拣器)</span>
-            <i class="el-icon-question primary" style="margin-left:5px"></i>
-          </el-radio>
-          <el-radio :label="1" :title="`直连传送带节点\n*需使用mod进行蓝图强制粘贴`">
-            <span>传送带直连</span>
-            <i class="if-icon-un-priority danger" style="margin-left:5px"></i>
-          </el-radio>
-        </el-radio-group>
+        <div class="radioGroup">
+          <span>建筑布局模式：</span>
+          <el-radio-group v-model="globalSetting.layoutMode" size="mini">
+            <el-radio :label="0" :title="`从原点开始，优先填充层，再沿水平方向往外扩散填充。例：\n1  2  5 10\n3  4  6 11\n7  8  9 12`">
+              <span>原点扩散</span>
+            </el-radio>
+            <el-radio :label="1" :title="`从原点开始，按层、行、列优先级依次填充，直至铺满区域。例：\n1  2  3  4\n5  6  7  8\n9 10 11 12`">
+              <span>逐行铺满</span>
+            </el-radio>
+          </el-radio-group>
+        </div>
+        <div class="radioGroup">
+          <span>蓝图生成模式：</span>
+          <el-radio-group v-model="globalSetting.generateMode" size="mini">
+            <el-radio :label="0" :title="`使用分拣器进行无带流连接\n*需先提前粘贴分拣器，再在同位置粘贴完整蓝图\n*蓝图粘贴时请尽量使用沙盒瞬间建造`">
+              <span>无带流(分拣器)</span>
+              <i class="el-icon-question primary" style="margin-left:5px"></i>
+            </el-radio>
+            <el-radio :label="1" :title="`直连传送带节点\n*需使用mod进行蓝图强制粘贴`">
+              <span>传送带直连</span>
+              <i class="if-icon-un-priority danger" style="margin-left:5px"></i>
+            </el-radio>
+          </el-radio-group>
+        </div>
       </div>
       <div class="rt">
         <slot></slot>
@@ -496,6 +509,15 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  .lt {
+    .radioGroup{
+      transform: scale(0.9);
+      transform-origin: left center;
+    }
+    .radioGroup + .radioGroup {
+      margin-top: 8px;
+    }
+  }
 }
 .primary {
   color: $--color-primary;

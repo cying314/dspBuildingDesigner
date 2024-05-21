@@ -122,6 +122,19 @@
       </div>
     </div>
     <div class="item">
+      <div class="name">建筑布局模式：</div>
+      <div class="form">
+        <el-radio-group v-model="globalSetting.layoutMode" size="mini">
+          <el-radio :label="0" :title="`从原点开始，优先填充层，再沿水平方向往外扩散填充。例：\n1  2  5 10\n3  4  6 11\n7  8  9 12`">
+            <span>原点扩散</span>
+          </el-radio>
+          <el-radio :label="1" :title="`从原点开始，按层、行、列优先级依次填充，直至铺满区域。例：\n1  2  3  4\n5  6  7  8\n9 10 11 12`">
+            <span>逐行铺满</span>
+          </el-radio>
+        </el-radio-group>
+      </div>
+    </div>
+    <div class="item">
       <div class="name" :title="`导出JSON工程文件时，剔除未引用的封装模块、画布位置、布局配置等信息\n用于导出纯粹的模块组件数据`">
         <span>简化导出JSON数据：</span>
         <i class="el-icon-question"></i>

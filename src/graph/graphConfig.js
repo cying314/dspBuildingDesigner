@@ -256,6 +256,8 @@ export const globalSetting = {
 
   /** 生成模式（0:无带流(分拣器连接)，1:直接连接） */
   generateMode: 0,
+  /** 建筑布局模式（0:原点扩散，1:逐行铺满） */
+  layoutMode: 0,
   /** 简化导出JSON数据 */
   reducedData: false,
 };
