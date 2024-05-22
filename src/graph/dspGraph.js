@@ -1865,14 +1865,21 @@ export default class Graph {
           .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default)
           .style("stroke", d.dir === 1 ? Cfg.color.priorityInStroke : Cfg.color.priorityOutStroke)
           .style("stroke-width", Cfg.strokeW.thin);
+
         // 插槽传送带标记id
-        packageSlotBg
-          .append("image")
-          .attr("xlink:href", ItemsUtil.getSignalImage(d.signalId))
-          .attr("x", Cfg.packageSlotSize / 4)
-          .attr("y", Cfg.packageSlotSize / 4)
-          .attr("width", Cfg.signalSize / 2) // 插槽图标大小减半
-          .attr("height", Cfg.signalSize / 2);
+        if(d.signalId!=null) {
+          const signalImageHref = ItemsUtil.getSignalImage(d.signalId);
+          if(signalImageHref!=null) {
+            packageSlotBg
+            .append("image")
+            .attr("xlink:href", signalImageHref)
+            .attr("x", Cfg.packageSlotSize / 4)
+            .attr("y", Cfg.packageSlotSize / 4)
+            .attr("width", Cfg.signalSize / 2) // 插槽图标大小减半
+            .attr("height", Cfg.signalSize / 2);
+          }
+        }
+
         // 插槽传送带标记数
         if (d.text) {
           packageSlotBg
