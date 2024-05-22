@@ -10,43 +10,48 @@
       :row-style="layoutTableRowStyle"
       :cell-style="layoutTableCellStyle"
     >
-      <el-table-column prop="name" label="组件" align="center" width="120" show-overflow-tooltip></el-table-column>
-      <el-table-column label="布局起点 (X, Y, Z)" align="center" min-width="60">
+      <el-table-column prop="name" label="组件" align="center" min-width="110" show-overflow-tooltip></el-table-column>
+      <el-table-column label="布局起点 (X, Y, Z)" align="center" width="58">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.start.x" :min="-9999" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="布局起点Y" align="center" min-width="60">
+      <el-table-column label="布局起点Y" align="center" width="58">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.start.y" :min="-9999" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="布局起点Z" align="center" min-width="60">
+      <el-table-column label="布局起点Z" align="center" width="58">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.start.z" :min="0" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="最大宽长高 (W, H, T)" align="center" min-width="60">
+      <el-table-column label="最大宽长高 (W, H, T)" align="center" width="58">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.maxW" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="最大长H" align="center" min-width="60">
+      <el-table-column label="最大长H" align="center" width="58">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.maxH" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="最大高T" align="center" min-width="60">
+      <el-table-column label="最大高T" align="center" width="58">
         <template slot-scope="{ row }">
           <el-input-number v-model="row.maxD" :min="1" :max="9999" :step="0.1" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="建筑间隔" align="center" min-width="70">
+      <el-table-column label="建筑间隔 (X, Y)" align="center" width="58">
         <template slot-scope="{ row }">
-          <el-input-number v-model="row.space" :min="0" :max="10" :step="0.01" step-strictly :controls="false"></el-input-number>
+          <el-input-number v-model="row.spaceX" :min="0" :max="10" :step="0.01" step-strictly :controls="false"></el-input-number>
         </template>
       </el-table-column>
-      <el-table-column label="展开方向" align="center" width="85">
+      <el-table-column label="建筑间隔Y" align="center" width="58">
+        <template slot-scope="{ row }">
+          <el-input-number v-model="row.spaceY" :min="0" :max="10" :step="0.01" step-strictly :controls="false"></el-input-number>
+        </template>
+      </el-table-column>
+      <el-table-column label="展开方向" align="center" width="80">
         <template slot-scope="{ row }">
           <el-select v-model="row.dir" size="mini">
             <el-option label="左上" :value="0"></el-option>
@@ -339,8 +344,8 @@ export default {
     },
     // 表格 合并表头样式
     layoutTableHeaderCellStyle({ column, rowIndex, columnIndex }) {
-      // 将第2/3列(起始y,z)，第5/6列(最大h,d)隐去
-      if (columnIndex == 2 || columnIndex == 3 || columnIndex == 5 || columnIndex == 6) {
+      // 将第2/3列(起始y,z)，第5/6列(最大h,d)，第8列(间隔y)隐去
+      if ([2, 3, 5, 6, 8].includes(columnIndex)) {
         return { display: "none" };
       }
       if ((rowIndex == 0) & (columnIndex == 1)) {
@@ -353,6 +358,12 @@ export default {
         this.$nextTick(() => {
           // 第3列(最大w) 改为占据三列
           document.querySelector(`.${column.id}`).setAttribute("colspan", "3");
+        });
+      }
+      if ((rowIndex == 0) & (columnIndex == 7)) {
+        this.$nextTick(() => {
+          // 第7列(间隔x) 改为占据两列
+          document.querySelector(`.${column.id}`).setAttribute("colspan", "2");
         });
       }
       return { fontSize: "12px", height: "20px", lineHeight: "20px", background: "#fafafa" };
@@ -378,6 +389,9 @@ export default {
         font-size: 12px;
       }
     }
+  }
+  ::v-deep td.el-table__cell .cell {
+    padding: 0 8px;
   }
 }
 .gridWrap {
@@ -510,7 +524,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   .lt {
-    .radioGroup{
+    .radioGroup {
       transform: scale(0.9);
       transform-origin: left center;
     }

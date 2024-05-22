@@ -18,7 +18,8 @@ import * as Util from "./graphUtil.js";
  * @property {number} maxH - 最大长度（经线方向）
  * @property {number} maxD - 最大高度
  * @property {number} dir - 展开方向 (0:左上, 1:右上, 2:右下, 3:左下)
- * @property {number} space - 建筑间隔
+ * @property {number} spaceX - X方向建筑间隔
+ * @property {number} spaceY - Y方向建筑间隔
  */
 /**
  * @typedef {Object} HeaderLayoutData 生成蓝图布局 持久化数据
@@ -251,9 +252,10 @@ export function toGraphData(
       maxH = 0,
       maxD = 0,
       dir = 0,
-      space = 0,
+      spaceX = 0,
+      spaceY = 0,
     } = Cfg.layoutSetting[key];
-    _lay[key] = { start: { x, y, z }, maxW, maxH, maxD, dir, space };
+    _lay[key] = { start: { x, y, z }, maxW, maxH, maxD, dir, spaceX, spaceY };
   });
   return graphData;
 }

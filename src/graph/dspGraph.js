@@ -348,7 +348,8 @@ export default class Graph {
             _cfgLay.maxH = _lay.maxH ?? 0;
             _cfgLay.maxD = _lay.maxD ?? 0;
             _cfgLay.dir = _lay.dir ?? 0;
-            _cfgLay.space = _lay.space ?? 0;
+            _cfgLay.spaceX = _lay.spaceX ?? 0;
+            _cfgLay.spaceY = _lay.spaceY ?? 0;
           }
         });
       }
