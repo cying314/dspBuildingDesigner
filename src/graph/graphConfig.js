@@ -264,6 +264,8 @@ export const globalSetting = {
   generateMode: 0,
   /** 建筑布局模式（0:原点扩散，1:逐行铺满） */
   layoutMode: 0,
+  /** 生成蓝图时前移终端建筑（生成蓝图时，使 输入/输出流速器 提前建造） */
+  forwardEndBuilding: false,
   /** 简化导出JSON数据 */
   reducedData: false,
 };

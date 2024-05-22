@@ -113,6 +113,29 @@ export function createbuildings({ nodes, packageMap }) {
   // 4、排列 信号输入流速器 建筑布局
   formatBuildsLayout(nodeGroup.inputList, monitorSize, Cfg.layoutSetting.inputLayout);
 
+  // 将 输入输出流速器 前移到 普通流速器 前（使 输入/输出流速器 提前建造，用于建筑过多时，避免因渲染优化导致终端流速器无法显示）
+  if (Cfg.globalSetting.forwardEndBuilding && nodeGroup.monitorList.length > 0) {
+    let prevBuilds = [];
+    let moveIndexs = [];
+    nodeGroup.outputList.concat(nodeGroup.inputList).forEach((b) => {
+      prevBuilds.push(b);
+      moveIndexs.push(b.index);
+      b._belts.forEach((belt) => {
+        prevBuilds.push(belt);
+        moveIndexs.push(belt.index);
+      });
+    });
+    if (moveIndexs.length > 0) {
+      moveIndexs.sort((a, b) => b - a); // 降序删除
+      moveIndexs.forEach((index) => {
+        nodeGroup.builds.splice(index, 1);
+      });
+      nodeGroup.builds.unshift(...prevBuilds); // 前插
+      // 重排建筑index顺序
+      resetBuildingsIndex(nodeGroup.builds);
+    }
+  }
+
   // 5、解析边集，创建分拣器
   let inserterList = generateInserter(nodeGroup.edgeSet, nodeGroup.idToBuildMap, nodeGroup.builds);
 
@@ -120,6 +143,22 @@ export function createbuildings({ nodes, packageMap }) {
   formatBuildsLayout(inserterList, inserterSize, Cfg.layoutSetting.inserterLayout);
 
   return nodeGroup.builds;
+}
+
+/**
+ * 重排建筑index顺序
+ * @param {BuildingItem[]} buildings 全部建筑列表
+ */
+export function resetBuildingsIndex(buildings) {
+  let indexMap = {};
+  buildings.forEach((v, index) => {
+    indexMap[v.index] = index;
+  });
+  buildings.forEach((v) => {
+    v.index = indexMap[v.index];
+    if (v.outputObjIdx != -1) v.outputObjIdx = indexMap[v.outputObjIdx];
+    if (v.inputObjIdx != -1) v.inputObjIdx = indexMap[v.inputObjIdx];
+  });
 }
 
 /**
