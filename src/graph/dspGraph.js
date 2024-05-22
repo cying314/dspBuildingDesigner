@@ -132,17 +132,19 @@ export default class Graph {
       .scaleExtent([this.minScale, this.maxScale])
       .on("zoom", () => {
         let { x, y, k } = d3.event.transform;
-        let originK = this.transform.k;
-        this.transform = { x, y, k };
-        this.$vis.attr("transform", `translate(${x},${y}) scale(${k})`);
-        if (originK !== k) {
-          // 缩小时保持包围盒线段宽度
-          this.$boxGroup
-            ?.select("#box-wrap")
-            .style("stroke-width", Util.fixedSize(Cfg.strokeW.light, this.transform.k));
-        }
-        // 移动水印、网格线
-        this.refreshBg();
+        window.requestAnimationFrame(() => {
+          let originK = this.transform.k;
+          this.transform = { x, y, k };
+          this.$vis.attr("transform", `translate(${x},${y}) scale(${k})`);
+          if (originK !== k) {
+            // 缩小时保持包围盒线段宽度
+            this.$boxGroup
+              ?.select("#box-wrap")
+              .style("stroke-width", Util.fixedSize(Cfg.strokeW.light, this.transform.k));
+          }
+          // 移动水印、网格线
+          this.refreshBg();
+        });
       });
 
     const stopZoomTransition = () => {
@@ -435,8 +437,24 @@ export default class Graph {
     }
   }
 
-  // 重置刷新背景水印、网格线
+  /**
+   * 刷新水印、网格线
+   */
   refreshBg(resetBg) {
+    if (resetBg) {
+      // 重绘背景水印、网格线
+      this.resetBg();
+    } else if (Cfg.globalSetting.gridAlignment && Cfg.globalSetting.showGridLine) {
+      // 重置坐标大小
+      this.resetGridSize();
+    }
+  }
+
+  /**
+   * 重绘水印、网格线
+   */
+  resetBg() {
+    let showGridLine = Cfg.globalSetting.gridAlignment && Cfg.globalSetting.showGridLine;
     let canvas = d3.select(this._canvasDOM);
     if (canvas.style("position") === "none") {
       canvas.style("position", "relative");
@@ -449,90 +467,110 @@ export default class Graph {
         .attr(
           "style",
           `width: 100%;
-           height: 100%;
-           position: absolute;
-           z-index: 0;
-           top: 0;
-           left: 0;
-           pointer-events: none;`
+          height: 100%;
+          position: absolute;
+          z-index: 0;
+          top: 0;
+          left: 0;
+          pointer-events: none;`
         );
     }
-    let bgImgEl = canvas.select(".bgImg");
-    if (bgImgEl.empty()) {
-      bgImgEl = canvas
+    let gridBoxEl = canvas.select("#gridBox");
+    if (gridBoxEl.empty()) {
+      gridBoxEl = canvas
         .insert("div")
-        .attr("class", "bgImg")
+        .attr("id", "gridBox")
         .attr(
           "style",
           `width: 100%;
-           height: 100%;
-           position: absolute;
-           z-index: 1;
-           top: 0;
-           left: 0;
-           pointer-events: none;`
+          height: 100%;
+          position: absolute;
+          z-index: 1;
+          top: 0;
+          left: 0;
+          pointer-events: none;`
         );
     }
-    // 显示网格线
-    let showGridLine = Cfg.globalSetting.gridAlignment && Cfg.globalSetting.showGridLine;
-    if (resetBg) {
-      // 画布水印背景
-      let bgImg = `url('${Watermark.generateWMBase64(Cfg.watermark)}')`;
-      if (showGridLine) {
-        bgImg += `, url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAABQCAYAAACOEfKtAAAAAXNSR0IArs4c6QAAASdJREFUeF7t27ENwkAUBUFfL4T0cTVfH4QUgyzhCkaWztKSr/mMX8o4Nv6std7neXPOz65njl0PO+8KEN9OgAGiAOYtMEAUwLwFBogCmLfAAFEA8xYYIApg3gIDRAHMW2CAKIB5CwwQBTBvgQGiAOYtMEAUwLwFBogCmLfAAFEA8xYYIApg3gIDRAHMW2CAKIB5CwwQBTBvgQGiAOYtMEAUwPwRC7yOxN96V/76P/h71xfoc0eARtj/RMzvCDBAFMC8BQaIApi3wABRAPMWGCAKYN4CA0QBzFtggCiAeQsMEAUwb4EBogDmLTBAFMC8BQaIApi3wABRAPMWGCAKYN4CA0QBzFtggCiAeQsMEAUwb4EBogDmLTBAFMC8BQaIApi3wABRAPMf8D8/Dnv+KHMAAAAASUVORK5CYII=)`;
+    this.gridBoxEl = gridBoxEl;
+    // 画布水印背景
+    let gridImg = `url('${Watermark.generateWMBase64(Cfg.watermark)}')`;
+    if (showGridLine) {
+      // 水印叠加网格线
+      gridImg += `, url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAABQCAYAAACOEfKtAAAAAXNSR0IArs4c6QAAASdJREFUeF7t27ENwkAUBUFfL4T0cTVfH4QUgyzhCkaWztKSr/mMX8o4Nv6std7neXPOz65njl0PO+8KEN9OgAGiAOYtMEAUwLwFBogCmLfAAFEA8xYYIApg3gIDRAHMW2CAKIB5CwwQBTBvgQGiAOYtMEAUwLwFBogCmLfAAFEA8xYYIApg3gIDRAHMW2CAKIB5CwwQBTBvgQGiAOYtMEAUwPwRC7yOxN96V/76P/h71xfoc0eARtj/RMzvCDBAFMC8BQaIApi3wABRAPMWGCAKYN4CA0QBzFtggCiAeQsMEAUwb4EBogDmLTBAFMC8BQaIApi3wABRAPMWGCAKYN4CA0QBzFtggCiAeQsMEAUwb4EBogDmLTBAFMC8BQaIApi3wABRAPMf8D8/Dnv+KHMAAAAASUVORK5CYII=)`;
+    }
+    const head = d3.select(document.head);
+    let gridStyle = head.select("style#gridStyle");
+    if (gridStyle.empty()) {
+      gridStyle = head.insert("style").attr("id", "gridStyle");
+    }
+    gridStyle.html(`
+      #gridBox {
+        background-image: ${gridImg};
+        background-repeat: repeat;
+        background-position: 0px 0px;
+        background-size: ${Cfg.watermark.width} ${Cfg.watermark.height};
       }
-      bgImgEl.style("background-repeat", "repeat").style("background-image", bgImg);
-      // 背景色
-      let R = parseInt("0x" + Cfg.globalSetting.bgColor.slice(1, 3)) || 0;
-      let G = parseInt("0x" + Cfg.globalSetting.bgColor.slice(3, 5)) || 0;
-      let B = parseInt("0x" + Cfg.globalSetting.bgColor.slice(5, 7)) || 0;
-      bgColorEl.style("background-color", `rgba(${R},${G},${B},0.8)`);
-      // 计算灰度，根据灰度设置网格线和水印亮度
-      let Gray = R * 0.299 + G * 0.587 + B * 0.11;
-      if (Gray > 160 && Gray < 240) {
-        // 解决灰色背景色看不清网格线问题
-        bgImgEl.style("filter", `brightness(${100 - (1 - Gray / 255) * 100}%)`);
-      } else {
-        bgImgEl.style("filter", `brightness(${100 + (1 - Gray / 255) * 100}%)`);
-      }
-      // 暗色背景下，修改提亮相关暗色颜色：字体颜色、临时连接线颜色、选择框颜色
-      let textColor = Gray > 128 ? Cfg.color.text_light : Cfg.color.text_dark;
-      let tmpLineStrokeColor =
-        Gray > 128 ? Cfg.color.tmpLineStroke_light : Cfg.color.tmpLineStroke_dark;
-      let selectionStrokeColor =
-        Gray > 128 ? Cfg.color.selectionStroke_light : Cfg.color.selectionStroke_dark;
-      // 字体颜色
-      if (Cfg.color.text !== textColor) {
-        Cfg.color.text = textColor;
-        // 更新节点文字颜色
-        if (this.$node && !this.$node.empty()) {
-          this.$node
-            .filter((d) => d.modelId !== Cfg.ModelId.package)
-            .selectAll("tspan")
-            .style("fill", Cfg.color.text);
-        }
-      }
-      // 临时连接线颜色
-      if (Cfg.color.tmpLineStroke !== tmpLineStrokeColor) {
-        Cfg.color.tmpLineStroke = tmpLineStrokeColor;
-      }
-      // 选择框颜色
-      if (Cfg.color.selectionStroke !== selectionStrokeColor) {
-        Cfg.color.selectionStroke = selectionStrokeColor;
-        // 更新选中节点包围盒
-        if (this._selection.boundingBox) {
-          this.updateSelectionBox();
-        }
+    `);
+    // 背景色
+    let R = parseInt("0x" + Cfg.globalSetting.bgColor.slice(1, 3)) || 0;
+    let G = parseInt("0x" + Cfg.globalSetting.bgColor.slice(3, 5)) || 0;
+    let B = parseInt("0x" + Cfg.globalSetting.bgColor.slice(5, 7)) || 0;
+    bgColorEl.style("background-color", `rgba(${R},${G},${B},0.8)`);
+    // 计算灰度，根据灰度设置网格线和水印亮度
+    let Gray = R * 0.299 + G * 0.587 + B * 0.11;
+    if (Gray > 160 && Gray < 240) {
+      // 解决灰色背景色看不清网格线问题
+      gridBoxEl.style("filter", `brightness(${100 - (1 - Gray / 255) * 100}%)`);
+    } else {
+      gridBoxEl.style("filter", `brightness(${100 + (1 - Gray / 255) * 100}%)`);
+    }
+    // 暗色背景下，修改提亮相关暗色颜色：字体颜色、临时连接线颜色、选择框颜色
+    let textColor = Gray > 128 ? Cfg.color.text_light : Cfg.color.text_dark;
+    let tmpLineStrokeColor =
+      Gray > 128 ? Cfg.color.tmpLineStroke_light : Cfg.color.tmpLineStroke_dark;
+    let selectionStrokeColor =
+      Gray > 128 ? Cfg.color.selectionStroke_light : Cfg.color.selectionStroke_dark;
+    // 字体颜色
+    if (Cfg.color.text !== textColor) {
+      Cfg.color.text = textColor;
+      // 更新节点文字颜色
+      if (this.$node && !this.$node.empty()) {
+        this.$node
+          .filter((d) => d.modelId !== Cfg.ModelId.package)
+          .selectAll("tspan")
+          .style("fill", Cfg.color.text);
       }
     }
-    const { x, y, k } = this.transform;
+    // 临时连接线颜色
+    if (Cfg.color.tmpLineStroke !== tmpLineStrokeColor) {
+      Cfg.color.tmpLineStroke = tmpLineStrokeColor;
+    }
+    // 选择框颜色
+    if (Cfg.color.selectionStroke !== selectionStrokeColor) {
+      Cfg.color.selectionStroke = selectionStrokeColor;
+      // 更新选中节点包围盒
+      if (this._selection.boundingBox) {
+        this.updateSelectionBox();
+      }
+    }
+    if (showGridLine) {
+      this.resetGridSize();
+    } else {
+      // 关闭网格线时，不再维护水印位置跟随画布
+      gridBoxEl.style("background-position", null).style("background-size", null);
+    }
+  }
+
+  /**
+   * 刷新网格坐标及缩放
+   */
+  resetGridSize() {
+    let { x, y, k } = this.transform;
     let bgSize = `${parseFloat(Cfg.watermark.width) * k}px ${
       parseFloat(Cfg.watermark.height) * k
     }px`;
-    if (showGridLine) {
-      bgSize += `, ${Cfg.gridStep * 4 * k}px ${Cfg.gridStep * 4 * k}px`;
-    }
-    bgImgEl.style("background-position", `${x}px ${y}px`).style("background-size", bgSize);
+    bgSize += `, ${Cfg.gridStep * 4 * k}px ${Cfg.gridStep * 4 * k}px`;
+    this.gridBoxEl.style("background-position", `${x}px ${y}px`).style("background-size", bgSize);
   }
 
   /**
@@ -2405,15 +2443,18 @@ export default class Graph {
     };
     // 正在拖拽
     const dragmove = () => {
-      // 设置更新选中节点的坐标
-      this._selection.nodeMap.forEach((n) => {
-        n.x += d3.event.dx;
-        n.y += d3.event.dy;
+      const { dx, dy } = d3.event;
+      window.requestAnimationFrame(() => {
+        // 设置更新选中节点的坐标
+        this._selection.nodeMap.forEach((n) => {
+          n.x += dx;
+          n.y += dy;
+        });
+        // 相对移动选中节点包围盒
+        this.moveSelectionBox(dx, dy);
+        // 更新节点、连接线
+        this.buildTick();
       });
-      // 相对移动选中节点包围盒
-      this.moveSelectionBox(d3.event.dx, d3.event.dy);
-      // 更新节点、连接线
-      this.buildTick();
     };
     // 结束拖拽
     const dragend = () => {
@@ -2517,15 +2558,18 @@ export default class Graph {
     // 正在拖拽
     function dragmove(d) {
       // 在拖动过程中更新线段的终点
-      _this.$linkGroup
-        .select(`#${_this.uniqueTag}_dragLine`)
-        .attr(
-          "d",
-          _this.getPath(
-            { x: d.node.x + d.ox, y: d.node.y + d.oy, slot: d },
-            { x: d.node.x + d3.event.x, y: d.node.y + d3.event.y }
-          )
-        );
+      const { x, y } = d3.event;
+      window.requestAnimationFrame(() => {
+        _this.$linkGroup
+          .select(`#${_this.uniqueTag}_dragLine`)
+          .attr(
+            "d",
+            _this.getPath(
+              { x: d.node.x + d.ox, y: d.node.y + d.oy, slot: d },
+              { x: d.node.x + x, y: d.node.y + y }
+            )
+          );
+      });
     }
 
     // 结束拖拽
