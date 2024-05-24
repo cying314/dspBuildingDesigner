@@ -77,17 +77,6 @@
     <div class="bottomBtns">
       <div class="lt">
         <div class="radioGroup">
-          <span>建筑布局模式：</span>
-          <el-radio-group v-model="globalSetting.layoutMode" size="mini">
-            <el-radio :label="0" :title="`从原点开始，优先填充层，再沿水平方向往外扩散填充。例：\n1  2  5 10\n3  4  6 11\n7  8  9 12`">
-              <span>原点扩散</span>
-            </el-radio>
-            <el-radio :label="1" :title="`从原点开始，按层、行、列优先级依次填充，直至铺满区域。例：\n1  2  3  4\n5  6  7  8\n9 10 11 12`">
-              <span>逐行铺满</span>
-            </el-radio>
-          </el-radio-group>
-        </div>
-        <div class="radioGroup">
           <span>蓝图生成模式：</span>
           <el-radio-group v-model="globalSetting.generateMode" size="mini">
             <el-radio :label="0" :title="`使用分拣器进行无带流连接\n*需先提前粘贴分拣器，再在同位置粘贴完整蓝图\n*蓝图粘贴时请尽量使用沙盒瞬间建造`">
@@ -100,18 +89,39 @@
             </el-radio>
           </el-radio-group>
         </div>
+        <div class="radioGroup">
+          <span>建筑布局模式：</span>
+          <el-radio-group v-model="globalSetting.layoutMode" size="mini">
+            <el-radio :label="0" :title="`从原点开始，优先填充层，再沿水平方向往外扩散填充。例：\n1  2  5 10\n3  4  6 11\n7  8  9 12`">
+              <span>原点扩散</span>
+            </el-radio>
+            <el-radio :label="1" :title="`从原点开始，按层、行、列优先级依次填充，直至铺满区域。例：\n1  2  3  4\n5  6  7  8\n9 10 11 12`">
+              <span>逐行铺满</span>
+            </el-radio>
+          </el-radio-group>
+        </div>
+        <el-button class="moreBtn" type="text" size="mini" icon="el-icon-s-operation" @click="showBlueprintSetting=true">更多选项</el-button>
       </div>
       <div class="rt">
         <slot></slot>
       </div>
     </div>
+
+    <!-- 蓝图生成设置 -->
+    <el-dialog title="蓝图生成设置" custom-class="blueprintSettingDialog" :visible.sync="showBlueprintSetting" width="500px" append-to-body v-dialogDrag>
+      <BlueprintSetting />
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import * as Cfg from "@/graph/graphConfig.js";
+import BlueprintSetting from "@/components/BlueprintSetting.vue";
 export default {
   name: "LayoutSetting",
+  components: {
+    BlueprintSetting,
+  },
   data() {
     return {
       globalSetting: Cfg.globalSetting,
@@ -123,6 +133,7 @@ export default {
       ox: 0,
       oy: 0,
       dragItem: null,
+      showBlueprintSetting: false,
     };
   },
   mounted() {
@@ -524,6 +535,8 @@ export default {
   justify-content: space-between;
   align-items: center;
   .lt {
+    flex: 1;
+    position: relative;
     .radioGroup {
       transform: scale(0.9);
       transform-origin: left center;
@@ -531,6 +544,17 @@ export default {
     .radioGroup + .radioGroup {
       margin-top: 8px;
     }
+    .moreBtn {
+      position: absolute;
+      bottom: 2px;
+      right: 15px;
+      padding: 0;
+      transform: scale(0.9);
+      transform-origin: left center;
+    }
+  }
+  .rt {
+    flex-shrink: 0;
   }
 }
 .primary {

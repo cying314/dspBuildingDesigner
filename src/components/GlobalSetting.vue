@@ -1,6 +1,10 @@
 <template>
   <!-- 全局设置 -->
   <div class="globalSetting">
+    <div class="divider">
+      <hr />
+      <span class="title">画布</span>
+    </div>
     <div class="item">
       <div class="name">是否网格对齐：</div>
       <div class="form">
@@ -13,7 +17,19 @@
         <el-switch v-model="globalSetting.showGridLine" active-color="#13ce66" inactive-color="#f56c6c" @change="dspGraph.refreshBg(true)"></el-switch>
       </div>
     </div>
-    <hr class="divider" />
+    <div class="item">
+      <div class="name">背景色：</div>
+      <div class="form">
+        <el-color-picker
+          class="bgColorPicker"
+          popper-class="bgColorPickerPopper"
+          v-model="globalSetting.bgColor"
+          size="mini"
+          :predefine="['#FFFFFF', '#F6FAFF', '#FDFFF0', '#E2E8EF', '#7D7D7D', '#000000']"
+          @change="dspGraph.refreshBg(true)"
+        />
+      </div>
+    </div>
     <div class="item">
       <div class="name">连接线方向：</div>
       <div class="form">
@@ -43,20 +59,10 @@
         <el-slider style="width:250px" v-model="curvePointOffset" :min="0" :max="60" :step="1" :marks="{0:'0', 15:'15', 30: '30', 60:'60'}" @change="changeCurvePointOffset"></el-slider>
       </div>
     </div>
-    <div class="item">
-      <div class="name">背景色：</div>
-      <div class="form">
-        <el-color-picker
-          class="bgColorPicker"
-          popper-class="bgColorPickerPopper"
-          v-model="globalSetting.bgColor"
-          size="mini"
-          :predefine="['#FFFFFF', '#F6FAFF', '#FDFFF0', '#E2E8EF', '#7D7D7D', '#000000']"
-          @change="dspGraph.refreshBg(true)"
-        />
-      </div>
+    <div class="divider">
+      <hr />
+      <span class="title">操作</span>
     </div>
-    <hr class="divider" />
     <div class="item">
       <div class="name" title="开启时，框选节点时设置传送带标记，将批量修改至所有选中节点">
         <span>批量设置图标：</span>
@@ -105,46 +111,17 @@
         </el-radio-group>
       </div>
     </div>
-    <hr class="divider" />
-    <div class="item">
-      <div class="name">蓝图生成模式：</div>
-      <div class="form">
-        <el-radio-group v-model="globalSetting.generateMode" size="mini">
-          <el-radio :label="0" :title="`使用分拣器进行无带流连接\n*需先提前粘贴分拣器，再在同位置粘贴完整蓝图\n*蓝图粘贴时请尽量使用[沙盒瞬间建造]`">
-            <span>无带流(分拣器)</span>
-            <i class="el-icon-question primary" style="margin-left:5px"></i>
-          </el-radio>
-          <el-radio :label="1" :title="`直连传送带节点\n*需使用mod进行蓝图强制粘贴`">
-            <span>传送带直连</span>
-            <i class="if-icon-un-priority danger" style="margin-left:5px"></i>
-          </el-radio>
-        </el-radio-group>
-      </div>
+    <div class="divider">
+      <hr />
+      <span class="title">蓝图生成</span>
+    </div>
+    <BlueprintSetting />
+    <div class="divider">
+      <hr />
+      <span class="title">工程导出</span>
     </div>
     <div class="item">
-      <div class="name">建筑布局模式：</div>
-      <div class="form">
-        <el-radio-group v-model="globalSetting.layoutMode" size="mini">
-          <el-radio :label="0" :title="`从原点开始，优先填充层，再沿水平方向往外扩散填充。例：\n1  2  5 10\n3  4  6 11\n7  8  9 12`">
-            <span>原点扩散</span>
-          </el-radio>
-          <el-radio :label="1" :title="`从原点开始，按层、行、列优先级依次填充，直至铺满区域。例：\n1  2  3  4\n5  6  7  8\n9 10 11 12`">
-            <span>逐行铺满</span>
-          </el-radio>
-        </el-radio-group>
-      </div>
-    </div>
-    <div class="item">
-      <div class="name" :title="`生成蓝图时，使 输入/输出流速器 提前建造\n*用于建筑过多时，避免因渲染优化导致终端流速器无法显示`">
-        <span>生成时前移终端建筑：</span>
-        <i class="el-icon-question"></i>
-      </div>
-      <div class="form">
-        <el-switch v-model="globalSetting.forwardEndBuilding" active-color="#13ce66" inactive-color="#f56c6c"></el-switch>
-      </div>
-    </div>
-    <div class="item">
-      <div class="name" :title="`导出JSON工程文件时，剔除未引用的封装模块、画布位置、布局配置等信息\n用于导出纯粹的模块组件数据`">
+      <div class="name" :title="`导出JSON工程文件时，剔除未引用的封装模块、画布位置、布局配置等信息\n*用于导出纯粹的模块组件数据`">
         <span>简化导出JSON数据：</span>
         <i class="el-icon-question"></i>
       </div>
@@ -152,17 +129,18 @@
         <el-switch v-model="globalSetting.reducedData" active-color="#13ce66" inactive-color="#f56c6c"></el-switch>
       </div>
     </div>
-    <div class="bottomBtns">
-      <slot></slot>
-    </div>
   </div>
 </template>
 
 <script>
 import DspGraph from "@/graph/dspGraph.js";
 import * as Cfg from "@/graph/graphConfig.js";
+import BlueprintSetting from "@/components/BlueprintSetting.vue";
 export default {
   name: "GlobalSetting",
+  components: {
+    BlueprintSetting,
+  },
   props: {
     /**
      * 图谱实例
@@ -206,17 +184,27 @@ export default {
     margin-top: 15px;
   }
   .divider {
-    margin: 10px 0;
-    opacity: 0.2;
+    position: relative;
+    hr {
+      margin-top: 20px;
+      margin-bottom: 15px;
+      opacity: 0.2;
+    }
+    .title {
+      position: absolute;
+      background-color: #fff;
+      padding: 0 10px;
+      font-weight: 500;
+      color: #888;
+      font-size: 12px;
+      top: 50%;
+      left: 10px;
+      transform: translate(0, -50%);
+    }
   }
   .el-slider ::v-deep .el-slider__marks .el-slider__marks-text {
     white-space: nowrap;
     font-size: 12px;
-  }
-  .bottomBtns {
-    margin-top: 20px;
-    display: flex;
-    justify-content: flex-end;
   }
   .primary {
     color: $--color-primary;
@@ -226,6 +214,7 @@ export default {
   }
 }
 .bgColorPicker {
+  vertical-align: bottom;
   ::v-deep .el-color-picker__trigger {
     width: 80px;
   }

@@ -253,15 +253,11 @@
     </el-dialog>
     <!-- 全局设置 -->
     <el-dialog title="全局设置" custom-class="globalSettingDialog" :visible.sync="showGlobalSetting" width="500px" v-dialogDrag>
-      <GlobalSetting ref="layoutSettingRef" v-if="showGlobalSetting" :dspGraph="dspGraph">
-        <el-button size="small" @click="showGlobalSetting = false">关 闭</el-button>
-      </GlobalSetting>
+      <GlobalSetting ref="layoutSettingRef" v-if="showGlobalSetting" :dspGraph="dspGraph"></GlobalSetting>
     </el-dialog>
     <!-- 工具说明 -->
     <el-dialog title="工具说明" custom-class="tipsDialog" :visible.sync="showTips" width="700px" v-dialogDrag>
-      <Tips ref="layoutSettingRef" v-if="showTips">
-        <el-button size="small" @click="showTips = false">关 闭</el-button>
-      </Tips>
+      <Tips ref="layoutSettingRef" v-if="showTips"></Tips>
     </el-dialog>
   </div>
 </template>
@@ -1419,7 +1415,14 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
 }
 .globalSettingDialog {
   .el-dialog__body {
-    padding-bottom: 15px;
+    padding: 0;
+    padding-bottom: 30px;
+    .globalSetting {
+      padding: 0 20px;
+      max-height: 80vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
   }
 }
 .tipsDialog {
