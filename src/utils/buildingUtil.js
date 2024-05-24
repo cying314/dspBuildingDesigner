@@ -565,10 +565,16 @@ export function createMonitorGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0
   let belt2 = {
     index: startIndex + 2,
     offset: [ox, oy + yOffset - beltDistance, oz],
-    iconId: node.signalId, // 传送带标记图标id
-    count: node.count, // 传送带标记数
     level: beltLevel,
   };
+  // 传送带图标标记
+  if (
+    Cfg.globalSetting.monitorIconMode == 0 || // 全显示
+    (Cfg.globalSetting.monitorIconMode == 1 && node.modelId !== Cfg.ModelId.monitor) // 隐藏非终端标记
+  ) {
+    belt2.iconId = node.signalId; // 传送带标记图标id
+    belt2.count = node.count; // 传送带标记数
+  }
   if (
     node.modelId === Cfg.ModelId.output ||
     (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1)

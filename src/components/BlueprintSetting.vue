@@ -56,6 +56,22 @@
       </div>
     </div>
     <div class="item">
+      <div class="name">传送带图标标记：</div>
+      <div class="form">
+        <el-radio-group v-model="globalSetting.monitorIconMode" size="mini">
+          <el-radio :label="0">
+            <span>全显示</span>
+          </el-radio>
+          <el-radio :label="1" :title="`隐藏非输出/输出端流速器下的传送带标记`">
+            <span>隐藏非终端标记</span>
+          </el-radio>
+          <el-radio :label="2">
+            <span>全隐藏</span>
+          </el-radio>
+        </el-radio-group>
+      </div>
+    </div>
+    <div class="item">
       <div class="name" :title="`生成蓝图时，使 输入/输出流速器 提前建造\n*用于建筑过多时，避免因渲染优化导致终端流速器无法显示 [未证实有效]`">
         <span>生成时前移终端建筑：</span>
         <i class="el-icon-question"></i>
@@ -208,6 +224,9 @@ export default {
     .name {
       white-space: nowrap;
       flex-shrink: 0;
+    }
+    .el-radio:not(:last-child) {
+      margin-right: 20px;
     }
   }
   .item + .item {

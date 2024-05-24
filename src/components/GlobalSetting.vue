@@ -179,6 +179,9 @@ export default {
       white-space: nowrap;
       flex-shrink: 0;
     }
+    .el-radio:not(:last-child) {
+      margin-right: 20px;
+    }
   }
   .item + .item {
     margin-top: 15px;

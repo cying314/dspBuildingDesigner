@@ -269,6 +269,8 @@ export const globalSetting = {
   passColorId: 113,
   /** 输入/输出端颜色-假 */
   failColorId: 13,
+  /** 传送带图标标记生成模式（0:全部显示；1:隐藏非输出/输出端标记；2:全部隐藏） */
+  monitorIconMode: 0,
   /** 生成蓝图时前移终端建筑（生成蓝图时，使 输入/输出流速器 提前建造） */
   forwardEndBuilding: false,
 
