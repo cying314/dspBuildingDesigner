@@ -40,6 +40,22 @@
       </div>
     </div>
     <div class="item">
+      <div class="name">
+        <span>输入/输出端颜色：</span>
+      </div>
+      <div class="form">
+        <div class="colorPicker">
+          <span>真：</span>
+          <MonitorColorPicker v-model="globalSetting.passColorId"></MonitorColorPicker>
+        </div>
+        <div class="colorPicker">
+          <span>假：</span>
+          <MonitorColorPicker v-model="globalSetting.failColorId"></MonitorColorPicker>
+        </div>
+        <el-button type="text" size="mini" icon="el-icon-refresh" @click="resetColor">重置</el-button>
+      </div>
+    </div>
+    <div class="item">
       <div class="name" :title="`生成蓝图时，使 输入/输出流速器 提前建造\n*用于建筑过多时，避免因渲染优化导致终端流速器无法显示 [未证实有效]`">
         <span>生成时前移终端建筑：</span>
         <i class="el-icon-question"></i>
@@ -97,18 +113,21 @@
 <script>
 import * as Cfg from "@/graph/graphConfig.js";
 import * as ItemsUtil from "@/utils/itemsUtil.js";
-import { items as ALL_ITEMS } from "@/data/itemsData";
+import { items as ALL_ITEMS } from "@/data/itemsData.js";
+import MonitorColorPicker from "@/components/MonitorColorPicker.vue";
 export default {
   name: "BlueprintSetting",
+  components: {
+    MonitorColorPicker,
+  },
   data() {
     return {
       globalSetting: Cfg.globalSetting,
       showItemMappingSetting: false,
-      itemMappingForm: [], // Array
-      itemMappingForm_: [], // Array
+      itemMappingForm: [],
+      itemMappingForm_: [],
       fromOptions: [],
       toOptions: [],
-      num: 0,
     };
   },
   mounted() {
@@ -129,6 +148,10 @@ export default {
     this.toOptions = projectItems.concat(otherItems);
   },
   methods: {
+    resetColor() {
+      this.globalSetting.passColorId = 113;
+      this.globalSetting.failColorId = 13;
+    },
     clickItemMappingSetting() {
       this.itemMappingForm = [];
       this.itemMappingForm_ = [];
@@ -189,6 +212,10 @@ export default {
   }
   .item + .item {
     margin-top: 15px;
+  }
+  .colorPicker {
+    display: inline-block;
+    margin-right: 15px;
   }
 }
 .primary {

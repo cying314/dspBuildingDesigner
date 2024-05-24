@@ -536,8 +536,8 @@ export function createMonitorGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0
   // }
   if (node.modelId === Cfg.ModelId.output || node.modelId === Cfg.ModelId.input) {
     // 只有 信号输出、信号输入 才点亮流速器
-    passColorId = 113;
-    failColorId = 13;
+    passColorId = Cfg.globalSetting.passColorId;
+    failColorId = Cfg.globalSetting.failColorId;
   } else if (node.modelId === Cfg.ModelId.monitor && node.slots[0].dir === 1) {
     // 生成货物流速器 速度改为30/s，匹配优先口满带(用于提速初始化)
     targetCargoAmount = 300;

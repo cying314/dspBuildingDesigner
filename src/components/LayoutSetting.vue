@@ -534,6 +534,7 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  user-select: none;
   .lt {
     flex: 1;
     position: relative;

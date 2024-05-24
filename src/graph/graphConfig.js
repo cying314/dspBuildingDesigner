@@ -265,6 +265,10 @@ export const globalSetting = {
   layoutMode: 0,
   /** 生成货物映射 */
   itemMapping: new Map(),
+  /** 输入/输出端颜色-真 */
+  passColorId: 113,
+  /** 输入/输出端颜色-假 */
+  failColorId: 13,
   /** 生成蓝图时前移终端建筑（生成蓝图时，使 输入/输出流速器 提前建造） */
   forwardEndBuilding: false,
 
