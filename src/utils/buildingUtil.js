@@ -712,7 +712,7 @@ export function createFdir({
     outputOffset: 0,
     inputOffset: 0,
     recipeId: 0,
-    filterId: filterId,
+    filterId: mappingItemId(filterId),
     parameters: {
       priority: priority,
     },
@@ -839,7 +839,7 @@ export function createMonitor({
       passOperator: 0,
       passColorId,
       failColorId,
-      cargoFilter,
+      cargoFilter: mappingItemId(cargoFilter),
       spawnItemOperator,
       systemWarningMode: 0,
       systemWarningIconId: 402,
@@ -946,6 +946,16 @@ export function createBase({ index, offset: [x = 0, y = 0, z = -10] = [] }) {
     filterId: 0,
     parameters: null,
   };
+}
+
+/**
+ * 根据生成配置映射物品id
+ */
+function mappingItemId(itemId) {
+  if (itemId == null || itemId == 0) return itemId;
+  const itemMapping = Cfg.globalSetting.itemMapping;
+  if (itemMapping.size == 0) return itemId;
+  return itemMapping.has(itemId) ? itemMapping.get(itemId) : itemId;
 }
 
 /**

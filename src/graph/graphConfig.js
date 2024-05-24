@@ -243,15 +243,14 @@ export const globalSetting = {
   gridAlignment: true,
   /** 是否显示网格线 */
   showGridLine: true,
-
+  /** 背景颜色 */
+  bgColor: "#ffffff",
   /** 连接线方向（0:传送带方向，1:信号方向） */
   linkDir: 1,
   /** 连接线模式（0:直线，1:曲线） */
   linkMode: 1,
   /** 曲线曲率调整（曲线控制点偏移量，连接线为曲线时生效） */
   curvePointOffset: 30,
-  /** 背景颜色 */
-  bgColor: "#ffffff",
 
   /** 批量设置图标 */
   selectionSettingSignal: true,
@@ -264,8 +263,11 @@ export const globalSetting = {
   generateMode: 0,
   /** 建筑布局模式（0:原点扩散，1:逐行铺满） */
   layoutMode: 0,
+  /** 生成货物映射 */
+  itemMapping: new Map(),
   /** 生成蓝图时前移终端建筑（生成蓝图时，使 输入/输出流速器 提前建造） */
   forwardEndBuilding: false,
+
   /** 简化导出JSON数据 */
   reducedData: false,
 };
@@ -298,6 +300,12 @@ function getStorage(key, type, defaultVal) {
     return val === "1";
   } else if (type === Number) {
     return isNaN(val) ? defaultVal : +val;
+  } else if (type === Map) {
+    try {
+      return new Map(JSON.parse(val));
+    } catch {
+      return defaultVal;
+    }
   }
   return val;
 }
@@ -307,6 +315,16 @@ function setStorage(key, type, val) {
   } else {
     if (type === Boolean) {
       val = val ? "1" : "0";
+    } else if (type === Map && val instanceof Map) {
+      if (val.size == 0) {
+        window.localStorage.removeItem(key);
+        return;
+      }
+      let arr = [];
+      val.forEach((v, k) => {
+        arr.push([k, v]);
+      });
+      val = JSON.stringify(arr);
     }
     window.localStorage.setItem(key, val);
   }
