@@ -1550,8 +1550,8 @@ export default class Graph {
             .style(
               "stroke",
               d.modelId === Cfg.ModelId.output
-                ? Cfg.color.priorityOutStroke
-                : Cfg.color.priorityInStroke
+                ? Cfg.color.outputStroke
+                : Cfg.color.inputStroke
             )
             .style("stroke-width", Cfg.strokeW.bold);
         } else if (d.modelId === Cfg.ModelId.monitor) {
@@ -1586,7 +1586,7 @@ export default class Graph {
             .attr("class", "item-bg")
             .attr("r", d.w / 2)
             .style("fill", Cfg.color.set_zero)
-            .style("stroke", Cfg.color.priorityInStroke)
+            .style("stroke", Cfg.color.nodeStroke)
             .style("stroke-width", Cfg.strokeW.light);
         } else {
           // 其他模型：矩形
@@ -1862,10 +1862,10 @@ export default class Graph {
           .style("opacity", 0.6);
         packageSlotBg
           .append("circle")
-          .attr("r", Cfg.packageSlotSize / 2)
-          .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default)
-          .style("stroke", d.dir === 1 ? Cfg.color.priorityInStroke : Cfg.color.priorityOutStroke)
-          .style("stroke-width", Cfg.strokeW.thin);
+          .attr("r", Cfg.packageSlotSize / 2 + Cfg.strokeW.thin)
+          .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default);
+          // .style("stroke", d.dir === 1 ? Cfg.color.inputStroke : Cfg.color.outputStroke)
+          // .style("stroke-width", Cfg.strokeW.thin);
 
         // 插槽传送带标记id
         if(d.signalId!=null) {

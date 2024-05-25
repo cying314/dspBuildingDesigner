@@ -65,6 +65,9 @@ export const color = {
   reverseLinkStroke: "rgb(245, 135, 0, 0.8)", // 信号方向连接线
   reverseLinkStrokeDasharray: "24, 4", // 信号方向连接线虚线
 
+  outputStroke: "rgb(255, 0, 25)", // 信号输出口边框颜色
+  inputStroke: "rgb(25, 245, 0)", // 信号输入口边框颜色
+
   tmpLineStroke: "rgba(170, 170, 170, 0.8)", // 临时连接线
   tmpLineStroke_light: "rgba(170, 170, 170, 0.8)", // 亮色背景下 临时连接线 颜色
   tmpLineStroke_dark: "rgba(255, 255, 255, 0.8)", // 暗色背景下 临时连接线 颜色
