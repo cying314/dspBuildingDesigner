@@ -79,7 +79,7 @@ export const color = {
   item_6002: "rgb(226, 90, 104)", // 红糖
   item_6003: "rgb(255, 242, 52)", // 黄糖
   item_6004: "rgb(167, 107, 231)", // 紫糖
-  item_6005: "rgb(75, 204, 85)", // 绿塘
+  item_6005: "rgb(75, 204, 85)", // 绿糖
   item_6006: "rgb(255, 255, 255)", // 白糖
   item_5201: "rgb(119, 254, 254)", // 黑雾矩阵
   item_1101: "rgb(111, 111, 111)", // 铁块
@@ -92,7 +92,7 @@ export const filterItem = [
   { id: 6002, name: "红糖", color: color.item_6002 },
   { id: 6003, name: "黄糖", color: color.item_6003 },
   { id: 6004, name: "紫糖", color: color.item_6004 },
-  { id: 6005, name: "绿塘", color: color.item_6005 },
+  { id: 6005, name: "绿糖", color: color.item_6005 },
   { id: 6006, name: "白糖", color: color.item_6006 },
   { id: 5201, name: "黑雾矩阵", color: color.item_5201 },
   { id: 1101, name: "铁块", color: color.item_1101 },
