@@ -94,11 +94,13 @@ function importBuilding(r) {
             z: fix(r.getFloat32()),
         };
     }
+    const num = r.getInt32(); // 兼容(V0.10.30.22239)[2024/05/29]后更新的倾斜字段，新版蓝图数据前缀多个-100
     const b = {
-        index: r.getInt32(),
+        index: num <= -100 ? r.getInt32() : num,
         areaIndex: r.getInt8(),
         localOffset: [readXYZ(), readXYZ()],
         yaw: [fix(r.getFloat32()), fix(r.getFloat32())],
+        tilt: num <= -100 ? r.getFloat32() : 0,
         itemId: r.getInt16(),
         modelIndex: r.getInt16(),
         outputObjIdx: r.getInt32(),
@@ -127,12 +129,14 @@ function exportBuilding(w, b) {
         w.setFloat32(v.y);
         w.setFloat32(v.z);
     }
+    w.setInt32(-100); // 兼容(V0.10.30.22239)[2024/05/29]后更新的倾斜字段，新版蓝图数据前缀多个-100
     w.setInt32(b.index);
     w.setInt8(b.areaIndex);
     writeXYZ(b.localOffset[0]);
     writeXYZ(b.localOffset[1]);
     w.setFloat32(b.yaw[0]);
     w.setFloat32(b.yaw[1]);
+    w.setFloat32(b.tilt);
     w.setInt16(b.itemId);
     w.setInt16(b.modelIndex);
     w.setInt32(b.outputObjIdx);
@@ -215,7 +219,7 @@ function encodedSize(bp) {
         + 1 // numAreas
         + 14 * bp.areas.length
         + 4 // numBuildings
-        + 61 * bp.buildings.length;
+        + 69 * bp.buildings.length;
     for (const b of bp.buildings) {
         if (b.parameters === null)
             continue;
