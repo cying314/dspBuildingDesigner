@@ -39,7 +39,7 @@
           </el-radio>
           <el-radio :label="1" :title="`物品流动方向与信号方向相反，因此信号方向为倒置的传送带方向`">
             <span>信号方向</span>
-            <i class="el-icon-question primary" style="margin-left:5px"></i>
+            <i class="el-icon-question primary" style="margin-left:3px"></i>
           </el-radio>
         </el-radio-group>
       </div>
@@ -87,7 +87,7 @@
           </el-radio>
           <el-radio :label="2" :title="`根据选中节点次序自动编号`">
             <span>自动编号</span>
-            <i class="el-icon-question primary" style="margin-left:5px"></i>
+            <i class="el-icon-question primary" style="margin-left:3px"></i>
           </el-radio>
         </el-radio-group>
       </div>

@@ -291,6 +291,7 @@ export function toGraphData(
  * @property {number} signalId - 封装模块插槽-插槽传送带标记图标id
  * @property {number} count - 封装模块插槽-插槽传送带标记数
  * @property {string} text - 封装模块插槽-插槽文本
+ * @property {boolean} _onlyOnePriorityIpt (蓝图生成时临时属性) 四向两进两出，且没有带过滤的优先输出的情况下，优先输入口标记为true
  */
 /**
  * 初始化一个基本的节点对象

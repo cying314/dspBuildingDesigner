@@ -80,12 +80,16 @@
           <span>蓝图生成模式：</span>
           <el-radio-group v-model="globalSetting.generateMode" size="mini">
             <el-radio :label="0" :title="`使用分拣器进行无带流连接\n*需先提前粘贴分拣器，再在同位置粘贴完整蓝图\n*蓝图粘贴时请尽量使用沙盒瞬间建造`">
-              <span>无带流(分拣器)</span>
-              <i class="el-icon-question primary" style="margin-left:5px"></i>
+              <span>无带流</span>
+              <i class="el-icon-question primary" style="margin-left:2px"></i>
             </el-radio>
-            <el-radio :label="1" :title="`直连传送带节点\n*需使用mod进行蓝图强制粘贴`">
+            <el-radio :label="1" :title="`忽略碰撞，远距离直连传送带节点\n*需使用mod进行蓝图强制粘贴`">
               <span>传送带直连</span>
-              <i class="if-icon-un-priority danger" style="margin-left:5px"></i>
+              <i class="if-icon-un-priority danger" style="margin-left:2px"></i>
+            </el-radio>
+            <el-radio :label="2" :title="`四向、传送带间直接远距离连接\n*需使用mod进行蓝图强制粘贴`">
+              <span>隔空直连</span>
+              <i class="if-icon-un-priority danger" style="margin-left:2px"></i>
             </el-radio>
           </el-radio-group>
         </div>
@@ -108,7 +112,7 @@
     </div>
 
     <!-- 蓝图生成设置 -->
-    <el-dialog title="蓝图生成设置" custom-class="blueprintSettingDialog" :visible.sync="showBlueprintSetting" width="500px" append-to-body v-dialogDrag>
+    <el-dialog title="蓝图生成设置" custom-class="blueprintSettingDialog" :visible.sync="showBlueprintSetting" width="550px" append-to-body v-dialogDrag>
       <BlueprintSetting />
     </el-dialog>
   </div>
@@ -539,6 +543,7 @@ export default {
     flex: 1;
     position: relative;
     .radioGroup {
+      width: 110%;
       transform: scale(0.9);
       transform-origin: left center;
     }

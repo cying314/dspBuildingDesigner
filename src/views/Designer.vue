@@ -252,7 +252,7 @@
       </template>
     </el-dialog>
     <!-- 全局设置 -->
-    <el-dialog title="全局设置" custom-class="globalSettingDialog" :visible.sync="showGlobalSetting" width="500px" v-dialogDrag>
+    <el-dialog title="全局设置" custom-class="globalSettingDialog" :visible.sync="showGlobalSetting" width="550px" v-dialogDrag>
       <GlobalSetting ref="layoutSettingRef" v-if="showGlobalSetting" :dspGraph="dspGraph"></GlobalSetting>
     </el-dialog>
     <!-- 工具说明 -->

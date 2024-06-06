@@ -1,4 +1,4 @@
-export const version = "1.0.7"; // 工具版本
+export const version = "1.0.8-beta"; // 工具版本
 export const defaultGraphName = "新蓝图1"; // 默认蓝图名
 export const watermark = {
   width: "300px",
@@ -262,7 +262,7 @@ export const globalSetting = {
   /** 批量设置物品(颜色)（0:关，1:同色替换，2:全部替换） */
   selectionSettingItemId: 0,
 
-  /** 生成模式（0:无带流(分拣器连接)，1:直接连接） */
+  /** 生成模式（0:无带流(分拣器连接)，1:传送带直接，2:隔空直连） */
   generateMode: 0,
   /** 建筑布局模式（0:原点扩散，1:逐行铺满） */
   layoutMode: 0,
