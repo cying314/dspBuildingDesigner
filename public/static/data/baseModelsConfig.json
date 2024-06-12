@@ -110,6 +110,10 @@
         "path": "./static/data/全加器.json"
       },
       {
+        "name": "全加器-v2",
+        "path": "./static/data/全加器-v2.json"
+      },
+      {
         "name": "2选1选择器",
         "path": "./static/data/2选1选择器.json"
       },
