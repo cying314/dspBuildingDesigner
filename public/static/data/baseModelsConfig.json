@@ -20,6 +20,49 @@
     "name": "组合电路模块",
     "list": [
       {
+        "isGroup": true,
+        "expand": false,
+        "name": "异色基础门",
+        "list": [
+          {
+            "name": "与或门_蓝",
+            "path": "./static/data/与或门_蓝.json"
+          },
+          {
+            "name": "与或门_黄",
+            "path": "./static/data/与或门_黄.json"
+          },
+          {
+            "name": "复制非门_红转蓝",
+            "path": "./static/data/复制非门_红-蓝.json"
+          },
+          {
+            "name": "复制非门_蓝转红",
+            "path": "./static/data/复制非门_蓝-红.json"
+          },
+          {
+            "name": "复制非门_红转黄",
+            "path": "./static/data/复制非门_红-黄.json"
+          },
+          {
+            "name": "复制非门_黄转红",
+            "path": "./static/data/复制非门_黄-红.json"
+          },
+          {
+            "name": "复制非门_蓝转黄",
+            "path": "./static/data/复制非门_蓝-黄.json"
+          },
+          {
+            "name": "复制非门_黄转蓝",
+            "path": "./static/data/复制非门_黄-蓝.json"
+          },
+          {
+            "name": "异色复制_无非门集",
+            "path": "./static/data/异色复制_无非门集.json"
+          }
+        ]
+      },
+      {
         "name": "与门 | 或门",
         "path": "./static/data/与门_或门.json"
       },
@@ -34,88 +77,32 @@
       {
         "isGroup": true,
         "expand": false,
-        "name": "常用组合",
+        "name": "四则",
         "list": [
           {
-            "isGroup": true,
-            "expand": false,
-            "name": "异色基础门",
-            "list": [
-              {
-                "name": "与或门_蓝",
-                "path": "./static/data/与或门_蓝.json"
-              },
-              {
-                "name": "与或门_黄",
-                "path": "./static/data/与或门_黄.json"
-              },
-              {
-                "name": "复制非门_红转蓝",
-                "path": "./static/data/复制非门_红-蓝.json"
-              },
-              {
-                "name": "复制非门_蓝转红",
-                "path": "./static/data/复制非门_蓝-红.json"
-              },
-              {
-                "name": "复制非门_红转黄",
-                "path": "./static/data/复制非门_红-黄.json"
-              },
-              {
-                "name": "复制非门_黄转红",
-                "path": "./static/data/复制非门_黄-红.json"
-              },
-              {
-                "name": "复制非门_蓝转黄",
-                "path": "./static/data/复制非门_蓝-黄.json"
-              },
-              {
-                "name": "复制非门_黄转蓝",
-                "path": "./static/data/复制非门_黄-蓝.json"
-              }
-            ]
+            "name": "全加器",
+            "path": "./static/data/全加器.json"
           },
           {
-            "name": "2路非门",
-            "path": "./static/data/2路非门.json"
-          },
-          {
-            "name": "4路信号复制扩展",
-            "path": "./static/data/4路信号复制扩展.json"
-          },
-          {
-            "name": "8路信号复制",
-            "path": "./static/data/8路信号复制.json"
-          },
-          {
-            "name": "三输入与门",
-            "path": "./static/data/三输入与门.json"
-          },
-          {
-            "name": "四输入与门",
-            "path": "./static/data/四输入与门.json"
-          },
-          {
-            "name": "三输入或门",
-            "path": "./static/data/三输入或门.json"
-          },
-          {
-            "name": "四输入或门",
-            "path": "./static/data/四输入或门.json"
+            "name": "全加器-v2",
+            "path": "./static/data/全加器-v2.json"
           }
         ]
       },
       {
-        "name": "全加器",
-        "path": "./static/data/全加器.json"
-      },
-      {
-        "name": "全加器-v2",
-        "path": "./static/data/全加器-v2.json"
-      },
-      {
-        "name": "2选1选择器",
-        "path": "./static/data/2选1选择器.json"
+        "isGroup": true,
+        "expand": false,
+        "name": "选择器",
+        "list": [
+          {
+            "name": "2选1选择器",
+            "path": "./static/data/2选1选择器.json"
+          },
+          {
+            "name": "MUX集",
+            "path": "./static/data/MUX集.json"
+          }
+        ]
       },
       {
         "isGroup": true,
@@ -152,12 +139,54 @@
         ]
       },
       {
-        "name": "8位二十译码",
-        "path": "./static/data/8位二十译码.json"
+        "isGroup": true,
+        "expand": false,
+        "name": "译码器",
+        "list": [
+          {
+            "name": "8位二十译码",
+            "path": "./static/data/8位二十译码.json"
+          },
+          {
+            "name": "七段译码",
+            "path": "./static/data/七段译码.json"
+          }
+        ]
       },
       {
-        "name": "七段译码",
-        "path": "./static/data/七段译码.json"
+        "isGroup": true,
+        "expand": false,
+        "name": "其他常用组合",
+        "list": [
+          {
+            "name": "2路非门",
+            "path": "./static/data/2路非门.json"
+          },
+          {
+            "name": "4路信号复制扩展",
+            "path": "./static/data/4路信号复制扩展.json"
+          },
+          {
+            "name": "8路信号复制",
+            "path": "./static/data/8路信号复制.json"
+          },
+          {
+            "name": "三输入与门",
+            "path": "./static/data/三输入与门.json"
+          },
+          {
+            "name": "四输入与门",
+            "path": "./static/data/四输入与门.json"
+          },
+          {
+            "name": "三输入或门",
+            "path": "./static/data/三输入或门.json"
+          },
+          {
+            "name": "四输入或门",
+            "path": "./static/data/四输入或门.json"
+          }
+        ]
       }
     ]
   },
