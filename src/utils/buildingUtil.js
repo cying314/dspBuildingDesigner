@@ -606,7 +606,7 @@ export function createMonitorGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0
   if (node.modelId === Cfg.ModelId.monitor && Cfg.globalSetting.generateMode === 2) {
     belt2.offset = [
       belt1.offset[0],
-      belt1.offset[1] + 0.01, // 小偏移量，形成完美垂直带
+      belt1.offset[1] - 0.01, // 小偏移量，形成完美垂直带
       belt1.offset[2] - VerticalDistance,
     ];
   }
