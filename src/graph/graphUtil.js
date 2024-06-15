@@ -1,5 +1,5 @@
 import * as Cfg from "./graphConfig.js";
-import { Notification, Message, MessageBox } from "element-ui";
+import { Notification, Message, MessageBox, Loading } from "element-ui";
 import { saveAs } from "file-saver";
 import crypto from "crypto";
 
@@ -345,24 +345,35 @@ function reducedGraphData(graphData) {
   }
 }
 
+let _getCacheLoading = null;
 /**
- * 从localStorage获取缓存数据，若不存在或校验失败则返回null
+ * 从localStorage/localforage获取缓存数据，若不存在或校验失败则返回null
  * @param {File} file
  * @return {GraphData}
  */
-export function getCacheGraphData() {
-  const json = window.localStorage.getItem("cacheGraphData");
-  if (json != null) {
-    try {
-      let cacheGraphData = JSON.parse(json);
-      let check = checkGraphData(cacheGraphData, false, false);
-      if (check) {
-        // 校验成功返回
-        return cacheGraphData;
+export async function getCacheGraphData() {
+  if (_getCacheLoading) return;
+  _getCacheLoading = _loading("加载数据中");
+  try {
+    // 优先从localforage获取
+    let cacheGraphData = await window.localforage.getItem("cacheGraphData");
+    if (cacheGraphData == null) {
+      // localforage中没有数据，尝试从localStorage中获取，兼容旧版本
+      const json = window.localStorage.getItem("cacheGraphData");
+      if (json != null) {
+        cacheGraphData = JSON.parse(json);
       }
-    } catch (e) {
-      console.warn("加载缓存数据失败：" + e);
     }
+    let check = checkGraphData(cacheGraphData, false, false);
+    if (check) {
+      // 校验成功返回
+      return cacheGraphData;
+    }
+  } catch (e) {
+    console.warn("加载缓存数据失败：" + e);
+  } finally {
+    _getCacheLoading.close();
+    _getCacheLoading = null;
   }
   return null;
 }
@@ -525,4 +536,11 @@ export function _prompt(title, inputValue, otherOption = {}) {
     inputValue,
     ...otherOption,
   }).then(({ value }) => value);
+}
+
+export function _loading(title = "加载中") {
+  return Loading.service({
+    text: title,
+    lock: true,
+  });
 }

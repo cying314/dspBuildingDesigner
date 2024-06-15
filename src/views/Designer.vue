@@ -355,28 +355,35 @@ export default {
   },
   mounted() {
     const param = this.getUrlParams();
-    let graphData;
     if (param._blank) {
       // 新建
-      graphData = Util.getInitGraphData();
+      this.init(Util.getInitGraphData());
       // 更新路由，去掉新建参数标识
       window.history.replaceState({}, "", window.location.origin + window.location.pathname);
     } else {
-      graphData = Util.getCacheGraphData() ?? Util.getInitGraphData(); // 优先获取缓存，没有则初始化
+      Util.getCacheGraphData().then((data) => {
+        // 优先获取缓存，没有则初始化
+        if (data) {
+          this.init(data);
+        } else {
+          this.init(Util.getInitGraphData());
+        }
+      });
     }
-    this.graphName = graphData.header.graphName;
-
-    this.dspGraph = new DspGraph({
-      graphName: this.graphName,
-      graphData,
-      canvasDOM: this.$refs.canvasRef,
-      handleDblclick: this.handleDblclick,
-      handleRclickNode: this.handleRclickNode,
-      handleRclickSlot: this.handleRclickSlot,
-      beforeGenerateBlueprint: this.beforeGenerateBlueprint,
-    });
   },
   methods: {
+    init(graphData) {
+      this.graphName = graphData.header.graphName;
+      this.dspGraph = new DspGraph({
+        graphName: this.graphName,
+        graphData,
+        canvasDOM: this.$refs.canvasRef,
+        handleDblclick: this.handleDblclick,
+        handleRclickNode: this.handleRclickNode,
+        handleRclickSlot: this.handleRclickSlot,
+        beforeGenerateBlueprint: this.beforeGenerateBlueprint,
+      });
+    },
     // 替换节点封装模块
     confirmChangeModel() {
       if (this.selectChangeHash == null) {
@@ -497,9 +504,9 @@ export default {
           Util._warn(`导入的JSON数据有误${len > 1 ? `[${file.name}](${len})` : ""}：` + e);
         });
     },
-    addUploadModel(graphData) {
+    async addUploadModel(graphData) {
       if (!graphData) return;
-      this.refreshUploadModels();
+      await this.refreshUploadModels();
       graphData.header.graphName ??= Cfg.defaultGraphName;
       let idx = this.uploadModels.findIndex(
         (e) => e.header.graphName == graphData.header.graphName
@@ -539,31 +546,36 @@ export default {
     downloadUploadModel(data) {
       Util.saveGraphDataAsJson(data);
     },
-    // 从localStorage获取更新导入组件
-    refreshUploadModels() {
-      let uploadModels = window.localStorage.getItem("uploadModels");
+    // 从localStorage/localforage获取更新导入组件
+    async refreshUploadModels() {
+      // 优先从localforage获取
+      let uploadModels = await window.localforage.getItem("uploadModels");
+      if (uploadModels == null) {
+        // localforage中没有数据，尝试从localStorage中获取，兼容旧版本
+        const json = window.localStorage.getItem("uploadModels");
+        if (json != null) {
+          uploadModels = JSON.parse(json);
+        }
+      }
       if (uploadModels == null) return;
       try {
-        uploadModels = JSON.parse(uploadModels);
         if (uploadModels instanceof Array) {
           this.uploadModels = uploadModels;
         }
       } catch (e) {
         // 解析数据失败
-        console.error("解析缓存导入组件数据失败：" + e);
+        console.error(e);
+        Util._err("解析缓存导入组件数据失败：" + e);
       }
     },
     // 将当前导入组件列表更新到localStorage
     cacheUploadModels() {
       try {
-        if (this.uploadModels?.length > 0) {
-          window.localStorage.setItem("uploadModels", JSON.stringify(this.uploadModels));
-        } else {
-          window.localStorage.setItem("uploadModels", null);
-        }
+        window.localforage.setItem("uploadModels", this.uploadModels);
       } catch (e) {
         // 缓存数据失败
-        console.error("缓存导入组件数据失败：" + e);
+        console.error(e);
+        Util._err("缓存导入组件数据失败：" + e);
       }
     },
     // 读取基础组件JSON

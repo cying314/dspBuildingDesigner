@@ -12,6 +12,7 @@
     "d3": "5.16.0",
     "element-ui": "^2.15.5",
     "file-saver": "^2.0.5",
+    "localforage": "^1.10.0",
     "pako": "^2.0.4",
     "sass": "^1.69.5",
     "sass-loader": "^8.0.2",

@@ -1549,9 +1549,7 @@ export default class Graph {
             .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default)
             .style(
               "stroke",
-              d.modelId === Cfg.ModelId.output
-                ? Cfg.color.outputStroke
-                : Cfg.color.inputStroke
+              d.modelId === Cfg.ModelId.output ? Cfg.color.outputStroke : Cfg.color.inputStroke
             )
             .style("stroke-width", Cfg.strokeW.bold);
         } else if (d.modelId === Cfg.ModelId.monitor) {
@@ -1864,20 +1862,20 @@ export default class Graph {
           .append("circle")
           .attr("r", Cfg.packageSlotSize / 2 + Cfg.strokeW.thin)
           .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default);
-          // .style("stroke", d.dir === 1 ? Cfg.color.inputStroke : Cfg.color.outputStroke)
-          // .style("stroke-width", Cfg.strokeW.thin);
+        // .style("stroke", d.dir === 1 ? Cfg.color.inputStroke : Cfg.color.outputStroke)
+        // .style("stroke-width", Cfg.strokeW.thin);
 
         // 插槽传送带标记id
-        if(d.signalId!=null) {
+        if (d.signalId != null) {
           const signalImageHref = ItemsUtil.getSignalImage(d.signalId);
-          if(signalImageHref!=null) {
+          if (signalImageHref != null) {
             packageSlotBg
-            .append("image")
-            .attr("xlink:href", signalImageHref)
-            .attr("x", Cfg.packageSlotSize / 4)
-            .attr("y", Cfg.packageSlotSize / 4)
-            .attr("width", Cfg.signalSize / 2) // 插槽图标大小减半
-            .attr("height", Cfg.signalSize / 2);
+              .append("image")
+              .attr("xlink:href", signalImageHref)
+              .attr("x", Cfg.packageSlotSize / 4)
+              .attr("y", Cfg.packageSlotSize / 4)
+              .attr("width", Cfg.signalSize / 2) // 插槽图标大小减半
+              .attr("height", Cfg.signalSize / 2);
           }
         }
 
@@ -2826,28 +2824,35 @@ export default class Graph {
   /**
    * 复制
    */
-  handleCopy(showSuccess = true) {
+  async handleCopy(showSuccess = true) {
     // 复制选中节点
     if (this._selection.nodeMap.size == 0) {
       Util._warn("请先框选节点后进行复制！");
       return false;
     }
-    const graphData = this.getSelectionGraphData();
-    window.localStorage.setItem("copyGraphData", JSON.stringify(graphData));
-    if (showSuccess) Util._success("复制成功！");
-    return true;
+    try {
+      const graphData = this.getSelectionGraphData();
+      await window.localforage.setItem("copyGraphData", graphData);
+      if (showSuccess) Util._success("复制成功！");
+      return true;
+    } catch (e) {
+      console.error(e);
+      Util._err("复制失败：" + e);
+      return false;
+    }
   }
 
   /**
    * 粘贴
    */
-  handlePaste(showSuccess = true) {
-    let copyGraphData = window.localStorage.getItem("copyGraphData");
-    if (copyGraphData == null) {
-      Util._warn("请先框选节点后进行复制！");
-      return false;
-    }
+  async handlePaste(showSuccess = true) {
     try {
+      let copyGraphData = await window.localforage.getItem("copyGraphData");
+      if (copyGraphData == null) {
+        Util._warn("请先框选节点后进行复制！");
+        return false;
+      }
+
       let offset;
       if (this._mouseIsEnter) {
         // 如果鼠标在画布内，则粘贴到鼠标位置
@@ -2856,12 +2861,12 @@ export default class Graph {
         // 否则粘贴到当前视图中央
         offset = [this.width / 2, this.height / 2];
       }
-      this.appendGraphData(JSON.parse(copyGraphData), offset);
+      this.appendGraphData(copyGraphData, offset);
       if (showSuccess) Util._success("粘贴成功！");
       return true;
     } catch (e) {
       console.error(e);
-      Util._warn("粘贴失败！");
+      Util._err("粘贴失败：" + e);
       return false;
     }
   }
@@ -2884,8 +2889,8 @@ export default class Graph {
   /**
    * 剪切
    */
-  handleCut(showSuccess = true) {
-    if (this.handleCopy(false) && this.handleDelete(false)) {
+  async handleCut(showSuccess = true) {
+    if ((await this.handleCopy(false)) && this.handleDelete(false)) {
       if (showSuccess) Util._success("剪切成功！");
       return true;
     }
@@ -2946,14 +2951,19 @@ export default class Graph {
   /**
    * 保存当前图谱数据到localStorage
    */
-  handleSave() {
+  async handleSave() {
+    if (this._saveLoading) return;
+    this._saveLoading = Util._loading("保存中");
     try {
       const graphData = this.getGraphData();
-      window.localStorage.setItem("cacheGraphData", JSON.stringify(graphData));
+      window.localforage.setItem("cacheGraphData", graphData);
       Util._success("已保存至浏览器缓存！");
     } catch (e) {
       console.error(e);
       Util._err("保存失败：" + e);
+    } finally {
+      this._saveLoading.close();
+      this._saveLoading = null;
     }
   }
 
