@@ -1096,7 +1096,7 @@ export function filterInserter(blueprint, rename) {
 export function centralCubeLayout(
   n,
   { w = 0, h = 0, d = 0, cx = 0, cy = 0 },
-  { maxW = 0, maxH = 0, maxD = 0, dir = 1, spaceX = 0, spaceY = 0 },
+  { maxW = 0, maxH = 0, maxD = 0, dir = 1, spaceX = 0, spaceY = 0, spaceZ = 0 },
   [ox = 0, oy = 0, oz = 0] = [],
   title = "建筑"
 ) {
@@ -1127,11 +1127,11 @@ export function centralCubeLayout(
   // 计算每行、每列和每层可以放置的建筑数量
   let maxRow = Math.floor((maxW + spaceX) / (w + spaceX));
   let maxCol = Math.floor((maxH + spaceY) / (h + spaceY));
-  let maxLayer = Math.floor(maxD / d);
+  let maxLayer = Math.floor((maxD + spaceZ) / (d + spaceZ));
   if (n > maxRow * maxCol * maxLayer) {
     throw new Error(
       `无法在给定的 宽长高(${maxW},${maxH},${maxD})${
-        spaceX > 0 || spaceY > 0 ? ",间隔(" + spaceX + "," + spaceY + ")" : ""
+        spaceX > 0 || spaceY > 0 || spaceZ > 0 ? `,间隔(${spaceX},${spaceY},${spaceZ})` : ""
       } 的条件范围内放置所有${title}！${title}数量: ${n}`
     );
   }
@@ -1165,7 +1165,7 @@ export function centralCubeLayout(
     // 计算建筑的坐标
     let x = ox + cx + xDir * row * (w + spaceX);
     let y = oy + cy + yDir * col * (h + spaceY);
-    let z = oz + layer * d; // z轴锚点在建筑底部
+    let z = oz + layer * (d + spaceZ); // z轴锚点在建筑底部
     cubes.push([x, y, z]);
   }
   return cubes;
@@ -1184,7 +1184,7 @@ export function centralCubeLayout(
 export function sequentialCubeLayout(
   n,
   { w = 0, h = 0, d = 0, cx = 0, cy = 0 },
-  { maxW = 0, maxH = 0, maxD = 0, dir = 1, spaceX = 0, spaceY = 0 },
+  { maxW = 0, maxH = 0, maxD = 0, dir = 1, spaceX = 0, spaceY = 0, spaceZ = 0 },
   [ox = 0, oy = 0, oz = 0] = [],
   title = "建筑"
 ) {
@@ -1215,11 +1215,11 @@ export function sequentialCubeLayout(
   // 计算每行、每列和每层可以放置的建筑数量
   let maxRow = Math.floor((maxW + spaceX) / (w + spaceX));
   let maxCol = Math.floor((maxH + spaceY) / (h + spaceY));
-  let maxLayer = Math.floor(maxD / d);
+  let maxLayer = Math.floor((maxD + spaceZ) / (d + spaceZ));
   if (n > maxRow * maxCol * maxLayer) {
     throw new Error(
       `无法在给定的 宽长高(${maxW},${maxH},${maxD})${
-        spaceX > 0 || spaceY > 0 ? ",间隔(" + spaceX + "," + spaceY + ")" : ""
+        spaceX > 0 || spaceY > 0 || spaceZ > 0 ? `,间隔(${spaceX},${spaceY},${spaceZ})` : ""
       } 的条件范围内放置所有${title}！${title}数量: ${n}`
     );
   }
@@ -1240,7 +1240,7 @@ export function sequentialCubeLayout(
     // 计算建筑的坐标
     let x = ox + cx + xDir * row * (w + spaceX);
     let y = oy + cy + yDir * col * (h + spaceY);
-    let z = oz + layer * d; // z轴锚点在建筑底部
+    let z = oz + layer * (d + spaceZ); // z轴锚点在建筑底部
     cubes.push([x, y, z]);
   }
   return cubes;

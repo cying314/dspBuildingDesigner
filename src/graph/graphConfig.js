@@ -163,6 +163,7 @@ export const nodeModels = [
  * @property {number} dir - 展开方向 (0:左上, 1:右上, 2:右下, 3:左下)
  * @property {number} spaceX - X方向建筑间隔
  * @property {number} spaceY - Y方向建筑间隔
+ * @property {number} spaceZ - Z方向建筑间隔
  * @property {string} previewBoxColor - 布局配置预览区域颜色
  */
 export function getDefaultLayout() {
@@ -177,6 +178,7 @@ export function getDefaultLayout() {
       dir: 1,
       spaceX: 0,
       spaceY: 0,
+      spaceZ: 0,
       previewBoxColor: "rgba(205, 192, 229, 0.3)",
     },
     /** @type {BuildingLayout} 分拣器 生成布局配置 */
@@ -189,6 +191,7 @@ export function getDefaultLayout() {
       dir: 3, // 左下
       spaceX: 0,
       spaceY: 0,
+      spaceZ: 0,
       previewBoxColor: "rgba(255, 225, 137, 0.3)",
     },
     /** @type {BuildingLayout} 流速器-回收 生成布局配置 */
@@ -201,6 +204,7 @@ export function getDefaultLayout() {
       dir: 0, // 左上
       spaceX: 0,
       spaceY: 0,
+      spaceZ: 0,
       previewBoxColor: "rgba(120, 195, 255, 0.3)",
     },
     /** @type {BuildingLayout} 流速器-信号输出 生成布局配置 */
@@ -213,6 +217,7 @@ export function getDefaultLayout() {
       dir: 2, // 右下
       spaceX: 0,
       spaceY: 0,
+      spaceZ: 0,
       previewBoxColor: "rgba(247, 155, 164, 0.3)",
     },
     /** @type {BuildingLayout} 流速器-信号输入 生成布局配置 */
@@ -225,6 +230,7 @@ export function getDefaultLayout() {
       dir: 2, // 右下
       spaceX: 0,
       spaceY: 0,
+      spaceZ: 0,
       previewBoxColor: "rgba(118, 221, 68, 0.3)",
     },
   };

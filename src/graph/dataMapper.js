@@ -20,6 +20,7 @@ import * as Util from "./graphUtil.js";
  * @property {number} dir - 展开方向 (0:左上, 1:右上, 2:右下, 3:左下)
  * @property {number} spaceX - X方向建筑间隔
  * @property {number} spaceY - Y方向建筑间隔
+ * @property {number} spaceZ - Z方向建筑间隔
  */
 /**
  * @typedef {Object} HeaderLayoutData 生成蓝图布局 持久化数据
@@ -254,8 +255,9 @@ export function toGraphData(
       dir = 0,
       spaceX = 0,
       spaceY = 0,
+      spaceZ = 0,
     } = Cfg.layoutSetting[key];
-    _lay[key] = { start: { x, y, z }, maxW, maxH, maxD, dir, spaceX, spaceY };
+    _lay[key] = { start: { x, y, z }, maxW, maxH, maxD, dir, spaceX, spaceY, spaceZ };
   });
   return graphData;
 }

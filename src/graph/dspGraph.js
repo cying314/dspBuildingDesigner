@@ -350,6 +350,7 @@ export default class Graph {
             _cfgLay.dir = _lay.dir ?? 0;
             _cfgLay.spaceX = _lay.spaceX ?? 0;
             _cfgLay.spaceY = _lay.spaceY ?? 0;
+            _cfgLay.spaceZ = _lay.spaceZ ?? 0;
           }
         });
       }
