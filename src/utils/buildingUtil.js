@@ -92,6 +92,22 @@ export function createbuildings({ nodes, packageMap }) {
 
   // 2、排列 流速器 建筑布局
   formatBuildsLayout(nodeGroup.monitorList, monitorSize, Cfg.layoutSetting.monitorLayout);
+  // 隔空直连 普通流速器每层交叉偏移，避免垂直带重叠
+  if (Cfg.globalSetting.generateMode === 2) {
+    let layout = Cfg.layoutSetting.monitorLayout;
+    let d = monitorSize.d + layout.spaceZ;
+    const offsetY = 0.25;
+    nodeGroup.monitorList.forEach((build) => {
+      if (Math.round((build.localOffset[0].z - layout.start.z) / d) % 2 == 1) {
+        build.localOffset[0].y += offsetY;
+        build.localOffset[1].y += offsetY;
+        build._belts?.forEach((b) => {
+          b.localOffset[0].y += offsetY;
+          b.localOffset[1].y += offsetY;
+        });
+      }
+    });
+  }
 
   // 输入输出口按传送带标记升序，为空时当做0
   nodeGroup.outputList.sort((a, b) => {
