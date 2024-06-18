@@ -171,6 +171,11 @@
             "path": "./static/data/8路信号复制.json"
           },
           {
+            "name": "同步复制集",
+            "tip": "适用于隔空直连模式",
+            "path": "./static/data/同步复制集.json"
+          },
+          {
             "name": "三输入与门",
             "path": "./static/data/三输入与门.json"
           },
@@ -217,12 +222,24 @@
         ]
       },
       {
-        "name": "D锁存-v2",
-        "path": "./static/data/D锁存-v2.json"
-      },
-      {
-        "name": "D触发器-v3",
-        "path": "./static/data/D触发器-v3.json"
+        "isGroup": true,
+        "expand": false,
+        "name": "D触发",
+        "list": [
+          {
+            "name": "D锁存-v2",
+            "path": "./static/data/D锁存-v2.json"
+          },
+          {
+            "name": "D触发器-v3",
+            "path": "./static/data/D触发器-v3.json"
+          },
+          {
+            "name": "稳定异色D触发",
+            "tip": "适用于隔空直连模式，稳定不闪烁结构",
+            "path": "./static/data/稳定异色D触发.json"
+          }
+        ]
       },
       {
         "name": "主从触发器",
