@@ -223,8 +223,7 @@ export function collateNodes(nodes, packageMap, res, isPackage) {
         if (
           s.edge.target.modelId !== Cfg.ModelId.package &&
           s.edge.source.modelId !== Cfg.ModelId.package &&
-          s.edge.target.modelId !== Cfg.ModelId.set_zero &&
-          s.edge.source.modelId !== Cfg.ModelId.set_zero
+          s.edge.target.modelId !== Cfg.ModelId.set_zero
         ) {
           // 记录连线（排除连在封装模块/置零节点的连线）
           // 封装节点不新建连线，而是修改内置连线目标外置
@@ -329,10 +328,50 @@ export function collateNodes(nodes, packageMap, res, isPackage) {
         throw "封装组件插槽节点数据异常！";
       }
       let outsideNodeSlot = outsideNode.slots[0];
-      // 内置输入输出口未连接，跳过
-      if (outsideNodeSlot.edge == null) return;
 
-      // 将内置输入输出口的连接线 链接到封装外插槽连接的节点
+      // 内置输入输出口未连接处理：将输入口改为生成货物流速器、输出口改为置0
+      if (outsideNodeSlot.edge == null) {
+        if (outsideNode.modelId == Cfg.ModelId.input) {
+          // 信号输入口：改为一个普通流速器给外部连接生成补料
+          outsideNode.modelId = Cfg.ModelId.monitor;
+          outsideNodeSlot.dir = 1; // 生成货物
+          s.edge.source = outsideNode;
+          s.edge.sourceSlot = outsideNodeSlot;
+          outsideNodeSlot.edge = s.edge;
+        } else if (outsideNode.modelId == Cfg.ModelId.output) {
+          // 信号输出口：改为置0
+          outsideNode.modelId = Cfg.ModelId.set_zero;
+          outsideNodeSlot.dir = -1; // 外接的输入信号置0
+          s.edge.target = outsideNode;
+          s.edge.targetSlot = outsideNodeSlot;
+          outsideNodeSlot.edge = s.edge;
+          if (Cfg.globalSetting.generateMode === 2 && s.edge.source.modelId == Cfg.ModelId.fdir) {
+            // 隔空直连模式：如果来源是已处理过的四向，则在四向的置0方向补一条垂直传送带
+            const fdir = res.idToBuildMap.get(s.edge.source.id);
+            if (fdir) {
+              // 创建四向插槽垂直传送带
+              let { x, y, z } = fdir.localOffset[0];
+              let fdirOffset = [x, y, z];
+              const vbelts = createFdirVBelt(
+                s.edge.sourceSlot,
+                fdir.index,
+                res.builds.length,
+                fdirOffset
+              );
+              if (vbelts.length > 0) {
+                res.builds.push(...vbelts);
+                // 记录关联的传送带对象
+                fdir._belts.push(...vbelts);
+                // 记录插槽外接传送带建筑对象索引
+                fdir._slotsBeltIdx[s.edge.sourceSlot.index] = fdir._belts.length - 1;
+              }
+            }
+          }
+        }
+        return;
+      }
+
+      // 默认输入输出口处理：将内置输入输出口的连接线 链接到封装外插槽连接的节点
       if (s.dir == -1) {
         // 封装模块的信号输出插槽
         outsideNodeSlot.edge.source = s.edge.source;
@@ -418,7 +457,7 @@ export function formatBuildsLayout(builds, size, layout, isStack = false) {
 }
 
 /**
- * 四向卡容量垂直距离
+ * 垂直传送带卡容量垂直距离
  * 卡29容量可以使黄绿带变1tick延迟（长度->容量：0.7->21, 0.6->19, 1.2->29, 1.3->31, 1.4->33, 1.6->35, 1.7->37, 1.8->39）
  *
  * 四个垂直带至少要放下两个货物，否则四向优先输出逻辑将失效
@@ -436,18 +475,9 @@ export function createFdirGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0] =
   let filterId = 0;
   let priority = [false, false, false, false];
 
-  // 创建四向底下四个垂直带
   const _belts = [];
   const _slotsBeltIdx = [];
-  const HorizDistance = 0.7; // 传送带距离四向中心的偏移
-  const os = [
-    // 垂直带相对位置
-    { x: ox, y: oy + HorizDistance, z: oz }, // 上
-    { x: ox + HorizDistance, y: oy, z: oz }, // 右
-    { x: ox, y: oy - HorizDistance, z: oz }, // 下
-    { x: ox - HorizDistance, y: oy, z: oz }, // 左
-  ];
-  let offsetIndex = 0;
+  let offsetIndex = 1;
   for (let i = 0; i < 4; i++) {
     const s = node.slots[i];
     if (s.edge == null) continue; // 未连接
@@ -459,93 +489,15 @@ export function createFdirGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0] =
     if (s.priority === 1 && s.dir === 1 && s.filterId != null) {
       filterId = s.filterId;
     }
-    // 创建四向直连的传送带
-    let belt1 = {
-      index: startIndex + ++offsetIndex, // 四向索引startIndex
-      offset: [os[i].x, os[i].y, os[i].z + VerticalDistance / 2],
-    };
-    if (s.dir === 1) {
-      // 输出口 从四向输入
-      belt1.ipt = [startIndex, i];
-    } else if (s.dir === -1) {
-      // 输入口 输出到四向
-      belt1.opt = [startIndex, i];
-    }
-    if (Cfg.globalSetting.generateMode === 0) {
-      // 无带流模式 输出口生成垂直传送带
-      const beltLevel = 3; // 传送带等级(1,2,3) 默认蓝带
-      belt1.level = beltLevel;
 
-      // 创建外接传送带
-      let belt2 = {
-        index: startIndex + ++offsetIndex,
-        offset: [
-          os[i].x + (i == 1 ? 0.01 : i == 3 ? -0.01 : 0), // 小偏移量，形成完美垂直带，并且都朝外
-          os[i].y + (i == 0 ? 0.01 : i == 2 ? -0.01 : 0),
-          os[i].z - VerticalDistance / 2,
-        ],
-        level: beltLevel,
-      };
-      if (s.dir === 1) {
-        // 输出到下一节
-        belt1.opt = [belt2.index, 1]; // 传送带插槽默认为1
-      } else if (s.dir === -1) {
-        // 输出到上一节
-        belt2.opt = [belt1.index, 1]; // 传送带插槽默认为1
-        if (s._onlyOnePriorityIpt) {
-          // 四向只有一个优先输入时，优先输入端使用绿带
-          belt1.level = 2;
-          belt2.level = 2;
-        }
-      }
-      const belt1_building = createBelt(belt1);
-      const belt2_building = createBelt(belt2);
+    // 创建四向插槽垂直传送带
+    const vbelts = createFdirVBelt(s, startIndex, startIndex + offsetIndex, [ox, oy, oz]);
+    if (vbelts.length > 0) {
+      offsetIndex += vbelts.length;
       // 记录关联的传送带对象
-      _belts.push(belt1_building);
-      _belts.push(belt2_building);
+      _belts.push(...vbelts);
       // 记录插槽外接传送带建筑对象索引
-      _slotsBeltIdx[i] = _belts.length - 1; // belt2_building
-    } else if (Cfg.globalSetting.generateMode === 1) {
-      // 传送带直连模式 输出口只生成一个传送带节点
-      if (s._onlyOnePriorityIpt) {
-        // 四向只有一个优先输入时，优先输入端使用绿带
-        belt1.level = 2;
-      } else {
-        // 否则使用蓝带
-        belt1.level = 3;
-      }
-      const belt1_building = createBelt(belt1);
-      // 记录关联的传送带对象
-      _belts.push(belt1_building);
-      // 记录插槽外接传送带建筑对象索引
-      _slotsBeltIdx[i] = _belts.length - 1; // belt1_building
-    } else if (Cfg.globalSetting.generateMode === 2) {
-      // 隔空直连模式
-      if (s.dir === -1) {
-        // 只保留输入的的传送带
-        const beltLevel = s._onlyOnePriorityIpt ? 2 : 3; // 四向只有一个优先输入时，优先输入端使用绿带；默认蓝带
-        belt1.level = beltLevel;
-        // 创建外接传送带
-        let belt2 = {
-          index: startIndex + ++offsetIndex,
-          offset: [
-            os[i].x + (i == 1 ? 0.01 : i == 3 ? -0.01 : 0), // 小偏移量，形成完美垂直带，并且都朝外
-            os[i].y + (i == 0 ? 0.01 : i == 2 ? -0.01 : 0),
-            os[i].z - VerticalDistance / 2,
-          ],
-          level: beltLevel,
-          opt: [belt1.index, 1], // 输出到上一节（传送带插槽默认为1）
-        };
-        const belt1_building = createBelt(belt1);
-        const belt2_building = createBelt(belt2);
-        // 记录关联的传送带对象
-        _belts.push(belt1_building);
-        _belts.push(belt2_building);
-        // 记录插槽外接传送带建筑对象索引
-        _slotsBeltIdx[i] = _belts.length - 1; // belt2_building
-      } else {
-        offsetIndex--;
-      }
+      _slotsBeltIdx[i] = _belts.length - 1;
     }
   }
 
@@ -559,6 +511,83 @@ export function createFdirGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0] =
   _fdir._belts = _belts;
   _fdir._slotsBeltIdx = _slotsBeltIdx;
   return _fdir;
+}
+
+/**
+ * 创建四向插槽垂直传送带
+ * @param {Mapper.GraphNodeSlot} s 四向插槽
+ * @param {number} fdirIndex 四向建筑索引
+ * @param {number} beltIndex 传送带起始索引
+ * @param {number[]} offset 四向偏移 [ox,oy,oz]
+ * @return {BuildingItem[]} belts 连接传送带，最后一个为外接传送带
+ */
+export function createFdirVBelt(s, fdirIndex = -1, beltIndex = 0, [ox = 0, oy = 0, oz = 0] = []) {
+  const HorizDistance = 0.7; // 传送带距离四向中心的偏移
+  const os = [
+    // 垂直带相对位置
+    { x: ox, y: oy + HorizDistance, z: oz }, // 上
+    { x: ox + HorizDistance, y: oy, z: oz }, // 右
+    { x: ox, y: oy - HorizDistance, z: oz }, // 下
+    { x: ox - HorizDistance, y: oy, z: oz }, // 左
+  ];
+
+  const i = s.index; // 插槽索引
+  const beltLevel = s._onlyOnePriorityIpt ? 2 : 3; // 四向只有一个优先输入时，优先输入端使用绿带，否则使用蓝带
+
+  // 创建四向直连的传送带
+  const beltOptions = [];
+  // 输出口生成垂直传送带
+  const belt1 = {
+    index: beltIndex,
+    offset: [os[i].x, os[i].y, os[i].z + VerticalDistance / 2],
+    level: beltLevel,
+  };
+  beltOptions.push(belt1);
+  if (s.dir === 1) {
+    // 输出口 从四向输入
+    belt1.ipt = [fdirIndex, i];
+  } else if (s.dir === -1) {
+    // 输入口 输出到四向
+    belt1.opt = [fdirIndex, i];
+  }
+  let needSecondBelt = false;
+  if (Cfg.globalSetting.generateMode === 0) {
+    // 无带流模式 输出口生成垂直传送带
+    needSecondBelt = true;
+  } else if (Cfg.globalSetting.generateMode === 1) {
+    // 传送带直连模式 输出口只生成一个传送带节点
+    needSecondBelt = false;
+  } else if (Cfg.globalSetting.generateMode === 2) {
+    // 隔空直连模式 输出口生成垂直传送带
+    needSecondBelt = true;
+    if (s.dir === 1 && s.edge.target.modelId !== Cfg.ModelId.set_zero) {
+      // 只保留输入的的传送带、及输出到置0的传送带
+      return [];
+    }
+  } else {
+    throw "生成模式异常！";
+  }
+  if (needSecondBelt) {
+    // 创建外接传送带
+    const belt2 = {
+      index: beltIndex + 1,
+      offset: [
+        os[i].x + (i == 1 ? 0.01 : i == 3 ? -0.01 : 0), // 小偏移量，形成完美垂直带，并且都朝外
+        os[i].y + (i == 0 ? 0.01 : i == 2 ? -0.01 : 0),
+        os[i].z - VerticalDistance / 2,
+      ],
+      level: beltLevel,
+    };
+    beltOptions.push(belt2);
+    if (s.dir === 1) {
+      // 输出到下一节
+      belt1.opt = [belt2.index, 1]; // 传送带插槽默认为1
+    } else if (s.dir === -1) {
+      // 输出到上一节
+      belt2.opt = [belt1.index, 1]; // 传送带插槽默认为1
+    }
+  }
+  return beltOptions.map((options) => createBelt(options));
 }
 
 /**

@@ -228,11 +228,14 @@ export function toGraphData(
       }
       /** @type {PackageModel} */
       const _p = {
-        ...p,
-      };
-      _p.graphData = {
-        ..._p.graphData,
-        packages: undefined, // 剔除封装模块中嵌套封装模块引用对象
+        hash: p.hash,
+        name: p.name,
+        childsHash: [...p.childsHash],
+        graphData: {
+          ...JSON.parse(JSON.stringify(p.graphData)), // 深拷贝
+          packages: undefined, // 剔除封装模块中嵌套封装模块引用对象
+        },
+        initNodeData: JSON.parse(JSON.stringify(p.initNodeData)), // 深拷贝
       };
       _packages.push(_p);
       _packageHashList.push(_p.hash);
@@ -285,7 +288,7 @@ export function toGraphData(
  * @property {GraphEdge} edge - 连接线对象(不存在连接时为null)
  * @property {number} ox - 节点内x偏移
  * @property {number} oy - 节点内y偏移
- * @property {number} dir - 输入输出方向 (1:输出, -1:输入)
+ * @property {number} dir - 输入输出方向 (传送带方向——1:输出, -1:输入)
  * @property {number} priority - 是否优先插槽 (1:是, -1:否) [当模型为四向时生效]
  * @property {number} filterId - 过滤优先输出物品id [当模型为四向时生效]
  * @property {number} packageNodeId - 封装模块插槽-对应package中原输入输出节点id
