@@ -21,16 +21,126 @@
     "list": [
       {
         "isGroup": true,
-        "expand": false,
-        "name": "异色基础门",
+        "expand": true,
+        "name": "基础门",
         "list": [
           {
-            "name": "与或门_蓝",
-            "path": "./static/data/与或门_蓝.json"
+            "name": "与门 | 或门",
+            "path": "./static/data/与门_或门.json"
           },
           {
-            "name": "与或门_黄",
-            "path": "./static/data/与或门_黄.json"
+            "name": "非门 | 复制",
+            "path": "./static/data/非门_复制.json"
+          },
+          {
+            "name": "异或门",
+            "path": "./static/data/异或门.json"
+          }
+        ]
+      },
+      {
+        "isGroup": true,
+        "expand": false,
+        "name": "信号复制",
+        "list": [
+          {
+            "name": "2路信号复制",
+            "path": "./static/data/2路信号复制.json"
+          },
+          {
+            "name": "3路信号复制",
+            "path": "./static/data/3路信号复制.json"
+          },
+          {
+            "name": "4路信号复制",
+            "path": "./static/data/4路信号复制.json"
+          },
+          {
+            "name": "5路信号复制",
+            "path": "./static/data/5路信号复制.json"
+          },
+          {
+            "name": "6路信号复制",
+            "path": "./static/data/6路信号复制.json"
+          },
+          {
+            "name": "7路信号复制",
+            "path": "./static/data/7路信号复制.json"
+          },
+          {
+            "name": "8路信号复制",
+            "path": "./static/data/8路信号复制.json"
+          },
+          {
+            "name": "4路信号复制扩展",
+            "path": "./static/data/4路信号复制扩展.json"
+          },
+          {
+            "isGroup": true,
+            "expand": false,
+            "name": "同步复制",
+            "tip": "适用于隔空直连模式",
+            "list": [
+              {
+                "name": "同步复制5路-2红3蓝",
+                "path": "./static/data/同步复制5路-2红3蓝.json"
+              },
+              {
+                "name": "同步复制8路-4红4蓝",
+                "path": "./static/data/同步复制8路-4红4蓝.json"
+              },
+              {
+                "name": "同步复制13路-7红6蓝",
+                "path": "./static/data/同步复制13路-7红6蓝.json"
+              },
+              {
+                "name": "同步复制21路-11红10蓝",
+                "path": "./static/data/同步复制21路-11红10蓝.json"
+              },
+              {
+                "name": "同步复制40路-20红20蓝",
+                "path": "./static/data/同步复制40路-20红20蓝.json"
+              },
+              {
+                "name": "同步复制14路红",
+                "path": "./static/data/同步复制14路红.json"
+              },
+              {
+                "name": "同步复制14路蓝",
+                "path": "./static/data/同步复制14路蓝.json"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "isGroup": true,
+        "expand": false,
+        "name": "换色复制非门",
+        "list": [
+          {
+            "name": "复制_红转蓝",
+            "path": "./static/data/复制-红_蓝.json"
+          },
+          {
+            "name": "复制_蓝转红",
+            "path": "./static/data/复制-蓝_红.json"
+          },
+          {
+            "name": "复制_红转黄",
+            "path": "./static/data/复制-红_黄.json"
+          },
+          {
+            "name": "复制_黄转红",
+            "path": "./static/data/复制-黄_红.json"
+          },
+          {
+            "name": "复制_蓝转黄",
+            "path": "./static/data/复制-蓝_黄.json"
+          },
+          {
+            "name": "复制_黄转蓝",
+            "path": "./static/data/复制-黄_蓝.json"
           },
           {
             "name": "复制非门_红转蓝",
@@ -55,24 +165,8 @@
           {
             "name": "复制非门_黄转蓝",
             "path": "./static/data/复制非门_黄-蓝.json"
-          },
-          {
-            "name": "异色复制_无非门集",
-            "path": "./static/data/异色复制_无非门集.json"
           }
         ]
-      },
-      {
-        "name": "与门 | 或门",
-        "path": "./static/data/与门_或门.json"
-      },
-      {
-        "name": "非门 | 复制",
-        "path": "./static/data/非门_复制.json"
-      },
-      {
-        "name": "异或门",
-        "path": "./static/data/异或门.json"
       },
       {
         "isGroup": true,
@@ -95,12 +189,61 @@
         "name": "选择器",
         "list": [
           {
-            "name": "2选1选择器",
-            "path": "./static/data/2选1选择器.json"
+            "isGroup": true,
+            "expand": true,
+            "name": "2选1",
+            "list": [
+              {
+                "name": "1bit选择器_2选1",
+                "path": "./static/data/1bit选择器_2选1.json"
+              },
+              {
+                "name": "4bit选择器_2选1",
+                "path": "./static/data/4bit选择器_2选1.json"
+              },
+              {
+                "name": "8bit选择器_2选1",
+                "path": "./static/data/8bit选择器_2选1.json"
+              },
+              {
+                "name": "16bit选择器_2选1",
+                "path": "./static/data/16bit选择器_2选1.json"
+              }
+            ]
           },
           {
-            "name": "MUX集",
-            "path": "./static/data/MUX集.json"
+            "isGroup": true,
+            "expand": true,
+            "name": "4选1",
+            "list": [
+              {
+                "name": "1bit选择器_4选1",
+                "path": "./static/data/1bit选择器_4选1.json"
+              },
+              {
+                "name": "4bit选择器_4选1",
+                "path": "./static/data/4bit选择器_4选1.json"
+              },
+              {
+                "name": "8bit选择器_4选1",
+                "path": "./static/data/8bit选择器_4选1.json"
+              }
+            ]
+          },
+          {
+            "isGroup": true,
+            "expand": true,
+            "name": "8选1",
+            "list": [
+              {
+                "name": "1bit选择器_8选1",
+                "path": "./static/data/1bit选择器_8选1.json"
+              },
+              {
+                "name": "4bit选择器_8选1",
+                "path": "./static/data/4bit选择器_8选1.json"
+              }
+            ]
           }
         ]
       },
@@ -144,6 +287,14 @@
         "name": "译码器",
         "list": [
           {
+            "name": "2-4译码器",
+            "path": "./static/data/2-4译码器.json"
+          },
+          {
+            "name": "3-8译码器",
+            "path": "./static/data/3-8译码器.json"
+          },
+          {
             "name": "8位二十译码",
             "path": "./static/data/8位二十译码.json"
           },
@@ -164,24 +315,46 @@
       {
         "isGroup": true,
         "expand": false,
+        "name": "异色模块",
+        "list": [
+          {
+            "name": "与或门_蓝",
+            "path": "./static/data/与或门_蓝.json"
+          },
+          {
+            "name": "与或门_黄",
+            "path": "./static/data/与或门_黄.json"
+          },
+          {
+            "name": "异或门_蓝转红",
+            "path": "./static/data/异或门_蓝-红.json"
+          },
+          {
+            "name": "2-4译码_红转蓝",
+            "path": "./static/data/2-4译码_红-蓝.json"
+          }
+        ]
+      },
+      {
+        "isGroup": true,
+        "expand": false,
         "name": "其他常用组合",
         "list": [
           {
-            "name": "2路非门",
-            "path": "./static/data/2路非门.json"
+            "name": "1复2非",
+            "path": "./static/data/1复2非.json"
           },
           {
-            "name": "4路信号复制扩展",
-            "path": "./static/data/4路信号复制扩展.json"
+            "name": "2复2非",
+            "path": "./static/data/2复2非.json"
           },
           {
-            "name": "8路信号复制",
-            "path": "./static/data/8路信号复制.json"
+            "name": "3复3非",
+            "path": "./static/data/3复3非.json"
           },
           {
-            "name": "同步复制集",
-            "tip": "适用于隔空直连模式",
-            "path": "./static/data/同步复制集.json"
+            "name": "4复4非",
+            "path": "./static/data/4复4非.json"
           },
           {
             "name": "三输入与门",
