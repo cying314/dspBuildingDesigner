@@ -341,20 +341,28 @@
         "name": "其他常用组合",
         "list": [
           {
-            "name": "1复2非",
-            "path": "./static/data/1复2非.json"
+            "name": "2复1非",
+            "path": "./static/data/2复1非.json"
           },
           {
-            "name": "2复2非",
-            "path": "./static/data/2复2非.json"
+            "name": "3复2非",
+            "path": "./static/data/3复2非.json"
           },
           {
-            "name": "3复3非",
-            "path": "./static/data/3复3非.json"
+            "name": "4复3非",
+            "path": "./static/data/4复3非.json"
           },
           {
-            "name": "4复4非",
-            "path": "./static/data/4复4非.json"
+            "name": "5复4非",
+            "path": "./static/data/5复4非.json"
+          },
+          {
+            "name": "6复5非",
+            "path": "./static/data/6复5非.json"
+          },
+          {
+            "name": "7复6非",
+            "path": "./static/data/7复6非.json"
           },
           {
             "name": "三输入与门",
