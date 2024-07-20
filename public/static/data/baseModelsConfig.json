@@ -287,12 +287,12 @@
         "name": "译码器",
         "list": [
           {
-            "name": "2-4译码器",
-            "path": "./static/data/2-4译码器.json"
+            "name": "2-4译码",
+            "path": "./static/data/2-4译码.json"
           },
           {
-            "name": "3-8译码器",
-            "path": "./static/data/3-8译码器.json"
+            "name": "3-8译码",
+            "path": "./static/data/3-8译码.json"
           },
           {
             "name": "8位二十译码",
