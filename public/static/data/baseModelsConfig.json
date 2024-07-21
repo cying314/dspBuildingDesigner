@@ -86,32 +86,32 @@
             "tip": "适用于隔空直连模式",
             "list": [
               {
-                "name": "同步复制5路-2红3蓝",
-                "path": "./static/data/同步复制5路-2红3蓝.json"
+                "name": "5路同步复制_2红3蓝",
+                "path": "./static/data/5路同步复制_2红3蓝.json"
               },
               {
-                "name": "同步复制8路-4红4蓝",
-                "path": "./static/data/同步复制8路-4红4蓝.json"
+                "name": "8路同步复制_4红4蓝",
+                "path": "./static/data/8路同步复制_4红4蓝.json"
               },
               {
-                "name": "同步复制13路-7红6蓝",
-                "path": "./static/data/同步复制13路-7红6蓝.json"
+                "name": "13路同步复制_7红6蓝",
+                "path": "./static/data/13路同步复制_7红6蓝.json"
               },
               {
-                "name": "同步复制21路-11红10蓝",
-                "path": "./static/data/同步复制21路-11红10蓝.json"
+                "name": "21路同步复制_11红10蓝",
+                "path": "./static/data/21路同步复制_11红10蓝.json"
               },
               {
-                "name": "同步复制40路-20红20蓝",
-                "path": "./static/data/同步复制40路-20红20蓝.json"
+                "name": "40路同步复制_20红20蓝",
+                "path": "./static/data/40路同步复制_20红20蓝.json"
               },
               {
-                "name": "同步复制14路红",
-                "path": "./static/data/同步复制14路红.json"
+                "name": "14路同步复制_红",
+                "path": "./static/data/14路同步复制_红.json"
               },
               {
-                "name": "同步复制14路蓝",
-                "path": "./static/data/同步复制14路蓝.json"
+                "name": "14路同步复制_蓝",
+                "path": "./static/data/14路同步复制_蓝.json"
               }
             ]
           }
@@ -124,27 +124,27 @@
         "list": [
           {
             "name": "复制_红转蓝",
-            "path": "./static/data/复制-红_蓝.json"
+            "path": "./static/data/复制_红转蓝.json"
           },
           {
             "name": "复制_蓝转红",
-            "path": "./static/data/复制-蓝_红.json"
+            "path": "./static/data/复制_蓝转红.json"
           },
           {
             "name": "复制_红转黄",
-            "path": "./static/data/复制-红_黄.json"
+            "path": "./static/data/复制_红转黄.json"
           },
           {
             "name": "复制_黄转红",
-            "path": "./static/data/复制-黄_红.json"
+            "path": "./static/data/复制_黄转红.json"
           },
           {
             "name": "复制_蓝转黄",
-            "path": "./static/data/复制-蓝_黄.json"
+            "path": "./static/data/复制_蓝转黄.json"
           },
           {
             "name": "复制_黄转蓝",
-            "path": "./static/data/复制-黄_蓝.json"
+            "path": "./static/data/复制_黄转蓝.json"
           },
           {
             "name": "复制非门_红转蓝",
