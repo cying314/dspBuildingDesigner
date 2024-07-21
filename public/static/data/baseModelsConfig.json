@@ -300,10 +300,6 @@
           },
           {
             "name": "8位二十译码",
-            "path": "./static/data/8位二十译码.json"
-          },
-          {
-            "name": "8位二十译码-v2",
             "path": "./static/data/8位二十译码-v2.json"
           },
           {
@@ -311,8 +307,8 @@
             "path": "./static/data/16位二十译码.json"
           },
           {
-            "name": "七段译码",
-            "path": "./static/data/七段译码.json"
+            "name": "BCD-7段译码",
+            "path": "./static/data/BCD-7段译码.json"
           },
           {
             "name": "10位独热编码-7段译码",
