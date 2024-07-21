@@ -35,6 +35,10 @@
           {
             "name": "异或门",
             "path": "./static/data/异或门.json"
+          },
+          {
+            "name": "同或门",
+            "path": "./static/data/同或门.json"
           }
         ]
       },
@@ -179,11 +183,19 @@
         "list": [
           {
             "name": "全加器",
-            "path": "./static/data/全加器.json"
+            "path": "./static/data/全加器-v2.json"
           },
           {
-            "name": "全加器-v2",
-            "path": "./static/data/全加器-v2.json"
+            "name": "8位加法器",
+            "path": "./static/data/8位加法器.json"
+          },
+          {
+            "name": "16位加法器",
+            "path": "./static/data/16位加法器.json"
+          },
+          {
+            "name": "8位补码减法器",
+            "path": "./static/data/8位补码减法器.json"
           }
         ]
       },
