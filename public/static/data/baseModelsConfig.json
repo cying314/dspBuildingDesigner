@@ -196,6 +196,10 @@
           {
             "name": "8位补码减法器",
             "path": "./static/data/8位补码减法器.json"
+          },
+          {
+            "name": "8x8位补码乘法器",
+            "path": "./static/data/8x8位补码乘法器.json"
           }
         ]
       },
@@ -269,11 +273,7 @@
         "name": "比较器",
         "list": [
           {
-            "name": "1位比较器-v1",
-            "path": "./static/data/1位比较器-v1.json"
-          },
-          {
-            "name": "1位比较器-v2.1",
+            "name": "1位比较器",
             "path": "./static/data/1位比较器-v2.1.json"
           },
           {
