@@ -44,36 +44,40 @@
         "name": "信号复制",
         "list": [
           {
-            "name": "2路信号复制",
-            "path": "./static/data/2路信号复制.json"
+            "name": "2路复制",
+            "path": "./static/data/2路复制.json"
           },
           {
-            "name": "3路信号复制",
-            "path": "./static/data/3路信号复制.json"
+            "name": "3路复制",
+            "path": "./static/data/3路复制.json"
           },
           {
-            "name": "4路信号复制",
-            "path": "./static/data/4路信号复制.json"
+            "name": "4路复制",
+            "path": "./static/data/4路复制.json"
           },
           {
-            "name": "5路信号复制",
-            "path": "./static/data/5路信号复制.json"
+            "name": "5路复制",
+            "path": "./static/data/5路复制.json"
           },
           {
-            "name": "6路信号复制",
-            "path": "./static/data/6路信号复制.json"
+            "name": "6路复制",
+            "path": "./static/data/6路复制.json"
           },
           {
-            "name": "7路信号复制",
-            "path": "./static/data/7路信号复制.json"
+            "name": "7路复制",
+            "path": "./static/data/7路复制.json"
           },
           {
-            "name": "8路信号复制",
-            "path": "./static/data/8路信号复制.json"
+            "name": "8路复制",
+            "path": "./static/data/8路复制.json"
           },
           {
-            "name": "4路信号复制扩展",
-            "path": "./static/data/4路信号复制扩展.json"
+            "name": "4路复制扩展",
+            "path": "./static/data/4路复制扩展.json"
+          },
+          {
+            "name": "4路复制扩展_蓝转红",
+            "path": "./static/data/4路复制扩展_蓝-红.json"
           },
           {
             "isGroup": true,
@@ -309,6 +313,10 @@
           {
             "name": "七段译码",
             "path": "./static/data/七段译码.json"
+          },
+          {
+            "name": "10位独热编码-7段译码",
+            "path": "./static/data/10位独热编码-7段译码.json"
           }
         ]
       },
