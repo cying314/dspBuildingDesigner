@@ -311,6 +311,10 @@
             "path": "./static/data/3-8译码.json"
           },
           {
+            "name": "4-16译码",
+            "path": "./static/data/4-16译码.json"
+          },
+          {
             "name": "8位二十译码",
             "path": "./static/data/8位二十译码-v2.json"
           },
