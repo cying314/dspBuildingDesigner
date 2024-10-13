@@ -677,6 +677,7 @@ export default class Graph {
     } else {
       // 单选节点
       this.singleSelectNode(node);
+      this.resetHighlightEdge();
     }
   }
 
@@ -1907,6 +1908,7 @@ export default class Graph {
       .style("stroke-width", Cfg.strokeW.light)
       .on("click", (d) => {
         d3.event.stopPropagation(); // 点击插槽不触发选中节点
+        this.resetHighlightEdge();
         this.highlightEdge(d.edge);
       })
       .on("dblclick.changeSlotDir", (d) => {
@@ -1942,19 +1944,38 @@ export default class Graph {
    */
   highlightEdge(edge) {
     if (edge == null) return;
-    this.$linkGroup.selectAll(".highlight").classed("highlight", false).style("filter", null);
+    // 与当前连线配置相反的颜色
+    let reverseLinkColor =
+      Cfg.globalSetting.linkDir !== 1 ? Cfg.color.reverseLinkStroke : Cfg.color.linkStroke;
     this.$linkGroup
       .select("#" + this.getLinkId(edge))
       .classed("highlight", true)
-      .style("filter", function () {
-        return `drop-shadow(2px 2px 2px ${d3.select(this).style("stroke")})`;
-      });
+      .style("filter", `drop-shadow(2px 2px 2px ${reverseLinkColor})`)
+      .style("stroke", reverseLinkColor)
+      .attr("stroke-width", Cfg.strokeW.bold);
+  }
+
+  resetHighlightEdge() {
+    // 恢复线段颜色
+    let linkColor =
+      Cfg.globalSetting.linkDir === 1 ? Cfg.color.reverseLinkStroke : Cfg.color.linkStroke;
+    this.$linkGroup
+      .selectAll(".highlight")
+      .classed("highlight", false)
+      .style("filter", null)
+      .style("stroke", linkColor)
+      .attr("stroke-width", Cfg.strokeW.link);
   }
 
   refreshHighlightEdge() {
-    this.$linkGroup.selectAll(".highlight").style("filter", function () {
-      return `drop-shadow(2px 2px 2px ${d3.select(this).style("stroke")})`;
-    });
+    // 与当前连线配置相反的颜色
+    let reverseLinkColor =
+      Cfg.globalSetting.linkDir !== 1 ? Cfg.color.reverseLinkStroke : Cfg.color.linkStroke;
+    this.$linkGroup
+      .selectAll(".highlight")
+      .style("filter", `drop-shadow(2px 2px 2px ${reverseLinkColor})`)
+      .style("stroke", reverseLinkColor)
+      .attr("stroke-width", Cfg.strokeW.bold);
   }
 
   /**
