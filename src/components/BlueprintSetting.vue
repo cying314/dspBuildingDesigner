@@ -60,6 +60,15 @@
       </div>
     </div>
     <div class="item">
+      <div class="name" :title="`除输入输出口外，其他流速器消耗端不进行物品过滤，解决通电状态下建造时可能存在的货物乱流堵塞问题`">
+        <span>流速器消耗端取消物品过滤：</span>
+        <i class="el-icon-question"></i>
+      </div>
+      <div class="form">
+        <el-switch v-model="globalSetting.closeOutCargoFilter" active-color="#13ce66" inactive-color="#f56c6c"></el-switch>
+      </div>
+    </div>
+    <div class="item">
       <div class="name">传送带图标标记：</div>
       <div class="form">
         <el-radio-group v-model="globalSetting.monitorIconMode" size="mini">

@@ -1431,7 +1431,7 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
     padding-bottom: 30px;
     .globalSetting {
       padding: 0 20px;
-      max-height: 80vh;
+      max-height: 70vh;
       overflow-y: auto;
       overflow-x: hidden;
     }

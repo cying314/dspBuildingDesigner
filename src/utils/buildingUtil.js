@@ -696,6 +696,14 @@ export function createMonitorGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0
     failColorId,
     targetCargoAmount,
   });
+  if (
+    Cfg.globalSetting.closeOutCargoFilter &&
+    node.modelId === Cfg.ModelId.monitor &&
+    spawnItemOperator == 2
+  ) {
+    // 流速器消耗端取消物品过滤
+    _monitor.parameters.cargoFilter = 0;
+  }
   // 创建底下传送带
   const belt1_building = createBelt(belt1);
   const belt2_building = createBelt(belt2);
