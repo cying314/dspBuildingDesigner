@@ -410,23 +410,51 @@
     "name": "时序电路模块",
     "list": [
       {
-        "name": "RS'锁存",
-        "tip": "基于锁存环带设计，可能导致不稳定，如：快速切换RS输入导致产生信号毛刺",
-        "path": "./static/data/RS'锁存.json"
-      },
-      {
         "isGroup": true,
         "expand": false,
-        "name": "RS锁存异色版",
-        "tip": "基于锁存环带设计，可能导致不稳定，如：快速切换RS输入导致产生信号毛刺",
+        "name": "RS锁存",
         "list": [
           {
-            "name": "RS'锁存_红转蓝",
-            "path": "./static/data/RS'锁存_红-蓝.json"
+            "isGroup": true,
+            "expand": false,
+            "name": "R'S'锁存-v2",
+            "list": [
+              {
+                "name": "R'S'锁存",
+                "path": "./static/data/R'S'锁存.json"
+              },
+              {
+                "name": "R'S'锁存_蓝转红",
+                "path": "./static/data/R'S'锁存_蓝-红.json"
+              },
+              {
+                "name": "R'S'锁存_红转蓝",
+                "path": "./static/data/R'S'锁存_红-蓝.json"
+              }
+            ]
           },
           {
-            "name": "RS'锁存_蓝转红",
-            "path": "./static/data/RS'锁存_蓝-红.json"
+            "isGroup": true,
+            "expand": false,
+            "name": "RS'锁存-v1",
+            "tip": "基于锁存环带设计，可能导致不稳定，如：快速切换RS输入导致产生信号毛刺",
+            "list": [
+              {
+                "name": "RS'锁存",
+                "tip": "基于锁存环带设计，可能导致不稳定，如：快速切换RS输入导致产生信号毛刺",
+                "path": "./static/data/RS'锁存.json"
+              },
+              {
+                "name": "RS'锁存_蓝转红",
+                "tip": "基于锁存环带设计，可能导致不稳定，如：快速切换RS输入导致产生信号毛刺",
+                "path": "./static/data/RS'锁存_蓝-红.json"
+              },
+              {
+                "name": "RS'锁存_红转蓝",
+                "tip": "基于锁存环带设计，可能导致不稳定，如：快速切换RS输入导致产生信号毛刺",
+                "path": "./static/data/RS'锁存_红-蓝.json"
+              }
+            ]
           }
         ]
       },
