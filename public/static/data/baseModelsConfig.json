@@ -124,7 +124,7 @@
       {
         "isGroup": true,
         "expand": false,
-        "name": "换色复制非门",
+        "name": "换色 | 复制非门",
         "list": [
           {
             "name": "复制_红转蓝",
@@ -415,29 +415,21 @@
         "name": "RS锁存",
         "list": [
           {
-            "isGroup": true,
-            "expand": false,
-            "name": "R'S'锁存-v2",
-            "list": [
-              {
-                "name": "R'S'锁存",
-                "path": "./static/data/R'S'锁存.json"
-              },
-              {
-                "name": "R'S'锁存_蓝转红",
-                "path": "./static/data/R'S'锁存_蓝-红.json"
-              },
-              {
-                "name": "R'S'锁存_红转蓝",
-                "path": "./static/data/R'S'锁存_红-蓝.json"
-              }
-            ]
+            "name": "R'S'锁存",
+            "path": "./static/data/R'S'锁存.json"
+          },
+          {
+            "name": "R'S'锁存_蓝转红",
+            "path": "./static/data/R'S'锁存_蓝-红.json"
+          },
+          {
+            "name": "R'S'锁存_红转蓝",
+            "path": "./static/data/R'S'锁存_红-蓝.json"
           },
           {
             "isGroup": true,
             "expand": false,
-            "name": "RS'锁存-v1",
-            "tip": "基于锁存环带设计，可能导致不稳定，如：快速切换RS输入导致产生信号毛刺",
+            "name": "过时模块",
             "list": [
               {
                 "name": "RS'锁存",
@@ -461,27 +453,66 @@
       {
         "isGroup": true,
         "expand": false,
-        "name": "D触发",
+        "name": "D锁存",
         "list": [
           {
-            "name": "D锁存-v2",
-            "path": "./static/data/D锁存-v2.json"
+            "name": "D锁存-v4",
+            "path": "./static/data/D锁存-v4.json"
           },
           {
-            "name": "D触发器-v3",
-            "path": "./static/data/D触发器-v3.json"
+            "name": "D锁存-v4_蓝转红",
+            "path": "./static/data/D锁存-v4_蓝-红.json"
           },
           {
-            "name": "稳定异色D触发",
-            "tip": "适用于隔空直连模式，稳定不闪烁结构",
-            "path": "./static/data/稳定异色D触发.json"
+            "isGroup": true,
+            "expand": false,
+            "name": "过时模块",
+            "list": [
+              {
+                "name": "D锁存-v2",
+                "tip": "置1时存在闪烁",
+                "path": "./static/data/D锁存-v2.json"
+              }
+            ]
           }
         ]
       },
       {
-        "name": "主从触发器",
-        "tip": "基于锁存环带设计，可能导致不稳定，如：快速切换CLK输入导致Q、Q'同时输出中电平",
-        "path": "./static/data/主从触发器.json"
+        "isGroup": true,
+        "expand": false,
+        "name": "D触发",
+        "list": [
+          {
+            "name": "D触发器-v4_上升沿",
+            "path": "./static/data/D触发-v4.json"
+          },
+          {
+            "name": "D触发器-v4_下降沿",
+            "path": "./static/data/D触发-v4_FE.json"
+          },
+          {
+            "isGroup": true,
+            "expand": false,
+            "name": "过时模块",
+            "list": [
+              {
+                "name": "D触发器-v3",
+                "tip": "基于v2原生版本增加环带补块，但仍存在小概率闪烁",
+                "path": "./static/data/D触发器-v3.json"
+              },
+              {
+                "name": "稳定异色D触发",
+                "tip": "适用于隔空直连模式，稳定不闪烁结构",
+                "path": "./static/data/稳定异色D触发.json"
+              },
+              {
+                "name": "主从触发器",
+                "tip": "基于锁存环带设计，可能导致不稳定，如：快速切换CLK输入导致Q、Q'同时输出中电平",
+                "path": "./static/data/主从触发器.json"
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "JK触发器",
