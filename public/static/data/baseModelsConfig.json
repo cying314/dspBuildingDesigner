@@ -564,7 +564,7 @@
         "list": [
           {
             "name": "D触发器-v4_上升沿",
-            "path": "./static/data/D触发-v4.json"
+            "path": "./static/data/D触发-v4_RE.json"
           },
           {
             "name": "D触发器-v4_下降沿",
@@ -595,8 +595,31 @@
         ]
       },
       {
-        "name": "JK触发器",
-        "path": "./static/data/JK触发器.json"
+        "isGroup": true,
+        "expand": false,
+        "name": "JK触发",
+        "list": [
+          {
+            "name": "JK触发器-v4_上升沿",
+            "path": "./static/data/JK触发-v4_RE.json"
+          },
+          {
+            "name": "JK触发器-v4_下降沿",
+            "path": "./static/data/JK触发-v4_FE.json"
+          },
+          {
+            "isGroup": true,
+            "expand": false,
+            "name": "过时模块",
+            "list": [
+              {
+                "name": "JK触发器-异步预置清零",
+                "tip": "基于v2D锁存，存在率闪烁",
+                "path": "./static/data/JK触发器.json"
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "T触发器",
