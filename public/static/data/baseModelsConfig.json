@@ -22,7 +22,7 @@
       {
         "isGroup": true,
         "expand": true,
-        "name": "基础门",
+        "name": "基础逻辑门",
         "list": [
           {
             "name": "与门 | 或门",
@@ -39,6 +39,29 @@
           {
             "name": "同或门",
             "path": "./static/data/同或门.json"
+          },
+          {
+            "isGroup": true,
+            "expand": false,
+            "name": "异色逻辑门",
+            "list": [
+              {
+                "name": "与或门_蓝",
+                "path": "./static/data/与或门_蓝.json"
+              },
+              {
+                "name": "与或门_黄",
+                "path": "./static/data/与或门_黄.json"
+              },
+              {
+                "name": "与或门_紫",
+                "path": "./static/data/与或门_紫.json"
+              },
+              {
+                "name": "异或门_蓝转红",
+                "path": "./static/data/异或门_蓝-红.json"
+              }
+            ]
           }
         ]
       },
@@ -127,52 +150,128 @@
         "name": "换色 | 复制非门",
         "list": [
           {
-            "name": "复制_红转蓝",
-            "path": "./static/data/复制_红转蓝.json"
+            "isGroup": true,
+            "expand": true,
+            "name": "输入红",
+            "list": [
+              {
+                "name": "复制_红转蓝",
+                "path": "./static/data/复制_红转蓝.json"
+              },
+              {
+                "name": "复制非门_红转蓝",
+                "path": "./static/data/复制非门_红-蓝.json"
+              },
+              {
+                "name": "复制_红转黄",
+                "path": "./static/data/复制_红转黄.json"
+              },
+              {
+                "name": "复制非门_红转黄",
+                "path": "./static/data/复制非门_红-黄.json"
+              },
+              {
+                "name": "复制_红转紫",
+                "path": "./static/data/复制_红转紫.json"
+              },
+              {
+                "name": "复制非门_红转紫",
+                "path": "./static/data/复制非门_红-紫.json"
+              }
+            ]
           },
           {
-            "name": "复制_蓝转红",
-            "path": "./static/data/复制_蓝转红.json"
+            "isGroup": true,
+            "expand": true,
+            "name": "输入蓝",
+            "list": [
+              {
+                "name": "复制_蓝转红",
+                "path": "./static/data/复制_蓝转红.json"
+              },
+              {
+                "name": "复制非门_蓝转红",
+                "path": "./static/data/复制非门_蓝-红.json"
+              },
+              {
+                "name": "复制_蓝转黄",
+                "path": "./static/data/复制_蓝转黄.json"
+              },
+              {
+                "name": "复制非门_蓝转黄",
+                "path": "./static/data/复制非门_蓝-黄.json"
+              },
+              {
+                "name": "复制_蓝转紫",
+                "path": "./static/data/复制_蓝转紫.json"
+              },
+              {
+                "name": "复制非门_蓝转紫",
+                "path": "./static/data/复制非门_蓝-紫.json"
+              }
+            ]
           },
           {
-            "name": "复制_红转黄",
-            "path": "./static/data/复制_红转黄.json"
+            "isGroup": true,
+            "expand": false,
+            "name": "输入黄",
+            "list": [
+              {
+                "name": "复制_黄转红",
+                "path": "./static/data/复制_黄转红.json"
+              },
+              {
+                "name": "复制非门_黄转红",
+                "path": "./static/data/复制非门_黄-红.json"
+              },
+              {
+                "name": "复制_黄转蓝",
+                "path": "./static/data/复制_黄转蓝.json"
+              },
+              {
+                "name": "复制非门_黄转蓝",
+                "path": "./static/data/复制非门_黄-蓝.json"
+              },
+              {
+                "name": "复制_黄转紫",
+                "path": "./static/data/复制_黄转紫.json"
+              },
+              {
+                "name": "复制非门_黄转紫",
+                "path": "./static/data/复制非门_黄-紫.json"
+              }
+            ]
           },
           {
-            "name": "复制_黄转红",
-            "path": "./static/data/复制_黄转红.json"
-          },
-          {
-            "name": "复制_蓝转黄",
-            "path": "./static/data/复制_蓝转黄.json"
-          },
-          {
-            "name": "复制_黄转蓝",
-            "path": "./static/data/复制_黄转蓝.json"
-          },
-          {
-            "name": "复制非门_红转蓝",
-            "path": "./static/data/复制非门_红-蓝.json"
-          },
-          {
-            "name": "复制非门_蓝转红",
-            "path": "./static/data/复制非门_蓝-红.json"
-          },
-          {
-            "name": "复制非门_红转黄",
-            "path": "./static/data/复制非门_红-黄.json"
-          },
-          {
-            "name": "复制非门_黄转红",
-            "path": "./static/data/复制非门_黄-红.json"
-          },
-          {
-            "name": "复制非门_蓝转黄",
-            "path": "./static/data/复制非门_蓝-黄.json"
-          },
-          {
-            "name": "复制非门_黄转蓝",
-            "path": "./static/data/复制非门_黄-蓝.json"
+            "isGroup": true,
+            "expand": false,
+            "name": "输入紫",
+            "list": [
+              {
+                "name": "复制_紫转红",
+                "path": "./static/data/复制_紫转红.json"
+              },
+              {
+                "name": "复制非门_紫转红",
+                "path": "./static/data/复制非门_紫-红.json"
+              },
+              {
+                "name": "复制_紫转蓝",
+                "path": "./static/data/复制_紫转蓝.json"
+              },
+              {
+                "name": "复制非门_紫转蓝",
+                "path": "./static/data/复制非门_紫-蓝.json"
+              },
+              {
+                "name": "复制_紫转黄",
+                "path": "./static/data/复制_紫转黄.json"
+              },
+              {
+                "name": "复制非门_紫转黄",
+                "path": "./static/data/复制非门_紫-黄.json"
+              }
+            ]
           }
         ]
       },
@@ -307,6 +406,10 @@
             "path": "./static/data/2-4译码.json"
           },
           {
+            "name": "2-4译码_红转蓝",
+            "path": "./static/data/2-4译码_红-蓝.json"
+          },
+          {
             "name": "3-8译码",
             "path": "./static/data/3-8译码.json"
           },
@@ -329,29 +432,6 @@
           {
             "name": "10位独热编码-7段译码",
             "path": "./static/data/10位独热编码-7段译码.json"
-          }
-        ]
-      },
-      {
-        "isGroup": true,
-        "expand": false,
-        "name": "异色模块",
-        "list": [
-          {
-            "name": "与或门_蓝",
-            "path": "./static/data/与或门_蓝.json"
-          },
-          {
-            "name": "与或门_黄",
-            "path": "./static/data/与或门_黄.json"
-          },
-          {
-            "name": "异或门_蓝转红",
-            "path": "./static/data/异或门_蓝-红.json"
-          },
-          {
-            "name": "2-4译码_红转蓝",
-            "path": "./static/data/2-4译码_红-蓝.json"
           }
         ]
       },
