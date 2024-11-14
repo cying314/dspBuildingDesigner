@@ -419,7 +419,7 @@
           },
           {
             "name": "8位二十译码",
-            "path": "./static/data/8位二十译码-v2.json"
+            "path": "./static/data/8位二十译码.json"
           },
           {
             "name": "16位二十译码",
