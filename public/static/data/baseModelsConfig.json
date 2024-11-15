@@ -540,7 +540,7 @@
             "path": "./static/data/D锁存-v4.json"
           },
           {
-            "name": "D锁存-v4_蓝转红",
+            "name": "D锁存_蓝转红-v4",
             "path": "./static/data/D锁存-v4_蓝-红.json"
           },
           {
@@ -563,11 +563,11 @@
         "name": "D触发",
         "list": [
           {
-            "name": "D触发器-v4_上升沿",
+            "name": "D触发_上升沿-v4",
             "path": "./static/data/D触发-v4_RE.json"
           },
           {
-            "name": "D触发器-v4_下降沿",
+            "name": "D触发_下降沿-v4",
             "path": "./static/data/D触发-v4_FE.json"
           },
           {
@@ -600,31 +600,53 @@
         "name": "JK触发",
         "list": [
           {
-            "name": "JK触发器-v4_上升沿",
+            "name": "JK触发_上升沿-v4",
             "path": "./static/data/JK触发-v4_RE.json"
           },
           {
-            "name": "JK触发器-v4_下降沿",
+            "name": "JK触发_下降沿-v4",
             "path": "./static/data/JK触发-v4_FE.json"
           },
           {
-            "isGroup": true,
-            "expand": false,
-            "name": "过时模块",
-            "list": [
-              {
-                "name": "JK触发器-异步预置清零",
-                "tip": "基于v2D锁存，存在率闪烁",
-                "path": "./static/data/JK触发器.json"
-              }
-            ]
+            "name": "JK触发_异步清零_下降沿-v4",
+            "path": "./static/data/JK触发-v4_FE_异步清零.json"
+          },
+          {
+            "name": "JK触发_异步清零预置_下降沿-v4",
+            "path": "./static/data/JK触发-v4_FE_异步清零预置.json"
           }
         ]
       },
       {
-        "name": "T触发器",
-        "path": "./static/data/T触发器.json"
-      },
+        "isGroup": true,
+        "expand": false,
+        "name": "T触发",
+        "list": [
+          {
+            "name": "T触发_上升沿-v4",
+            "path": "./static/data/T触发-v4_RE.json"
+          },
+          {
+            "name": "T触发_下降沿-v4",
+            "path": "./static/data/T触发-v4_FE.json"
+          },
+          {
+            "name": "T触发_异步清零_下降沿-v4",
+            "path": "./static/data/T触发-v4_FE_异步清零.json"
+          },
+          {
+            "name": "T触发_异步清零预置_下降沿-v4",
+            "path": "./static/data/T触发-v4_FE_异步清零预置.json"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "isGroup": true,
+    "expand": false,
+    "name": "74系列集成电路",
+    "list": [
       {
         "name": "74160",
         "path": "./static/data/74160.json"
