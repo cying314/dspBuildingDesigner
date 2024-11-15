@@ -29,6 +29,7 @@ export default class Graph {
 
   /** 节点拖拽实例 @type {d3.DragBehavior} */ _nodeDrag;
   /** 节点插槽拖拽实例 @type {d3.DragBehavior} */ _slotDrag;
+  /** 当前拖拽的节点插槽数据对象 @type {Mapper.GraphNodeSlot} */ _dragSourceSlot;
 
   /** 节点数据 @type {Mapper.GraphNode[]} */ _nodes;
   /** 连接线数据 @type {Mapper.GraphEdge[]} */ _edges;
@@ -1336,15 +1337,17 @@ export default class Graph {
    * @param {number} startSlot 起点插槽索引index
    * @param {number} endId 终点节点id
    * @param {number} endSlot 终点插槽索引index
+   * @return {boolean} 是否连接成功
    * */
   addEdge(startId, startSlot, endId, endSlot) {
     const newEdge = Mapper.dataToEdge({ startId, startSlot, endId, endSlot }, this._nodeMap);
-    if (newEdge instanceof Error) return;
+    if (newEdge instanceof Error) return false;
     this._edges.push(newEdge);
     // 重绘连线
     this.buildLink();
     // 记录操作
     this.recordUndo();
+    return true;
   }
 
   /**
@@ -2537,54 +2540,17 @@ export default class Graph {
         d3.select(this).style("stroke", Cfg.color.danger).style("stroke-width", Cfg.strokeW.bold);
         return;
       }
-      // 在拖动开始时创建一个新的线段
-      // 创建拖拽箭头
-      _this.createArrow(dragLineArrowId, Cfg.color.tmpLineStroke);
-
-      // 创建拖拽线段
-      _this.$linkGroup.select(`#${_this.uniqueTag}_dragLine`).remove();
-      _this.$linkGroup
-        .append("path")
-        .attr("stroke-width", Cfg.strokeW.link)
-        .attr("class", "link")
-        .attr("id", `${_this.uniqueTag}_dragLine`)
-        .attr(
-          "d",
-          `M${d.node.x + d.ox},${d.node.y + d.oy} ${d.node.x + d3.event.x},${d.node.y + d3.event.y}`
-        )
-        .style("stroke", Cfg.color.tmpLineStroke)
-        .attr("fill", "none")
-        .attr("marker-end", `url(#${dragLineArrowId})`);
-
-      // 监听进入其他节点
-      let sourceD = d;
-      _this.$nodeGroup
-        .selectAll(".slot-point")
-        .on("mouseenter.onDragLine", function () {
-          d3.select(this)
-            .style("stroke", (targetD) => {
-              // 同节点插槽 || 已占用插槽 || 不是输入口(连接线方向为信号方向 则倒置判断)，显示红色边框提示
-              if (
-                sourceD.node.id == targetD.node.id ||
-                targetD.edge ||
-                (Cfg.globalSetting.linkDir === 0 && targetD.dir !== -1) ||
-                (Cfg.globalSetting.linkDir === 1 && targetD.dir !== 1)
-              ) {
-                return Cfg.color.danger; // 红色
-              }
-              return Cfg.color.success; // 绿色
-            })
-            .style("stroke-width", Cfg.strokeW.bold);
-        })
-        .on("mouseleave.onDragLine", function () {
-          d3.select(this)
-            .style("stroke", Cfg.color.slotStroke)
-            .style("stroke-width", Cfg.strokeW.light);
-        });
+      _this._dragSourceSlot = d;
+      // 在拖动开始时创建拖拽线段及箭头
+      _this.createDragLine(dragLineArrowId, d);
+      // 监听拖拽线段进入节点插槽
+      _this.bindSlotPointEnterEvent(dragLineArrowId);
     }
 
     // 正在拖拽
-    function dragmove(d) {
+    function dragmove() {
+      if (!_this._dragSourceSlot) return;
+      const slot = _this._dragSourceSlot;
       // 在拖动过程中更新线段的终点
       const { x, y } = d3.event;
       window.requestAnimationFrame(() => {
@@ -2593,45 +2559,31 @@ export default class Graph {
           .attr(
             "d",
             _this.getPath(
-              { x: d.node.x + d.ox, y: d.node.y + d.oy, slot: d },
-              { x: d.node.x + x, y: d.node.y + y }
+              { x: slot.node.x + slot.ox, y: slot.node.y + slot.oy, slot: slot },
+              { x: slot.node.x + x, y: slot.node.y + y }
             )
           );
       });
     }
 
     // 结束拖拽
-    function dragend(d) {
+    function dragend() {
       // 移除监听
-      _this.$nodeGroup
-        .selectAll(".slot-point")
-        .on("mouseenter.onDragLine", null)
-        .on("mouseleave.onDragLine", null)
-        .style("stroke", Cfg.color.slotStroke)
-        .style("stroke-width", Cfg.strokeW.light);
-
+      _this.unbindSlotPointEnterEvent();
       // 移除拖拽线段及箭头
-      _this.$linkGroup.select(`#${_this.uniqueTag}_dragLine`).remove();
-      _this.$linkGroup.select("#" + dragLineArrowId).remove();
-
+      _this.removeDragLine(dragLineArrowId);
+      if (!_this._dragSourceSlot) return;
+      const sourceSlot = _this._dragSourceSlot;
       const targetEl = d3.event.sourceEvent.toElement
         ? d3.select(d3.event.sourceEvent.toElement)
         : null;
-      // 在拖动结束时，检查鼠标是否落在另一个圆点上
-      if (targetEl.classed("slot-point")) {
-        const targetD = targetEl.datum();
-        if (d.node.id == targetD.node.id) {
-          // 同节点插槽，限制不可连接
-          return;
-        }
-        // 如果在另一个圆点上停止，则连接两个圆点
-        if (Cfg.globalSetting.linkDir === 1) {
-          // 连接线方向为信号方向 倒置逻辑
-          _this.addEdge(targetD.node.id, targetD.index, d.node.id, d.index);
-        } else {
-          _this.addEdge(d.node.id, d.index, targetD.node.id, targetD.index);
-        }
+      // 在拖动结束时，检查鼠标是否落在另一个插槽上
+      if (targetEl?.classed("slot-point")) {
+        const targetSlot = targetEl.datum();
+        // 尝试连接两个插槽
+        _this.tryToConnectSlot(sourceSlot, targetSlot);
       }
+      _this._dragSourceSlot = null;
     }
 
     if (!this._slotDrag) {
@@ -2645,6 +2597,140 @@ export default class Graph {
   unbindSlotDragEvent() {
     if (!this._slotDrag) return;
     this._slotDrag.on("start", null).on("drag", null).on("end", null);
+  }
+
+  // 创建拖拽线段及箭头
+  createDragLine(dragLineArrowId, sourceSlot) {
+    // 创建拖拽箭头
+    this.createArrow(dragLineArrowId, Cfg.color.tmpLineStroke);
+
+    // 创建拖拽线段
+    this.$linkGroup.select(`#${this.uniqueTag}_dragLine`).remove();
+    this.$linkGroup
+      .append("path")
+      .attr("stroke-width", Cfg.strokeW.link)
+      .attr("id", `${this.uniqueTag}_dragLine`)
+      .attr(
+        "d",
+        `M${sourceSlot.node.x + sourceSlot.ox},${sourceSlot.node.y + sourceSlot.oy} ${
+          sourceSlot.node.x + d3.event.x
+        },${sourceSlot.node.y + d3.event.y}`
+      )
+      .style("stroke", Cfg.color.tmpLineStroke)
+      .attr("fill", "none")
+      .attr("marker-end", `url(#${dragLineArrowId})`);
+  }
+
+  // 移除拖拽线段及箭头
+  removeDragLine(dragLineArrowId) {
+    this.$linkGroup.select(`#${this.uniqueTag}_dragLine`).remove();
+    this.$linkGroup.select("#" + dragLineArrowId).remove();
+  }
+
+  // 修改拖拽线段来源插槽
+  changeDragLineSourceSlot(sourceSlot) {
+    this._dragSourceSlot = sourceSlot;
+    this.$linkGroup
+      .select(`#${this.uniqueTag}_dragLine`)
+      .attr(
+        "d",
+        `M${sourceSlot.node.x + sourceSlot.ox},${sourceSlot.node.y + sourceSlot.oy} ${
+          sourceSlot.node.x + d3.event.x
+        },${sourceSlot.node.y + d3.event.y}`
+      );
+  }
+
+  /**
+   * 尝试连接两个插槽
+   * @return {boolean} 是否连接成功
+   */
+  tryToConnectSlot(sourceSlot, targetSlot) {
+    // 同节点插槽，限制不可连接
+    if (sourceSlot.node.id == targetSlot.node.id) return;
+    // 连接两个插槽
+    if (Cfg.globalSetting.linkDir === 1) {
+      // 连接线方向为信号方向 倒置逻辑
+      return this.addEdge(
+        targetSlot.node.id,
+        targetSlot.index,
+        sourceSlot.node.id,
+        sourceSlot.index
+      );
+    } else {
+      return this.addEdge(
+        sourceSlot.node.id,
+        sourceSlot.index,
+        targetSlot.node.id,
+        targetSlot.index
+      );
+    }
+  }
+
+  // 监听拖拽线段进出节点插槽
+  bindSlotPointEnterEvent(dragLineArrowId) {
+    let _this = this;
+    // 监听进入其他节点
+    this.$nodeGroup
+      .selectAll(".slot-point")
+      .on("mouseenter.onDragLine", function (targetSlot) {
+        if (!_this._dragSourceSlot) return;
+        const sourceSlot = _this._dragSourceSlot;
+        let slotStroke; // 插槽边框提示颜色
+        // 同节点插槽 || 已占用插槽 || 不是输入口(连接线方向为信号方向 则倒置判断)，不可连接
+        if (
+          sourceSlot.node.id == targetSlot.node.id ||
+          targetSlot.edge ||
+          (Cfg.globalSetting.linkDir === 0 && targetSlot.dir !== -1) ||
+          (Cfg.globalSetting.linkDir === 1 && targetSlot.dir !== 1)
+        ) {
+          // 不可连接
+          slotStroke = Cfg.color.danger; // 显示红色边框提示
+        } else {
+          // 可连接
+          slotStroke = Cfg.color.success; // 显示绿色边框提示
+          if (_this._ctrlDown) {
+            // 按住ctrl时，进行批量连接
+            if (_this.tryToConnectSlot(sourceSlot, targetSlot)) {
+              // 连接成功，切换到下一个插槽
+              const nextSlot = sourceSlot.node.slots
+                .filter(
+                  (s) =>
+                    s != sourceSlot &&
+                    s.dir === sourceSlot.dir &&
+                    !s.edge &&
+                    (s.count ?? 0) >= (sourceSlot.count ?? 0)
+                )
+                .sort((a, b) => (a.count ?? 0) - (b.count ?? 0))[0]; // 输入输出口插槽根据标记数升序排列
+              if (nextSlot) {
+                _this.changeDragLineSourceSlot(nextSlot);
+              } else {
+                // 没有下一个插槽时，结束连接
+                // 移除监听
+                _this.unbindSlotPointEnterEvent();
+                // 移除拖拽线段及箭头
+                _this.removeDragLine(dragLineArrowId, sourceSlot);
+                _this._dragSourceSlot = null;
+              }
+            }
+          }
+        }
+        d3.select(this).style("stroke", slotStroke).style("stroke-width", Cfg.strokeW.bold);
+      })
+      .on("mouseleave.onDragLine", function () {
+        d3.select(this)
+          .style("stroke", Cfg.color.slotStroke)
+          .style("stroke-width", Cfg.strokeW.light);
+      });
+  }
+
+  // 移除监听拖拽线段进出节点插槽
+  unbindSlotPointEnterEvent() {
+    this.$nodeGroup
+      .selectAll(".slot-point")
+      .on("mouseenter.onDragLine", null)
+      .on("mouseleave.onDragLine", null)
+      .style("stroke", Cfg.color.slotStroke)
+      .style("stroke-width", Cfg.strokeW.light);
   }
 
   /**
