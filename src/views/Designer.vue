@@ -266,7 +266,7 @@
 import DspGraph from "@/graph/dspGraph.js";
 import * as Cfg from "@/graph/graphConfig.js";
 import * as Util from "@/graph/graphUtil.js";
-import * as ItemsUtil from "@/utils/itemsUtil.js";
+import * as MenusUtil from "@/utils/menusUtil.js";
 import LayoutSetting from "@/components/LayoutSetting.vue";
 import GlobalSetting from "@/components/GlobalSetting.vue";
 import Tips from "@/components/Tips.vue";
@@ -695,209 +695,8 @@ export default {
     },
     // 右键节点
     handleRclickNode(event, d) {
-      const modelId = d.modelId;
       this.dspGraph.handleSelectNode(d); // 选中节点
-      this.operMenuBtns = [
-        {
-          title: "删除选中节点",
-          icon: "el-icon-delete",
-          style: `color:${Cfg.color.danger}`,
-          handler: () => {
-            this.dspGraph.handleDelete();
-          },
-        },
-        {
-          title: "置于顶层",
-          icon: "el-icon-top",
-          handler: () => {
-            // 所有选中节点置于顶层
-            this.dspGraph.handleSelectionBringToFront();
-          },
-        },
-        {
-          title: "置于底层",
-          icon: "el-icon-bottom",
-          handler: () => {
-            // 所有选中节点置于底层
-            this.dspGraph.handleSelectionSendToBack();
-          },
-        },
-      ];
-      if (this.dspGraph._selection.nodeMap.size > 1) {
-        // 选中多个节点
-        this.operMenuBtns.push({
-          title: "组合封装选中节点",
-          icon: "el-icon-box",
-          handler: () => {
-            // 组合封装选中节点
-            this.dspGraph.handlePackageComponent();
-          },
-        });
-      }
-      if (modelId === Cfg.ModelId.text) {
-        // 选中普通文本
-        if (d.textAlign != 1) {
-          this.operMenuBtns.push({
-            title: "文本左对齐",
-            icon: "if-icon-align-left",
-            handler: () => {
-              this.dspGraph.changeTextAlign(d, 1);
-            },
-          });
-        }
-        if (d.textAlign == 1 || d.textAlign == 2) {
-          this.operMenuBtns.push({
-            title: "文本居中对齐",
-            icon: "if-icon-align-center",
-            handler: () => {
-              this.dspGraph.changeTextAlign(d, 0);
-            },
-          });
-        }
-        if (d.textAlign != 2) {
-          this.operMenuBtns.push({
-            title: "文本右对齐",
-            icon: "if-icon-align-right",
-            handler: () => {
-              this.dspGraph.changeTextAlign(d, 2);
-            },
-          });
-        }
-      } else if (modelId === Cfg.ModelId.fdir) {
-        // 选中四向
-        this.operMenuBtns.push({
-          title: "左旋转90°",
-          icon: "el-icon-refresh-left",
-          handler: () => {
-            this.dspGraph.transformFdirSlot(d, 0);
-          },
-        });
-        this.operMenuBtns.push({
-          title: "右旋转90°",
-          icon: "el-icon-refresh-right",
-          handler: () => {
-            this.dspGraph.transformFdirSlot(d, 1);
-          },
-        });
-        this.operMenuBtns.push({
-          title: "垂直翻转",
-          icon: "if-icon-vert-flip",
-          handler: () => {
-            this.dspGraph.transformFdirSlot(d, 2);
-          },
-        });
-        this.operMenuBtns.push({
-          title: "水平翻转",
-          icon: "if-icon-hori-flip",
-          handler: () => {
-            this.dspGraph.transformFdirSlot(d, 3);
-          },
-        });
-      } else if (modelId === Cfg.ModelId.package) {
-        // 选中封装模块
-        this.operMenuBtns.push({
-          title: "展开封装模块",
-          icon: "el-icon-files",
-          handler: () => {
-            // 组合封装选中节点
-            this.dspGraph.unfoldPackage(d);
-          },
-        });
-        this.operMenuBtns.push({
-          title: "替换为其他模块",
-          icon: "el-icon-news",
-          handler: () => {
-            // 替换节点引用的封装模块
-            this.operChangeNode = d;
-            this.showChangeModelDialog = true;
-          },
-        });
-      }
-      if ([Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
-        // 流速器、信号输出、信号输入
-        // 切换生成/消耗物品id
-        const dir = d.slots[0]?.dir ?? 1;
-        let tag = dir == 1 ? "生成" : "消耗";
-        this.operMenuBtns.push({
-          title: "切换" + tag + "物品",
-          icon: "el-icon-help",
-          handler: (event) => {
-            // 阻止关闭窗口
-            event.stopPropagation();
-            // 切换菜单选项为物品列表
-            this.operMenuBtns = [];
-            Cfg.filterItem.forEach((item) => {
-              this.operMenuBtns.push({
-                title: (dir == 1 ? "生成" : "消耗") + item.name,
-                image: ItemsUtil.getItemImage(item.id),
-                style: d.itemId === item.id ? "border:2px solid #80a7dd" : null,
-                handler: () => {
-                  this.dspGraph.changeNodeItemId(d, item.id);
-                },
-              });
-            });
-          },
-        });
-      }
-      if ([Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(modelId)) {
-        // 流速器、信号输出、信号输入 切换传送带标记图标id
-        this.operMenuBtns.push({
-          title: "切换传送带标记",
-          icon: "el-icon-info",
-          handler: (event) => {
-            // 阻止关闭窗口
-            event.stopPropagation();
-            // 切换菜单选项为物品列表
-            this.operMenuBtns = [];
-            Cfg.signalIds.forEach((signalId) => {
-              this.operMenuBtns.push({
-                title: "切换标记",
-                image: ItemsUtil.getSignalImage(signalId),
-                style: d.signalId === signalId ? "border:2px solid #80a7dd" : null,
-                handler: () => {
-                  this.dspGraph.changeNodeSignalId(d, signalId);
-                },
-              });
-            });
-            if (d.signalId) {
-              this.operMenuBtns.push({
-                title: "取消标记",
-                icon: "el-icon-close",
-                handler: () => {
-                  this.dspGraph.changeNodeSignalId(d, null);
-                },
-              });
-            }
-          },
-        });
-        // 流速器、信号输出、信号输入 更改传送带标记数
-        this.operMenuBtns.push({
-          title: "更改传送带标记数\n生成的输入输出口将根据标记数升序排列",
-          icon: "if-icon-count",
-          handler: () => {
-            this.dspGraph.handleChangeNodeCount(d);
-          },
-        });
-      }
-      if (
-        [
-          Cfg.ModelId.text,
-          Cfg.ModelId.monitor,
-          Cfg.ModelId.output,
-          Cfg.ModelId.input,
-          Cfg.ModelId.set_zero,
-          Cfg.ModelId.package,
-        ].includes(modelId)
-      ) {
-        // 普通文本、流速器、信号输出、信号输入、置零、封装模块 切换节点文本
-        this.operMenuBtns.push({
-          title: "更改节点文本描述",
-          icon: "if-icon-textarea",
-          handler: () => {
-            this.dspGraph.handleChangeNodeText(d);
-          },
-        });
-      }
+      this.operMenuBtns = MenusUtil.getNodeMenus.call(this, d, this.dspGraph);
       if (this.operMenuBtns.length > 0) {
         // 有操作按钮才打开
         this.showOperMenu(event.offsetX, event.offsetY);
@@ -905,78 +704,7 @@ export default {
     },
     // 右键插槽
     handleRclickSlot(event, d) {
-      const modelId = d.node.modelId;
-      // if (modelId === Cfg.ModelId.output || modelId === Cfg.ModelId.input) {
-      //   // 信号输出、信号输入没有插槽事件，代理到节点事件
-      //   return this.handleRclickNode(event, d.node);
-      // }
-      this.operMenuBtns = [];
-      if (d.edge != null) {
-        // 存在连接线
-        this.operMenuBtns.push({
-          title: "断开连接线",
-          icon: "if-icon-unlink",
-          style: `color:${Cfg.color.danger}`,
-          handler: () => {
-            this.dspGraph.deleteEdge(d.edge);
-          },
-        });
-      }
-      if (
-        [Cfg.ModelId.fdir, Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(
-          modelId
-        )
-      ) {
-        // 只有四向、流速器、信号输出、信号输入 可调转输入输出口
-        this.operMenuBtns.push({
-          title: (d.dir === 1 ? "切换为输入口" : "切换为输出口") + "\n(快捷键：双击插槽)",
-          icon: d.dir === 1 ? "el-icon-remove-outline" : "el-icon-circle-plus-outline",
-          handler: () => {
-            this.dspGraph.changeSlotDir(d);
-          },
-        });
-      }
-      if (modelId === Cfg.ModelId.fdir) {
-        // 四向
-        this.operMenuBtns.push({
-          title: d.priority === 1 ? "取消优先" : "设为优先",
-          icon: d.priority === 1 ? "if-icon-un-priority" : "if-icon-priority",
-          style: `color:${
-            d.priority === 1
-              ? "#aaa"
-              : d.dir === 1
-              ? Cfg.color.priorityOutStroke
-              : Cfg.color.priorityInStroke
-          }`,
-          handler: () => {
-            this.dspGraph.changeSlotPriority(d);
-          },
-        });
-        if (d.priority === 1 && d.dir === 1) {
-          // 优先输出接口
-          Cfg.filterItem.forEach((item) => {
-            this.operMenuBtns.push({
-              title: "过滤" + item.name,
-              // icon: "el-icon-circle-plus",
-              // style: `color:${item.color};text-shadow:0 0 1px #5a5a5a`,
-              image: ItemsUtil.getItemImage(item.id),
-              style: d.filterId === item.id ? "border:2px solid #80a7dd" : null,
-              handler: () => {
-                this.dspGraph.changeSlotFilter(d, item.id);
-              },
-            });
-          });
-          if (d.filterId) {
-            this.operMenuBtns.push({
-              title: "取消过滤",
-              icon: "el-icon-close",
-              handler: () => {
-                this.dspGraph.changeSlotFilter(d, null);
-              },
-            });
-          }
-        }
-      }
+      this.operMenuBtns = MenusUtil.getSlotMenus.call(this, d, this.dspGraph);
       if (this.operMenuBtns.length > 0) {
         // 有操作按钮才打开
         this.showOperMenu(event.offsetX, event.offsetY);
@@ -1498,5 +1226,14 @@ $bottomBarH: 50px; // 左侧抽屉顶部按钮高度
     transform: scaleY(1);
     opacity: 1;
   }
+}
+
+/* 解决aria-hidden属性导致的el-radio报错问题 */
+.el-radio__original {
+  display: none !important;
+}
+
+.el-radio:focus:not(.is-focus):not(:active):not(.is-disabled) .el-radio__inner {
+  box-shadow: none !important;
 }
 </style>

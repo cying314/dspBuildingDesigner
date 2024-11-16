@@ -26,6 +26,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.if-icon-belt:before {
+  content: "\e788";
+}
+
 .if-icon-align-left:before {
   content: "\e637";
 }

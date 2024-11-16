@@ -1,4 +1,4 @@
-export const version = "1.0.9.1-beta"; // 工具版本
+export const version = "1.0.9.2-beta"; // 工具版本
 export const defaultGraphName = "新蓝图1"; // 默认蓝图名
 export const watermark = {
   width: "300px",
@@ -19,7 +19,8 @@ export const strokeW = {
   thin: 1, // 细边宽
 };
 export const nodeSize = 60; // 节点默认宽高
-export const pointSize = 7; // 节点插槽圆点大小
+export const pointSize = 7; // 节点插槽圆点半径大小
+export const pointBorderWidth = 4; // 节点插槽圆点外边框宽度（封装模块物品颜色、四向传送带标记等）
 export const packageSlotSize = 20; // 封装模块插槽大小
 export const packageSlotSpace = 20; // 封装模块插槽间隔
 export const packageSlotFontSize = 8; // 封装模块插槽小字字体大小
@@ -60,6 +61,10 @@ export const color = {
   priorityOutFill: "rgb(255, 246, 218)",
   priorityInStroke: "rgb(33, 150, 243)", // 四向输入优先
   priorityInFill: "rgb(232, 236, 247)",
+
+  beltLevelColor_1: "rgb(255, 204, 52)", // 黄带颜色
+  beltLevelColor_2: "rgb(17, 211, 93)", // 绿带颜色
+  beltLevelColor_3: "rgb(33, 150, 243)", // 蓝带颜色
 
   linkStroke: "rgba(33, 150, 243, 0.8)", // 传送带方向连接线
   reverseLinkStroke: "rgb(245, 135, 0, 0.8)", // 信号方向连接线

@@ -289,8 +289,9 @@ export function toGraphData(
  * @property {number} ox - 节点内x偏移
  * @property {number} oy - 节点内y偏移
  * @property {number} dir - 输入输出方向 (传送带方向——1:输出, -1:输入)
- * @property {number} priority - 是否优先插槽 (1:是, -1:否) [当模型为四向时生效]
- * @property {number} filterId - 过滤优先输出物品id [当模型为四向时生效]
+ * @property {number} priority - 四向插槽-是否优先口 (1:是, -1:否)
+ * @property {number} filterId - 四向插槽-过滤优先输出物品id
+ * @property {number} beltLevel - 四向插槽-连接传送带等级（1:黄带，2:绿带，3:蓝带，null-自动识别）
  * @property {number} packageNodeId - 封装模块插槽-对应package中原输入输出节点id
  * @property {number} itemId - 封装模块插槽-生成/消耗物品id
  * @property {number} signalId - 封装模块插槽-插槽传送带标记图标id
@@ -318,15 +319,17 @@ export function initGraphNode(d) {
     text: _toStr(d.text, d.modelId == Cfg.ModelId.text ? Cfg.defaultText : null),
     slots: [],
   };
-  if (node.modelId === Cfg.ModelId.text) {
-    // 普通文本
-    node.textAlign = _toInt(d.textAlign, 0);
-  } else if (node.modelId === Cfg.ModelId.package) {
-    // 封装模块节点
-    node.packageHash = _toStr(d.packageHash); // 封装模块hash
-  } else if (node.modelId === Cfg.ModelId.input || node.modelId === Cfg.ModelId.output) {
-    // 输入输出口节点
-    node.count = _toInt(d.count); // 传送带标记数
+  switch (node.modelId) {
+    case Cfg.ModelId.text: // 普通文本
+      node.textAlign = _toInt(d.textAlign, 0);
+      break;
+    case Cfg.ModelId.output:
+    case Cfg.ModelId.input: // 输入输出口节点
+      node.count = _toInt(d.count); // 传送带标记数
+      break;
+    case Cfg.ModelId.package: // 封装模块节点
+      node.packageHash = _toStr(d.packageHash); // 封装模块hash
+      break;
   }
   d.slots?.forEach((s, si) => {
     /** @type {GraphNodeSlot} */
@@ -346,6 +349,7 @@ export function initGraphNode(d) {
       } else {
         slot.priority = 0;
       }
+      slot.beltLevel = _toInt(s.beltLevel); // 连接传送带等级
     } else if (node.modelId === Cfg.ModelId.package) {
       // 封装模块
       slot.packageNodeId = _toInt(s.packageNodeId); // 对应package中原输入输出节点id
@@ -403,6 +407,9 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
           }
           if (s.dir === 1 && s.priority === 1 && slot.filterId != null) {
             s.filterId = _toInt(slot.filterId); // 过滤优先输出物品id
+          }
+          if (slot.beltLevel) {
+            s.beltLevel = _toInt(slot.beltLevel); // 连接传送带等级
           }
         });
       }
@@ -473,9 +480,10 @@ export function dataToNode(data, nodeId, offset) {
  * @typedef {Object} NodeSlotData 节点插槽 持久化数据
  * @property {number} ox - 节点内x偏移
  * @property {number} oy - 节点内y偏移
- * @property {number} dir - 输入输出方向 (1:输出, -1:输入)
- * @property {number} priority - 四向插槽-是否优先 (1:是, -1:否)
+ * @property {number} dir - 输入输出方向 (传送带方向——1:输出, -1:输入)
+ * @property {number} priority - 四向插槽-是否优先口 (1:是, -1:否)
  * @property {number} filterId - 四向插槽-过滤优先输出物品id
+ * @property {number} beltLevel - 四向插槽-连接传送带等级（1:黄带，2:绿带，3:蓝带，null-自动识别）
  * @property {number} packageNodeId - 封装模块插槽-对应package中原输入输出节点id
  * @property {number} itemId - 封装模块插槽-生成/消耗物品id
  * @property {number} signalId - 封装模块插槽-插槽传送带标记图标id
@@ -516,6 +524,10 @@ export function nodeToData(node) {
       if (s.dir === 1 && s.priority === 1 && s.filterId) {
         // 过滤优先输出物品id
         slot.filterId = s.filterId;
+      }
+      if (s.beltLevel) {
+        // 连接传送带等级
+        slot.beltLevel = s.beltLevel;
       }
       data.slots.push(slot);
     });

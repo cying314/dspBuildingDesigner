@@ -951,7 +951,7 @@ export default class Graph {
       }
     }
     // 重绘节点插槽
-    this.updateSingleNodeSlot(slot);
+    this.updateSingleNodeSlot(slot.node);
     // 记录操作
     this.recordUndo();
   }
@@ -978,7 +978,23 @@ export default class Graph {
       }
     }
     // 重绘节点插槽
-    this.updateSingleNodeSlot(slot);
+    this.updateSingleNodeSlot(slot.node);
+    // 记录操作
+    this.recordUndo();
+  }
+
+  /**
+   * 切换四向传送带等级标记
+   * @param {Mapper.GraphNodeSlot} slot 插槽对象
+   * @param {number} beltLevel 传送带等级（1:黄带，2:绿带，3:蓝带，null-自动识别）
+   */
+  changeSlotBeltLevel(slot, beltLevel) {
+    const modelId = slot?.node?.modelId;
+    // 只有四向可切换
+    if (modelId !== Cfg.ModelId.fdir) return;
+    slot.beltLevel = beltLevel;
+    // 重绘节点插槽
+    this.updateSingleNodeSlot(slot.node);
     // 记录操作
     this.recordUndo();
   }
@@ -995,7 +1011,7 @@ export default class Graph {
     if (slot.dir !== 1) return; // 输入口不可设置过滤物品
     slot.filterId = filterItemId;
     // 重绘节点插槽
-    this.updateSingleNodeSlot(slot);
+    this.updateSingleNodeSlot(slot.node);
     // 记录操作
     this.recordUndo();
   }
@@ -1013,6 +1029,7 @@ export default class Graph {
       target.dir = source.dir;
       target.priority = source.priority;
       target.filterId = source.filterId;
+      target.beltLevel = source.beltLevel;
       target.edge = source.edge;
       if (target.edge) {
         if (target.dir == 1) {
@@ -1834,8 +1851,6 @@ export default class Graph {
       (update) => this.updateNodeSlot(update),
       (exit) => exit.remove()
     );
-    // 绘制四向插槽优先标记
-    this.buildSlotPriority(this.$nodeSlot);
     return this.$nodeSlot;
   }
 
@@ -1865,7 +1880,7 @@ export default class Graph {
           .style("opacity", 0.6);
         packageSlotBg
           .append("circle")
-          .attr("r", Cfg.packageSlotSize / 2 + Cfg.strokeW.thin)
+          .attr("r", Cfg.pointSize + Cfg.pointBorderWidth)
           .style("fill", Cfg.filterItemMap.get(d.itemId)?.color ?? Cfg.color.item_default);
         // .style("stroke", d.dir === 1 ? Cfg.color.inputStroke : Cfg.color.outputStroke)
         // .style("stroke-width", Cfg.strokeW.thin);
@@ -1987,6 +2002,45 @@ export default class Graph {
    * @return {d3.Selection<SVGGElement, Mapper.GraphNodeSlot>}
    */
   updateNodeSlot(nodeSlotUpdate) {
+    let _this = this;
+    nodeSlotUpdate.each(function (d) {
+      const nodeSlotG = d3.select(this);
+      if (d.node.modelId === Cfg.ModelId.fdir) {
+        // 绘制四向插槽优先标记
+        if (d.priority === 1) {
+          const prioritySel = nodeSlotG.select(".slot-priority");
+          if (prioritySel.empty()) {
+            // 创建优先标记
+            _this.insertSlotPriority(nodeSlotG, false);
+          } else {
+            // 更新优先标记
+            _this.updateSlotPriority(prioritySel);
+          }
+        } else {
+          // 删除非优先的优先标记
+          nodeSlotG.selectAll(".slot-priority").remove();
+        }
+
+        // 绘制四向传送带速度定义标记
+        if (d.beltLevel) {
+          let fdirSlotBg = nodeSlotG.select(".slot-bg");
+          if (fdirSlotBg.empty()) {
+            fdirSlotBg = nodeSlotG
+              .insert("g", ".slot-point,.slot-priority") // 在插槽圆点和优先标记前插入
+              .attr("class", "slot-bg");
+          }
+          fdirSlotBg
+            .style("opacity", 0.8)
+            .append("circle")
+            .attr("r", Cfg.pointSize + Cfg.pointBorderWidth)
+            .style("fill", Cfg.color["beltLevelColor_" + d.beltLevel]);
+        } else {
+          // 删除速度定义标记
+          nodeSlotG.selectAll(".slot-bg").remove();
+        }
+      }
+    });
+
     // 更新插槽节点相对位置
     nodeSlotUpdate
       .selectAll(".slot-point")
@@ -2017,54 +2071,6 @@ export default class Graph {
       }
     });
     return nodeSlotUpdate;
-  }
-
-  /**
-   * 传入数据对象 更新单个节点插槽
-   * @param {Mapper.GraphNodeSlot} nodeSlot
-   */
-  updateSingleNodeSlot(nodeSlot) {
-    let nodeSlotSel = d3.select(
-      `#${this.uniqueTag}_node-slot-${nodeSlot.node.id}-${nodeSlot.index}`
-    );
-    if (nodeSlotSel.empty() || !nodeSlotSel.datum()) {
-      // 元素不存在 或 未绑定数据，则重绘所有插槽
-      this.buildNodeSlot();
-    } else {
-      // 更新插槽
-      this.updateNodeSlot(nodeSlotSel);
-      // 更新节点下四个插槽
-      let nodeAllSlotSel = d3.selectAll(`[id^="${this.uniqueTag}_node-slot-${nodeSlot.node.id}-"]`);
-      // 绘制四向插槽优先标记
-      this.buildSlotPriority(nodeAllSlotSel);
-    }
-  }
-
-  /**
-   * 绘制四向插槽优先标记
-   * @param {d3.Selection<SVGGElement, Mapper.GraphNodeSlot>} nodeSlotSel
-   */
-  buildSlotPriority(nodeSlotSel) {
-    let _this = this;
-    if (nodeSlotSel == null) {
-      nodeSlotSel = this.getNodeSlotSel();
-    }
-    nodeSlotSel.each(function (d) {
-      const nodeSlotG = d3.select(this);
-      if (d.node.modelId !== Cfg.ModelId.fdir || d.priority !== 1) {
-        // 删除非四向模型、非优先的优先标记
-        nodeSlotG.selectAll(".slot-priority").remove();
-        return;
-      }
-      const prioritySel = nodeSlotG.select(".slot-priority");
-      if (prioritySel.empty()) {
-        // 创建四向插槽优先标记
-        _this.insertSlotPriority(nodeSlotG, false);
-      } else {
-        // 更新标记
-        _this.updateSlotPriority(prioritySel);
-      }
-    });
   }
 
   /**
@@ -2117,6 +2123,21 @@ export default class Graph {
         }
       });
     return prioritySel;
+  }
+
+  /**
+   * 传入数据对象 更新单个节点的所有插槽
+   * @param {Mapper.GraphNode} node
+   */
+  updateSingleNodeSlot(node) {
+    let nodeSlotSel = d3.selectAll(`[id^="${this.uniqueTag}_node-slot-${node.id}-"]`);
+    if (nodeSlotSel.empty() || !nodeSlotSel.datum()) {
+      // 元素不存在 或 未绑定数据，则重绘所有插槽
+      this.buildNodeSlot();
+    } else {
+      // 更新插槽
+      this.updateNodeSlot(nodeSlotSel);
+    }
   }
 
   // 绘制连线

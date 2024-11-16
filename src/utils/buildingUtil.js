@@ -12,7 +12,8 @@ import * as Mapper from "@/graph/dataMapper";
  * @property {number} inputFromSlot - 输入对象插槽索引
  * @property {number} filterId - 过滤物品id
  * @property {BuildingItem[]} _belts - (临时属性) 关联传送带建筑对象
- * @property {number[]} _slotsBeltIdx - (临时属性) 插槽外接的传送带建筑对象索引
+ * @property {BuildingItem[][]} _slotsBelts - (临时属性) 插槽索引对应的传送带建筑对象
+ * @property {BuildingItem[]} _slotsExternalBelt - (临时属性) 插槽索引对应的外接传送带建筑对象
  * @property {{priority,iconId,count}} parameters - 建筑属性
  */
 /**
@@ -54,7 +55,7 @@ export function generateBlueprint(graphData) {
       time: new Date(),
       gameVersion: 0,
       shortDesc: graphData.header.graphName,
-      desc: `本蓝图通过[DSP超距电路蓝图设计器]生成！\n作者b站id：晨隐_\n*蓝图粘贴时请尽量使用"沙盒瞬间建造"或断电建造，避免物品流动错位`,
+      desc: `本蓝图通过[DSP物流电路设计器]生成！\n作者b站id：晨隐_\n*蓝图粘贴时请尽量使用"沙盒瞬间建造"或断电建造，避免物品流动错位`,
     },
     version: 1,
     cursorOffset: { x: 0, y: 0 },
@@ -115,14 +116,14 @@ export function createbuildings({ nodes, packageMap }) {
   // 输入输出口按传送带标记升序，为空时当做0
   nodeGroup.outputList.sort((a, b) => {
     return (
-      (a._belts[a._slotsBeltIdx[a._slotsBeltIdx.length - 1]]?.parameters?.count ?? 0) -
-      (b._belts[b._slotsBeltIdx[b._slotsBeltIdx.length - 1]]?.parameters?.count ?? 0)
+      (a._slotsExternalBelt[0]?.parameters?.count ?? 0) -
+      (b._slotsExternalBelt[0]?.parameters?.count ?? 0)
     );
   });
   nodeGroup.inputList.sort((a, b) => {
     return (
-      (a._belts[a._slotsBeltIdx[a._slotsBeltIdx.length - 1]]?.parameters?.count ?? 0) -
-      (b._belts[b._slotsBeltIdx[b._slotsBeltIdx.length - 1]]?.parameters?.count ?? 0)
+      (a._slotsExternalBelt[0]?.parameters?.count ?? 0) -
+      (b._slotsExternalBelt[0]?.parameters?.count ?? 0)
     );
   });
 
@@ -365,8 +366,10 @@ export function collateNodes(nodes, packageMap, res, isPackage) {
                 res.builds.push(...vbelts);
                 // 记录关联的传送带对象
                 fdir._belts.push(...vbelts);
-                // 记录插槽外接传送带建筑对象索引
-                fdir._slotsBeltIdx[s.edge.sourceSlot.index] = fdir._belts.length - 1;
+                // 记录插槽索引对应的传送带建筑对象
+                fdir._slotsBelts[s.edge.sourceSlot.index] = vbelts;
+                // 记录插槽索引对应的外接传送带建筑对象
+                fdir._slotsExternalBelt[s.edge.sourceSlot.index] = vbelts[vbelts.length - 1]; // 最后一个传送带
               }
             }
           }
@@ -479,7 +482,8 @@ export function createFdirGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0] =
   let priority = [false, false, false, false];
 
   const _belts = [];
-  const _slotsBeltIdx = [];
+  const _slotsBelts = [];
+  const _slotsExternalBelt = [];
   let offsetIndex = 1;
   for (let i = 0; i < 4; i++) {
     const s = node.slots[i];
@@ -499,8 +503,10 @@ export function createFdirGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0] =
       offsetIndex += vbelts.length;
       // 记录关联的传送带对象
       _belts.push(...vbelts);
-      // 记录插槽外接传送带建筑对象索引
-      _slotsBeltIdx[i] = _belts.length - 1;
+      // 记录插槽索引对应的传送带建筑对象
+      _slotsBelts[i] = vbelts;
+      // 记录插槽索引对应的外接传送带建筑对象
+      _slotsExternalBelt[i] = vbelts[vbelts.length - 1]; // 最后一个传送带
     }
   }
 
@@ -512,7 +518,8 @@ export function createFdirGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0] =
     filterId,
   });
   _fdir._belts = _belts;
-  _fdir._slotsBeltIdx = _slotsBeltIdx;
+  _fdir._slotsBelts = _slotsBelts;
+  _fdir._slotsExternalBelt = _slotsExternalBelt;
   return _fdir;
 }
 
@@ -535,7 +542,14 @@ export function createFdirVBelt(s, fdirIndex = -1, beltIndex = 0, [ox = 0, oy = 
   ];
 
   const i = s.index; // 插槽索引
-  const beltLevel = s._onlyOnePriorityIpt ? 2 : 3; // 四向只有一个优先输入时，优先输入端使用绿带，否则使用蓝带
+  let beltLevel;
+  if (s.beltLevel) {
+    // 优先使用四向插槽定义的传送带速度
+    beltLevel = s.beltLevel;
+  } else {
+    // 没有定义则自动判断传送带速度
+    beltLevel = s._onlyOnePriorityIpt ? 2 : 3; // 四向只有一个优先输入时，优先输入端使用绿带，否则使用蓝带
+  }
 
   // 创建四向直连的传送带
   const beltOptions = [];
@@ -711,8 +725,10 @@ export function createMonitorGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0
   const belt2_building = createBelt(belt2);
   // 记录关联的传送带对象
   _monitor._belts = [belt1_building, belt2_building];
-  // 记录插槽外接传送带建筑对象索引
-  _monitor._slotsBeltIdx = [_monitor._belts.length - 1]; // belt2_building
+  // 记录插槽索引对应的传送带建筑对象
+  _monitor._slotsBelts = [_monitor._belts]; // 插槽索引0
+  // 记录插槽索引对应的外接传送带建筑对象
+  _monitor._slotsExternalBelt = [belt2_building]; // 插槽索引0
   return _monitor;
 }
 
@@ -727,16 +743,22 @@ export function generateInserter(edgeSet, idToBuildMap, builds) {
   let inserterList = [];
   let deleteIndexs = []; // 标记删除的建筑索引
   edgeSet.forEach((e) => {
+    // 节点对应建筑对象
     let targetBuild = idToBuildMap.get(e.target.id);
     let sourceBuild = idToBuildMap.get(e.source.id);
+    // 对应插槽的所有传送带建筑对象
+    let targetSlotBelts = [];
+    let sourceSlotBelts = [];
+    // 对应插槽的外接传送带建筑对象
     let targetBelt;
     let sourceBelt;
-    // 获取插槽外接传送带对象
     if (targetBuild) {
-      targetBelt = targetBuild._belts[targetBuild._slotsBeltIdx[e.targetSlot.index]];
+      targetSlotBelts = targetBuild._slotsBelts[e.targetSlot.index];
+      targetBelt = targetBuild._slotsExternalBelt[e.targetSlot.index];
     }
     if (sourceBuild) {
-      sourceBelt = sourceBuild._belts[sourceBuild._slotsBeltIdx[e.sourceSlot.index]];
+      sourceSlotBelts = sourceBuild._slotsBelts[e.sourceSlot.index];
+      sourceBelt = sourceBuild._slotsExternalBelt[e.sourceSlot.index];
     }
 
     if (Cfg.globalSetting.generateMode === 0) {
@@ -780,32 +802,41 @@ export function generateInserter(edgeSet, idToBuildMap, builds) {
       }
     } else if (Cfg.globalSetting.generateMode === 2) {
       // 隔空直连模式
+      // 【四向只保留了输入口传送带、及输出到置0的传送带】
       if (e.target.modelId === Cfg.ModelId.fdir && sourceBelt) {
-        // 其他建筑->四向，外接传送带 隔空连到 目标四向的入口
-        if (
-          [Cfg.ModelId.monitor, Cfg.ModelId.output, Cfg.ModelId.input].includes(e.source.modelId)
-        ) {
-          // 处理流速器输入四向，移除四向上的外接带
-          if (targetBelt) {
-            deleteIndexs.push(targetBelt.index); // 外接带
-            deleteIndexs.push(targetBelt.outputObjIdx); // 外接带的上一格带子
-          }
-          if (e.targetSlot._onlyOnePriorityIpt) {
-            // 四向只有一个优先输入时，优先输入端流速器使用绿带
-            sourceBuild._belts.forEach((b) => {
-              b.itemId = 2002;
-              b.modelIndex = 36;
+        // 1）传送带输出->四向，外接传送带 隔空连到 目标四向的入口
+        // 合并两端传送带，保留来源建筑上的传送带
+        if (targetBelt) {
+          // 若两端传送带速度不一致，使用较低的传送带速度
+          if (targetBelt.itemId < sourceBelt.itemId) {
+            sourceSlotBelts.forEach((b) => {
+              b.itemId = targetBelt.itemId;
+              b.modelIndex = targetBelt.modelIndex;
             });
           }
+          // 移除目标四向插槽上的传送带;
+          targetSlotBelts?.forEach((b) => {
+            deleteIndexs.push(b.index);
+          });
         }
         sourceBelt.outputObjIdx = targetBuild.index;
         sourceBelt.outputToSlot = e.targetSlot.index;
       } else if (e.source.modelId === Cfg.ModelId.fdir && targetBelt) {
-        // 四向->其他建筑，来源四向的出口 隔空连到 外接传送带
+        // 2）四向->传送带输入，来源四向的出口 隔空连到 外接传送带
+        if (e.sourceSlot.beltLevel) {
+          // 若来源四向定义了传送带速度，且两端传送带速度不一致，使用较低的传送带速度
+          let { itemId, modelIndex } = getDefByBeltLevel(e.sourceSlot.beltLevel);
+          if (itemId < targetBelt.itemId) {
+            targetSlotBelts?.forEach((b) => {
+              b.itemId = itemId;
+              b.modelIndex = modelIndex;
+            });
+          }
+        }
         targetBelt.inputObjIdx = sourceBuild.index;
         targetBelt.inputFromSlot = e.sourceSlot.index;
       } else if (targetBelt && sourceBelt) {
-        // 其余连接，来源传送带 直接输出到 目标传送带
+        // 3）其余连接，来源传送带 直接输出到 目标传送带
         sourceBelt.outputObjIdx = targetBelt.index;
         sourceBelt.outputToSlot = 1;
       }
@@ -875,7 +906,7 @@ export function createFdir({
  * @param {number[]} opt.offset 偏移 [x,y,z]
  * @param {number[]} opt.opt 输出 [outputObjIdx, outputToSlot]
  * @param {number[]} opt.ipt 输入 [inputObjIdx, inputFromSlot]
- * @param {number} opt.level 传送带等级(1,2,3) 默认1级带
+ * @param {number} opt.level 传送带等级(1,2,3) 默认3级带
  * @param {number} opt.iconId 传送带标记图标id
  * @param {number} opt.count 传送带标记数
  * @return {BuildingItem}
@@ -889,23 +920,7 @@ export function createBelt({
   iconId,
   count,
 } = {}) {
-  let itemId;
-  let modelIndex;
-  switch (level) {
-    case 1:
-      itemId = 2001;
-      modelIndex = 35;
-      break;
-    case 2:
-      itemId = 2002;
-      modelIndex = 36;
-      break;
-    case 3:
-    default:
-      itemId = 2003;
-      modelIndex = 37;
-      break;
-  }
+  let { itemId, modelIndex } = getDefByBeltLevel(level);
   let parameters = null;
   if (iconId != null) {
     parameters ??= {};
@@ -938,6 +953,32 @@ export function createBelt({
     filterId: 0,
     parameters,
   };
+}
+
+/**
+ * 根据传送带等级获取传送带定义信息
+ * @param beltLevl 传送带等级 (1:绿带, 2:绿带, 3:蓝带, 默认蓝带)
+ * @return {{itemId,modelIndex}}
+ */
+export function getDefByBeltLevel(beltLevel) {
+  switch (beltLevel) {
+    case 1:
+      return {
+        itemId: 2001,
+        modelIndex: 35,
+      };
+    case 2:
+      return {
+        itemId: 2002,
+        modelIndex: 36,
+      };
+    case 3:
+    default:
+      return {
+        itemId: 2003,
+        modelIndex: 37,
+      };
+  }
 }
 
 /**

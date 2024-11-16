@@ -433,6 +433,9 @@ export function getGraphDataHash(graphData) {
           feature += "|";
         }
         feature += s.dir; // 插槽方向
+        if(s.beltLevel) {
+          feature += "b" + s.beltLevel; // 连接传送带等级
+        }
         if (s.priority) {
           feature += "," + s.priority; // 是否优先插槽
         }
