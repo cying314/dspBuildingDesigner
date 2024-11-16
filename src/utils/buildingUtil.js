@@ -30,6 +30,9 @@ const monitorSize = { w: 1, h: 2, d: 1, cx: 0.5, cy: 1.5 };
 /** 分拣器大小 @type {BuildingSize} */
 const inserterSize = { w: 1, h: 2, d: 1, cx: 0.5, cy: 1.5 };
 
+const monitorBeltYOffset = -0.1; // 流速器底部传送带偏移，避免非瞬间建造时流速器绑定错位问题
+monitorSize.cy -= monitorBeltYOffset; // 修正流速器组锚点中心
+
 /**
  * 生成蓝图数据
  * @param {Mapper.GraphData} graphData 图谱数据
@@ -632,18 +635,17 @@ export function createMonitorGroup(node, startIndex = 0, [ox = 0, oy = 0, oz = 0
   }
   // }
 
-  const yOffset = -0.1; // 整体偏移，避免非瞬间建造时流速器绑定错位问题
   const beltDistance = 0.7; // 传送带间距
   // 接流速器
   let belt1 = {
     index: startIndex + 1,
-    offset: [ox, oy + yOffset, oz],
+    offset: [ox, oy + monitorBeltYOffset, oz],
     level: beltLevel,
   };
   // 外接
   let belt2 = {
     index: startIndex + 2,
-    offset: [ox, oy + yOffset - beltDistance, oz],
+    offset: [ox, oy + monitorBeltYOffset - beltDistance, oz],
     level: beltLevel,
   };
 

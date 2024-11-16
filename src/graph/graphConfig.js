@@ -210,7 +210,7 @@ export function getDefaultLayout() {
     /** @type {BuildingLayout} 流速器-信号输出 生成布局配置 */
     outputLayout: {
       name: "流速器-信号输出",
-      start: { x: 0.5, y: -1, z: 0 },
+      start: { x: 0.5, y: -1.5, z: 0 },
       maxW: 30,
       maxH: 2,
       maxD: 1,
@@ -223,7 +223,7 @@ export function getDefaultLayout() {
     /** @type {BuildingLayout} 流速器-信号输入 生成布局配置 */
     inputLayout: {
       name: "流速器-信号输入",
-      start: { x: 0.5, y: -4, z: 0 },
+      start: { x: 0.5, y: -4.5, z: 0 },
       maxW: 30,
       maxH: 2,
       maxD: 1,
