@@ -115,6 +115,8 @@ export default class Graph {
     // 绑定按钮事件
     this.bindKeyEvent();
 
+    // 图谱名称
+    this.graphName = graphData.header.graphName;
     // 装载数据更新图谱
     this.resetGraphData(graphData);
     this._undoList = [graphData];
@@ -333,8 +335,6 @@ export default class Graph {
       this._selection.nodeMap.clear();
 
       const header = graphParse.header;
-      // 图谱名称
-      this.graphName = header.graphName;
       // 设置画布位移、缩放
       if (isTransform) this.setTransform(header.transform);
       // 载入生成布局
