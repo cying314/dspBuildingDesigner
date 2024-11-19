@@ -4,10 +4,15 @@ import { saveAs } from "file-saver";
 import crypto from "crypto";
 
 /**
- * @typedef {import("./dataMapper.js").GraphData} GraphData
- * @typedef {import("./dataMapper.js").GraphNode} GraphNode
- * @typedef {import("./dataMapper.js").GraphNodeSlot} GraphNodeSlot
- * @typedef {import("./dataMapper.js").GraphEdge} GraphEdge
+ * @typedef {import("./dataMapper.js").GraphData} GraphData 图谱 持久化数据
+ * @typedef {import("./dataMapper.js").NodeData} NodeData 节点 持久化数据
+ * @typedef {import("./dataMapper.js").NodeSlotData} NodeSlotData 节点插槽 持久化数据
+ * @typedef {import("./dataMapper.js").LineData} LineData 连接线 持久化数据
+ * @typedef {import("./dataMapper.js").PackageModel} PackageModel 封装节点
+ *
+ * @typedef {import("./dataMapper.js").GraphNode} GraphNode 图谱节点对象
+ * @typedef {import("./dataMapper.js").GraphNodeSlot} GraphNodeSlot 图谱节点插槽对象
+ * @typedef {import("./dataMapper.js").GraphEdge} GraphEdge 图谱边对象
  */
 /**
  * 校验图谱持久化数据结构
@@ -19,13 +24,15 @@ import crypto from "crypto";
 export function checkGraphData(graphData, isThrow, popupMessage) {
   try {
     if (graphData == null) throw "图谱数据为null！";
-    if (!(graphData.header instanceof Object)) throw "header数据异常！";
-    if (graphData.header.boundingBox != null && !(graphData.header.boundingBox instanceof Object))
-      throw "header.boundingBox数据异常！";
-    if (!(graphData.header.transform instanceof Object)) throw "header.transform数据异常！";
-    if (!(graphData.data instanceof Object)) throw "data数据异常！";
-    if (!(graphData.data.nodes instanceof Array)) throw "data.nodes数据异常！";
-    if (!(graphData.data.lines instanceof Array)) throw "data.lines数据异常！";
+    if (!_isObject(graphData.header)) throw "header数据异常！";
+    if (!_isObject(graphData.header.boundingBox, true)) throw "header.boundingBox数据异常！";
+    if (!_isObject(graphData.header.transform, true)) throw "header.transform数据异常！";
+    if (!_isObject(graphData.header.layout, true)) throw "header.layout数据异常！";
+    if (!_isObject(graphData.data)) throw "data数据异常！";
+    if (!_isArray(graphData.data.nodes)) throw "data.nodes数据异常！";
+    if (!_isArray(graphData.data.lines)) throw "data.lines数据异常！";
+    if (!_isArray(graphData.packages, true)) throw "packages数据异常！";
+    if (!_isArray(graphData.packageHashList, true)) throw "packageHashList数据异常！";
   } catch (e) {
     if (popupMessage) {
       _warn("数据校验不通过：" + e);
@@ -34,6 +41,14 @@ export function checkGraphData(graphData, isThrow, popupMessage) {
     return false;
   }
   return true;
+}
+function _isArray(val, nullable = false) {
+  if (val == null) return !!nullable;
+  return Array.isArray(val);
+}
+function _isObject(val, nullable = false) {
+  if (val == null) return !!nullable;
+  return val instanceof Object;
 }
 
 /**
@@ -301,13 +316,14 @@ export function saveGraphDataAsJson(graphData) {
 /**
  * 简化图谱持久化数据
  * @param {GraphData} graphData
+ * @param {PackageModel} subPack 子模块
  */
-function reducedGraphData(graphData) {
+function reducedGraphData(graphData, subPack) {
   if (!checkGraphData(graphData)) return;
   // 剔除画布位置信息
-  graphData.header.transform = { x: 0, y: 0, k: 1 };
+  graphData.header.transform = undefined;
   // 剔除生成蓝图布局信息
-  delete graphData.header.layout;
+  graphData.header.layout = undefined;
   // 节点位置统一移动画布到左上角，并将坐标取整2位小数
   const { minX: omX, minY: omY, w: ow, h: oh } = graphData.header.boundingBox;
   // 计算距离左上角的空白距离（对齐网格线）
@@ -333,15 +349,31 @@ function reducedGraphData(graphData) {
       n.y = +(n.y - omY + spY).toFixed(2);
     });
   }
-  if (graphData.packages?.length > 0) {
-    // 递归处理引用封装模块数据
-    for (let p of graphData.packages) {
-      if (p?.graphData?.header?.graphName === Cfg.defaultGraphName && p?.name) {
-        // 默认蓝图名改为模块名
-        p.graphData.header.graphName = p.name;
-      }
-      reducedGraphData(p.graphData);
+  const hashList = subPack ? subPack.childsHash : graphData.packageHashList;
+  if (hashList?.length > 0) {
+    // 标识为简化数据
+    graphData.header.simplified = 1;
+
+    // 将hash排序
+    hashList.sort();
+    const hashToIndexMap = new Map();
+    for (let i in hashList) {
+      hashToIndexMap.set(hashList[i], +i);
     }
+    // 将节点引用packageHash简化为索引
+    graphData.data.nodes.forEach((n) => {
+      if (n.modelId === Cfg.ModelId.package) {
+        n.hashIdx = hashToIndexMap.get(n.packageHash);
+        n.packageHash = undefined;
+      }
+    });
+
+    graphData.packages?.forEach((p) => {
+      // 剔除冗余的hash
+      p.initNodeData.packageHash = undefined;
+      // 递归处理引用封装模块数据
+      reducedGraphData(p.graphData, p);
+    });
   }
 }
 
@@ -399,6 +431,10 @@ export function getInitGraphData() {
 }
 
 /**
+ * 图谱特征码版本前缀标识
+ */
+export const hashVersionPrefix = "v2-";
+/**
  * 提取图谱数据特征，创建hash值（剔除多余信息，只保留蓝图建筑关键信息）
  * @param {GraphData} graphData
  * @return {string}
@@ -406,7 +442,15 @@ export function getInitGraphData() {
 export function getGraphDataHash(graphData) {
   const nodes = graphData.data.nodes ?? [];
   const lines = graphData.data.lines ?? [];
-  const packages = graphData.packages ?? [];
+  // 引用封装模块hash列表
+  const hashList = graphData.packageHashList?.sort() ?? []; // 忽略模块引入顺序
+  const hashToIndexMap = new Map();
+  for (let i in hashList) {
+    hashToIndexMap.set(hashList[i], i);
+  }
+  /** @type {Map<number, NodeData>} 引用封装模块节点 node.id -> node */
+  const packageNodeMap = new Map();
+
   // 节点特征
   let feature = "n[";
   let firstNode = true;
@@ -418,9 +462,15 @@ export function getGraphDataHash(graphData) {
     } else {
       feature += "|";
     }
-    feature += n.id + "," + n.modelId; // 节点id,模型id
+    feature += n.id + "-" + n.modelId; // 节点id,模型id
+    if (n.modelId === Cfg.ModelId.package) {
+      // 引用封装模块
+      feature += ",p" + hashToIndexMap.get(n.packageHash); // 封装hash索引
+      packageNodeMap.set(n.id, n);
+      continue;
+    }
     if (n.itemId) {
-      feature += "," + n.itemId; // 生成/消耗物品id
+      feature += ",c" + n.itemId; // 生成/消耗物品id
     }
     // 插槽
     if (n.slots?.length > 0) {
@@ -433,17 +483,14 @@ export function getGraphDataHash(graphData) {
           feature += "|";
         }
         feature += s.dir; // 插槽方向
-        if(s.beltLevel) {
-          feature += "b" + s.beltLevel; // 连接传送带等级
+        if (s.beltLevel) {
+          feature += ",b" + s.beltLevel; // 连接传送带等级
         }
-        if (s.priority) {
-          feature += "," + s.priority; // 是否优先插槽
-        }
-        if (s.filterId) {
-          feature += "," + s.filterId; // 过滤优先输出物品id
-        }
-        if (s.packageNodeId) {
-          feature += "," + s.packageNodeId; // 封装模块插槽-对应package中原输入输出节点id
+        if (s.priority == 1) {
+          feature += ",p"; // 是否优先插槽
+          if (s.filterId) {
+            feature += s.filterId; // 过滤优先输出物品id
+          }
         }
       }
       feature += "]";
@@ -452,32 +499,36 @@ export function getGraphDataHash(graphData) {
   feature += "]";
 
   // 边特征
-  feature += ",l[";
-  let firstLine = true;
-  for (let l of lines) {
-    if (firstLine) {
-      firstLine = false;
-    } else {
-      feature += "|";
-    }
-    feature += l.startId + "-" + l.startSlot + "," + l.endId + "-" + l.endSlot;
+  if (lines.length > 0) {
+    feature += ",l[";
+    feature += lines
+      .map((l) => {
+        let startSlotIdx = l.startSlot;
+        let endSlotIdx = l.endSlot;
+        // 引用封装模块不使用插槽索引，以关联内部id为依据
+        let sp = packageNodeMap.get(l.startId);
+        let ep = packageNodeMap.get(l.endId);
+        if (sp) {
+          startSlotIdx = "n" + sp.slots[startSlotIdx].packageNodeId;
+        }
+        if (ep) {
+          endSlotIdx = "n" + ep.slots[endSlotIdx].packageNodeId;
+        }
+        return l.startId + "-" + startSlotIdx + "," + l.endId + "-" + endSlotIdx;
+      })
+      .sort() // 忽略连线引入顺序
+      .join("|");
+    feature += "]";
   }
-  feature += "]";
 
-  // 复制模块特征
-  feature += ",p[";
-  let firstPackage = true;
-  for (let p of packages) {
-    if (firstPackage) {
-      firstPackage = false;
-    } else {
-      feature += "|";
-    }
-    feature += p.hash;
+  // 引用封装模块特征
+  if (hashList.length > 0) {
+    feature += ",p[";
+    feature += hashList.join("|");
+    feature += "]";
   }
-  feature += "]";
   // 使用SHA-256哈希函数生成哈希值
-  return crypto.createHash("sha256").update(feature).digest("hex");
+  return hashVersionPrefix + crypto.createHash("sha256").update(feature).digest("hex");
 }
 
 /**
@@ -546,4 +597,17 @@ export function _loading(title = "加载中") {
     text: title,
     lock: true,
   });
+}
+
+export function _toInt(num, def) {
+  if (num == null || isNaN(num)) return def;
+  return parseInt(num);
+}
+export function _toFloat(num, def, precision = 4) {
+  if (num == null || isNaN(num)) return def;
+  return +parseFloat(num).toFixed(precision); // 默认小数精度控制4位
+}
+export function _toStr(str, def) {
+  if (str == null || typeof str != "string") return def;
+  return str;
 }

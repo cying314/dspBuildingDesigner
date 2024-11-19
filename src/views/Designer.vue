@@ -383,6 +383,7 @@ export default {
         handleRclickSlot: this.handleRclickSlot,
         beforeGenerateBlueprint: this.beforeGenerateBlueprint,
       });
+      window.dspGraph = this.dspGraph;
     },
     // 替换节点封装模块
     confirmChangeModel() {
@@ -559,7 +560,7 @@ export default {
       }
       if (uploadModels == null) return;
       try {
-        if (uploadModels instanceof Array) {
+        if (Array.isArray(uploadModels)) {
           this.uploadModels = uploadModels;
         }
       } catch (e) {

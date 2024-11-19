@@ -1,5 +1,6 @@
 import * as Cfg from "./graphConfig.js";
 import * as Util from "./graphUtil.js";
+import { _toInt, _toFloat, _toStr } from "./graphUtil.js";
 
 /**
  * @typedef {Object} GraphData 图谱 持久化数据
@@ -8,8 +9,8 @@ import * as Util from "./graphUtil.js";
  *   nodes: NodeData[],
  *   lines: LineData[]
  * }} data - 节点连接信息
- * @property {PackageModel[]} packages - 引用封装模块列表
- * @property {stirng[]} packageHashList - 引用封装模块hash列表（嵌套封装模块中，只记录hash，不记录对象）
+ * @property {PackageModel[]} packages - 引用封装模块列表【仅在主模块持久化】
+ * @property {stirng[]} packageHashList - 引用封装模块hash列表【仅在主模块持久化，嵌套封装模块只通过childsHash记录hash，不记录对象】
  */
 /**
  * @typedef {Object} BuildingLayoutData 建筑布局 持久化数据
@@ -39,6 +40,7 @@ import * as Util from "./graphUtil.js";
  * @property {{x, y, k}} transform - 画布位移、缩放 { x, y, k }
  * @property {{minX, minY, maxX, maxY, w, h}} boundingBox - 节点包围盒边界信息 {minX, minY, maxX, maxY, w, h}
  * @property {HeaderLayoutData} layout - 生成蓝图布局
+ * @property {number} simplified - 为1时为简化数据
  */
 /**
  * @typedef {Object} PackageModel 封装节点
@@ -70,6 +72,34 @@ import * as Util from "./graphUtil.js";
  * @return {GraphDataParse} 图谱解析对象
  */
 export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
+  // 还原简化数据
+  let hasOldHash = false;
+  graphData.packages?.forEach((p) => {
+    // 判断特征码版本前缀标识，校验是否过时的封装模块hash码
+    if (!hasOldHash && !p.hash.startsWith(Util.hashVersionPrefix)) {
+      hasOldHash = true;
+    }
+
+    // 补全嵌套封装模块中省略的hash
+    p.graphData.header.hash = p.hash;
+    p.initNodeData.packageHash = p.hash;
+    p.graphData.packageHashList = p.childsHash;
+
+    // 存在简化数据，还原子模块节点被简化的packageHash
+    if (p.graphData.header.simplified === 1 && p.childsHash?.length > 0) {
+      p.graphData.data.nodes.forEach((n) => {
+        if (n.modelId === Cfg.ModelId.package && n.packageHash == null && n.hashIdx != null) {
+          n.packageHash = p.childsHash[n.hashIdx];
+          n.hashIdx = undefined;
+        }
+      });
+    }
+  });
+  // 存在过时的hash，重新生成封装模块hash
+  if (hasOldHash) {
+    updatePackageHash(graphData);
+  }
+
   const nodes = graphData.data.nodes;
   const lines = graphData.data.lines;
 
@@ -79,12 +109,24 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
   const nodeMapByOriginId = new Map(); // 导入id映射节点：dataId -> node
   const _nodeMap = new Map(); // 自增id映射节点：nodeId -> node
 
-  // 解析节点数据
+  // 是否存在简化hash
+  const simplifiedHash = graphData.header.simplified === 1 && graphData.packageHashList?.length > 0;
+  /** @type {GraphNode[]} 解析节点数据 */
   const _nodes = [];
   nodes.forEach((d) => {
     if (d == null) return console.warn("存在空节点对象！已忽略");
     if (d.id == null) return console.warn("存在节点id为空！已忽略");
     if (nodeMapByOriginId.has(d.id)) return console.warn("存在重复节点id:" + d.id);
+    if (
+      simplifiedHash &&
+      d.modelId === Cfg.ModelId.package &&
+      d.packageHash == null &&
+      d.hashIdx != null
+    ) {
+      // 存在简化数据，还原被简化的packageHash
+      d.packageHash = graphData.packageHashList[d.hashIdx];
+      d.hashIdx = undefined;
+    }
     const node = dataToNode(d, ++maxId, offset);
     nodeMapByOriginId.set(d.id, node);
     _nodeMap.set(node.id, node);
@@ -97,7 +139,7 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
     }
   });
 
-  // 解析连接线数据
+  /** @type {GraphEdge[]} 解析连接线数据 */
   const _edges = [];
   lines.forEach((line) => {
     if (line == null) return console.warn("存在空连接线对象！已忽略");
@@ -106,13 +148,8 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
     _edges.push(edge);
   });
 
-  // 引用封装模块列表
-  let _packages;
-  if (graphData.packages instanceof Array) {
-    _packages = graphData.packages;
-  } else {
-    _packages = [];
-  }
+  /** @type {PackageModel[]} 引用封装模块列表 */
+  const _packages = Array.isArray(graphData.packages) ? graphData.packages : [];
 
   const {
     minX = 0,
@@ -122,7 +159,7 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
     w = 0,
     h = 0,
   } = graphData.header.boundingBox ?? {};
-  const { x = 0, y = 0, k = 1 } = graphData.header.transform;
+  const { x = 0, y = 0, k = 1 } = graphData.header.transform ?? {};
   return {
     header: {
       graphName: graphData.header.graphName,
@@ -150,6 +187,97 @@ export function graphDataParse(graphData, startId = 0, offset = [0, 0]) {
 }
 
 /**
+ * 重新生成封装模块hash
+ * @param {GraphData} graphData 图谱持久化数据
+ */
+function updatePackageHash(graphData) {
+  const packages = graphData.packages;
+  if (packages == null || packages.length == 0) return;
+  // 存在过时的hash码，重新生成hash
+  const oldToNewHash = new Map();
+  /** @type {Map<string,PackageModel[]>} 旧hash对应引用改模块的上级模块 */
+  const oldHashToExtends = new Map();
+  /** @type {PackageModel[]} 已处理完子依赖的待处理队列 */
+  const packageQueue = [];
+  packages.forEach((p) => {
+    if (p.childsHash.length > 0) {
+      // 存在子模块，需从里到外解析
+      p._oldHashToIdx = new Map();
+      p.childsHash.forEach((h, i) => {
+        p._oldHashToIdx.set(h, i);
+        if (oldHashToExtends.has(h)) {
+          oldHashToExtends.get(h).push(p);
+        } else {
+          oldHashToExtends.set(h, [p]);
+        }
+      });
+    } else {
+      // 没有子模块，加入待处理队列
+      packageQueue.push(p);
+    }
+  });
+  let i = 0;
+  while (packageQueue.length > 0) {
+    i++;
+    const p = packageQueue.shift();
+    const oldHash = p.hash;
+    if (p.childsHash?.length > 0) {
+      // 更新嵌套的子封装模块的节点引用的hash
+      p.graphData.data.nodes.forEach((n) => {
+        if (n.modelId === Cfg.ModelId.package) {
+          const newHash = oldToNewHash.get(n.packageHash);
+          if (newHash) n.packageHash = newHash;
+        }
+      });
+    }
+
+    // 重新生成hash
+    const newHash = Util.getGraphDataHash(p.graphData);
+    oldToNewHash.set(oldHash, newHash);
+    // 更新封装模块hash
+    p.hash = newHash;
+    p.graphData.header.hash = newHash;
+    p.initNodeData.packageHash = newHash;
+
+    // 更新引用了该模块的上级模块
+    let extendPackages = oldHashToExtends.get(oldHash);
+    extendPackages?.forEach((ep) => {
+      let idx = ep._oldHashToIdx?.get(oldHash);
+      if (idx != null) {
+        ep.childsHash[idx] = newHash;
+        if (ep._oldHashToIdx.size == 1) {
+          // 所有依赖已经更新，加入待处理队列
+          ep._oldHashToIdx = undefined;
+          packageQueue.push(ep);
+        } else {
+          ep._oldHashToIdx.delete(oldHash);
+        }
+      }
+    });
+  }
+
+  if (packages.length != i) {
+    console.warn(`重新生成封装模块hash逻辑异常！存在${packages.length}个模块，实际处理${i}个模块`);
+  }
+
+  // 更新直接引用的封装模块hash
+  graphData.packageHashList?.forEach((hash, i) => {
+    const newHash = oldToNewHash.get(hash);
+    if (newHash) graphData.packageHashList[i] = newHash;
+  });
+
+  // 更新节点引用的hash
+  graphData.data.nodes.forEach((n) => {
+    if (n.modelId === Cfg.ModelId.package) {
+      const newHash = oldToNewHash.get(n.packageHash);
+      if (newHash) {
+        n.packageHash = newHash;
+      }
+    }
+  });
+}
+
+/**
  * 点边数据 转换为 图谱持久化数据
  * @param {GraphNode[]} nodes 节点数据
  * @param {GraphEdge[]} edges 边数据
@@ -167,6 +295,7 @@ export function toGraphData(
   weedOutUnusedPackage = false
 ) {
   let usedPackageHashSet = new Set();
+  /** @type {GraphData} */
   const graphData = {
     header: {
       version: Cfg.version,
@@ -232,10 +361,16 @@ export function toGraphData(
         name: p.name,
         childsHash: [...p.childsHash],
         graphData: {
-          ...JSON.parse(JSON.stringify(p.graphData)), // 深拷贝
-          packages: undefined, // 剔除封装模块中嵌套封装模块引用对象
+          header: {
+            version: p.graphData.header.version,
+            timestramp: p.graphData.header.timestramp,
+            boundingBox: p.graphData.header.boundingBox,
+            // 头部信息剔除冗余的graphName、transform、hash
+          },
+          data: JSON.parse(JSON.stringify(p.graphData.data)), // 深拷贝节点连接信息
+          // 剔除封装模块中嵌套封装模块信息packages、packageHashList（以childsHash为准）
         },
-        initNodeData: JSON.parse(JSON.stringify(p.initNodeData)), // 深拷贝
+        initNodeData: JSON.parse(JSON.stringify(p.initNodeData)), // 深拷贝封装节点初始化数据
       };
       _packages.push(_p);
       _packageHashList.push(_p.hash);
@@ -378,21 +513,21 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
   ox += _toFloat(other.x, 0);
   oy += _toFloat(other.y, 0);
   // 创建节点对象
-  const d = { ...other, id: nodeId, modelId, x: ox, y: oy };
+  const d = { ...other, id: nodeId, modelId, x: _toFloat(ox), y: _toFloat(oy) };
   switch (modelId) {
     case Cfg.ModelId.text: // 文本
       var { lines, maxWordNum } = Util.splitLines(d.text);
-      d.w = Math.max(10, maxWordNum * Cfg.fontSize); // 根据实际文本修改宽度和高度
-      d.h = lines.length * Cfg.lineHeight;
+      d.w = _toFloat(Math.max(10, maxWordNum * Cfg.fontSize)); // 根据实际文本修改宽度和高度
+      d.h = _toFloat(lines.length * Cfg.lineHeight);
       break;
     case Cfg.ModelId.fdir: // 四向分流器
-      d.w = d.h = Cfg.nodeSize;
+      d.w = d.h = _toFloat(Cfg.nodeSize);
       // 固定插槽位置
       d.slots = [
-        { ox: 0, oy: -d.h / 2, dir: -1 }, // 默认 上输入
-        { ox: d.w / 2, oy: 0, dir: -1 }, // 默认 右输入
-        { ox: 0, oy: d.h / 2, dir: 1 }, // 默认 下输出
-        { ox: -d.w / 2, oy: 0, dir: 1 }, // 默认 左输出
+        { ox: 0, oy: _toFloat(-d.h / 2), dir: -1 }, // 默认 上输入
+        { ox: _toFloat(d.w / 2), oy: 0, dir: -1 }, // 默认 右输入
+        { ox: 0, oy: _toFloat(d.h / 2), dir: 1 }, // 默认 下输出
+        { ox: _toFloat(-d.w / 2), oy: 0, dir: 1 }, // 默认 左输出
       ];
       // 合并传入的插槽参数
       if (other.slots?.length > 0) {
@@ -417,7 +552,7 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
     case Cfg.ModelId.monitor: // 流速器(生成/消耗)
     case Cfg.ModelId.output: // 信号输出(生成)
     case Cfg.ModelId.input: // 信号输入(消耗)
-      d.w = d.h = Cfg.nodeSize / 2; // 一半四向宽
+      d.w = d.h = _toFloat(Cfg.nodeSize / 2); // 一半四向宽
       d.itemId = _toInt(other.itemId, 6002); // 生成/消耗物品id（默认红糖）
       d.signalId = _toInt(other.signalId); // 传送带标记图标id
       d.count = _toInt(other.count); // 传送带标记数
@@ -433,7 +568,7 @@ export function modelIdToNode(modelId, nodeId, other, [ox = 0, oy = 0] = []) {
       }
       break;
     case Cfg.ModelId.set_zero: // 置零
-      d.w = d.h = Cfg.nodeSize / 2; // 一半四向宽
+      d.w = d.h = _toFloat(Cfg.nodeSize / 2); // 一半四向宽
       d.slots = [{ dir: -1 }]; // 默认输入
       break;
     case Cfg.ModelId.package: // 封装模块节点
@@ -465,6 +600,7 @@ export function dataToNode(data, nodeId, offset) {
  * @typedef {Object} NodeData 节点 持久化数据
  * @property {number} modelId - 模型id
  * @property {string} packageHash - 封装模块hash
+ * @property {number} hashIdx - 简化数据下只记录packageHash在packageHashList中的索引【仅在持久化时存在】
  * @property {number} id - 节点id
  * @property {number} x - 节点x偏移
  * @property {number} y - 节点y偏移
@@ -633,17 +769,4 @@ export function edgeToData(edge) {
     endId: edge.target.id,
     endSlot: edge.targetSlot.index,
   };
-}
-
-function _toInt(num, def) {
-  if (num == null || isNaN(num)) return def;
-  return parseInt(num);
-}
-function _toFloat(num, def) {
-  if (num == null || isNaN(num)) return def;
-  return parseInt(num);
-}
-function _toStr(str, def) {
-  if (str == null || typeof str != "string") return def;
-  return str;
 }

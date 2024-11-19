@@ -383,8 +383,9 @@ export default class Graph {
    * 加载数据，并追加到当前图谱
    * @param {Mapper.GraphData} graphData 图谱持久化数据
    * @param {number[]} offset 相对画布svg坐标 [ox, oy]
+   * @param {boolean} overlaySamePackage 是否覆盖相同hash模块
    */
-  appendGraphData(graphData, [ox = 0, oy = 0] = []) {
+  appendGraphData(graphData, [ox = 0, oy = 0] = [], overlaySamePackage = true) {
     Util.checkGraphData(graphData, true, true); // 校验图谱数据
     try {
       const { minX = 0, minY = 0, w = 0, h = 0 } = graphData.header.boundingBox ?? {};
@@ -422,7 +423,7 @@ export default class Graph {
       this._selection.nodeMap = graphParse.nodeMap; // 选中粘贴的节点
 
       // 追加引用封装模块列表
-      this.appendPackages(graphParse.packages);
+      this.appendPackages(graphParse.packages, overlaySamePackage);
 
       // 重绘节点
       this.buildNode();
@@ -837,14 +838,24 @@ export default class Graph {
   nodesBringToFront(nodeMap) {
     if (!(nodeMap?.size > 0)) return;
     if (!this.$nodeGroup) throw "节点层Selection不存在！";
-    let nodes = Array.from(nodeMap.values());
+    let sortNodes = []; // 根据原图层顺序排序选中节点
+    // 操作数据数组移置最后，否则复制和持久化将丢失置顶
+    for (let i = 0; i < this._nodes.length; i++) {
+      let n = this._nodes[i];
+      if (nodeMap.has(n.id)) {
+        sortNodes.push(n);
+        this._nodes.splice(i, 1);
+        i--;
+      }
+    }
+    this._nodes.push(...sortNodes);
+
     // 元素移置父级的最后
     this.$nodeGroup
       .selectAll(".node")
-      .data(nodes, (d) => d.id)
+      .data(sortNodes, (d) => d.id)
       .raise();
-    // 数据数组也移置最后，否则复制和持久化将丢失置顶
-    this._nodes = this._nodes.filter((n) => !nodeMap.has(n.id)).concat(nodes);
+
     // 记录操作
     this.recordUndo();
   }
@@ -872,14 +883,24 @@ export default class Graph {
   nodesSendToBack(nodeMap) {
     if (!(nodeMap?.size > 0)) return;
     if (!this.$nodeGroup) throw "节点层Selection不存在！";
-    let nodes = Array.from(nodeMap.values());
+    let sortNodes = []; // 根据原图层顺序排序选中节点
+    // 操作数据数组移置最前，否则复制和持久化将丢失置底
+    for (let i = 0; i < this._nodes.length; i++) {
+      let n = this._nodes[i];
+      if (nodeMap.has(n.id)) {
+        sortNodes.push(n);
+        this._nodes.splice(i, 1);
+        i--;
+      }
+    }
+    this._nodes.unshift(...sortNodes);
+
     // 元素移置父级的最前
     this.$nodeGroup
       .selectAll(".node")
-      .data(nodes, (d) => d.id)
+      .data(sortNodes.reverse(), (d) => d.id)
       .lower();
-    // 数据数组也移置最前，否则复制和持久化将丢失置底
-    this._nodes = nodes.concat(this._nodes.filter((n) => !nodeMap.has(n.id)));
+
     // 记录操作
     this.recordUndo();
   }
@@ -2484,8 +2505,12 @@ export default class Graph {
 
   // 节点拖拽事件
   bindNodeDragEvent() {
+    let X = 0;
+    let Y = 0;
     // 开始拖拽
     const dragstart = (d) => {
+      X = 0;
+      Y = 0;
       // 中断重置定位的过渡动画
       this.$link?.interrupt("moveTransition");
       this.$node?.interrupt("moveTransition");
@@ -2496,6 +2521,9 @@ export default class Graph {
     // 正在拖拽
     const dragmove = () => {
       const { dx, dy } = d3.event;
+      if (dx === 0 && dy === 0) return;
+      X += dx;
+      Y += dy;
       window.requestAnimationFrame(() => {
         // 设置更新选中节点的坐标
         this._selection.nodeMap.forEach((n) => {
@@ -2517,6 +2545,8 @@ export default class Graph {
         // 获取网格对齐坐标偏移量
         const [dtX, dtY] = Util.getGridAlignmentOffset(node.x, node.y);
         if (dtX != 0 || dtY != 0) {
+          X += dtX;
+          Y += dtY;
           this._selection.nodeMap.forEach((n) => {
             n.x += dtX;
             n.y += dtY;
@@ -2527,8 +2557,10 @@ export default class Graph {
           this.buildTick();
         }
       }
-      // 记录操作
-      this.recordUndo();
+      if (X != 0 || Y != 0) {
+        // 存在移动时，记录操作
+        this.recordUndo();
+      }
     };
 
     if (!this._nodeDrag) {
@@ -2935,11 +2967,18 @@ export default class Graph {
 
   /**
    * 将当前选中节点数据转换为持久化数据
+   * @param {boolean} sortByLayer 是否根据原图层顺序排序（为false时根据选中顺序排序）
    * @return {Mapper.GraphData}
    */
-  getSelectionGraphData() {
+  getSelectionGraphData(sortByLayer = false) {
+    let selectedNodes; // 选中节点集合
+    if (sortByLayer) {
+      selectedNodes = this._nodes.filter((n) => this._selection.nodeMap.has(n.id)); // 根据原图层顺序排序
+    } else {
+      selectedNodes = Array.from(this._selection.nodeMap.values()); // 根据选中顺序排序
+    }
     return Mapper.toGraphData(
-      Array.from(this._selection.nodeMap.values()), // 选中节点集合
+      selectedNodes, // 选中节点集合
       Util.getEdgesByNodeMap(this._selection.nodeMap), // 通过节点映射获取边集
       {
         transform: this.transform,
@@ -2960,7 +2999,7 @@ export default class Graph {
       return false;
     }
     try {
-      const graphData = this.getSelectionGraphData();
+      const graphData = this.getSelectionGraphData(true);
       await window.localforage.setItem("copyGraphData", graphData);
       if (showSuccess) Util._success("复制成功！");
       return true;
@@ -3181,7 +3220,7 @@ export default class Graph {
       throw err;
     }
     try {
-      const graphData = this.getSelectionGraphData();
+      const graphData = this.getSelectionGraphData(true);
       const packageModel = await this.packageComponent(graphData);
       if (packageModel) {
         let offset;
@@ -3244,8 +3283,6 @@ export default class Graph {
     packageName = defaultName;
     // }
 
-    // 新增、更新
-
     // 记录所有嵌套的子封装模块hash
     const childsHashSet = new Set();
     if (graphData.packages?.length > 0) {
@@ -3265,7 +3302,6 @@ export default class Graph {
         modelId: Cfg.ModelId.package,
         packageHash: graphDataHash,
         text: packageName, // 节点文本-package名称
-        slots: [],
       },
     };
     // 遍历节点创建输入输出插槽
@@ -3283,7 +3319,6 @@ export default class Graph {
           text: n.text, // 插槽文本
           dir: 1, // 外部插槽需要倒置输入输出
         };
-        packageModel.initNodeData.slots.push(slot);
         inputSlots.push(slot);
       } else if (n.modelId === Cfg.ModelId.output) {
         // 信号输出口
@@ -3295,7 +3330,6 @@ export default class Graph {
           text: n.text,
           dir: -1, // 倒置为输入
         };
-        packageModel.initNodeData.slots.push(slot);
         outputSlots.push(slot);
       }
     });
@@ -3306,28 +3340,30 @@ export default class Graph {
     inputSlots.sort((a, b) => (a.count ?? 0) - (b.count ?? 0));
     outputSlots.sort((a, b) => (a.count ?? 0) - (b.count ?? 0));
     // 根据插槽数量决定盒子大小
-    packageModel.initNodeData.w =
+    const W = Util._toFloat(
       Math.max(inputSlots.length, outputSlots.length) *
         (Cfg.packageSlotSize + Cfg.packageSlotSpace) +
-      Cfg.packageSlotSpace;
-    packageModel.initNodeData.h = Cfg.nodeSize;
-    const W = packageModel.initNodeData.w;
-    const H = packageModel.initNodeData.h;
+        Cfg.packageSlotSpace
+    );
+    const H = Util._toFloat(Cfg.nodeSize);
+    packageModel.initNodeData.w = W;
+    packageModel.initNodeData.h = H;
 
     // 插槽布局（横向等距排列，输出口在上边缘，输入口在下边缘，高度不变）
     const iptDis = W / (inputSlots.length + 1);
     const optDis = W / (outputSlots.length + 1);
     inputSlots.forEach((s, si) => {
-      s.ox = -W / 2 + (si + 1) * iptDis;
-      s.oy = H / 2;
+      s.ox = Util._toFloat(-W / 2 + (si + 1) * iptDis);
+      s.oy = Util._toFloat(H / 2);
     });
     outputSlots.forEach((s, si) => {
-      s.ox = -W / 2 + (si + 1) * optDis;
-      s.oy = -H / 2;
+      s.ox = Util._toFloat(-W / 2 + (si + 1) * optDis);
+      s.oy = Util._toFloat(-H / 2);
     });
+    packageModel.initNodeData.slots = inputSlots.concat(outputSlots);
 
     // 追加引用封装模块
-    this.appendPackages(graphData.packages);
+    this.appendPackages(graphData.packages, true);
     this.packageMap.set(graphDataHash, packageModel);
 
     // 覆盖刷新原有节点
@@ -3370,12 +3406,16 @@ export default class Graph {
       node.text = initNodeData.text;
       node.w = initNodeData.w;
       node.h = initNodeData.h;
-      node.slots.forEach((s, i) => {
-        let ds = initNodeData.slots[i];
+      const nodeIdToInitSlot = new Map();
+      initNodeData.slots.forEach((ds) => {
+        nodeIdToInitSlot.set(ds.packageNodeId, ds);
+      });
+      node.slots.forEach((s) => {
+        let ds = nodeIdToInitSlot.get(s.packageNodeId);
         if (ds) {
+          // s.packageNodeId = ds.packageNodeId;
           s.ox = ds.ox;
           s.oy = ds.oy;
-          s.packageNodeId = ds.packageNodeId;
           s.itemId = ds.itemId;
           s.signalId = ds.signalId;
           s.count = ds.count;
@@ -3425,7 +3465,7 @@ export default class Graph {
       // 删除当前节点
       this.deleteNode(node);
       // 粘贴一个封装展开组件
-      this.appendGraphData(_package.graphData, offset);
+      this.appendGraphData(_package.graphData, offset, false);
       return true;
     } catch (e) {
       console.error(e);
@@ -3485,13 +3525,14 @@ export default class Graph {
   /**
    * 追加引用封装模块
    * @param {Mapper.PackageModel[]} packages
+   * @param {boolean} overlaySamePackage 是否覆盖相同hash模块
    */
-  appendPackages(packages) {
+  appendPackages(packages, overlaySamePackage) {
     if (packages?.length > 0) {
       packages.forEach((p) => {
-        // if (!this.packageMap.has(p.hash)) {
-        this.packageMap.set(p.hash, p);
-        // }
+        if (overlaySamePackage || !this.packageMap.has(p.hash)) {
+          this.packageMap.set(p.hash, p);
+        }
       });
     }
   }
@@ -3507,7 +3548,7 @@ export default class Graph {
     if (modelId !== Cfg.ModelId.package) return;
     const packageModel = this.packageMap.get(packageHash);
     if (packageModel == null) return;
-    const d = packageModel.initNodeData;
+    const initNodeData = packageModel.initNodeData;
     const originHash = node.packageHash;
     let hasOtherSameNode =
       this._nodes.findIndex(
@@ -3531,15 +3572,16 @@ export default class Graph {
       if (repalceAll) {
         this.refreshPackageAllNode(packageHash);
       } else {
-        this.refreshPackageNode(node, d, true);
+        this.refreshPackageNode(node, initNodeData, true);
       }
       return;
     }
 
+    // 不同封装时，根据插槽从左到右替换连接
     const slotToIdxMap = new Map();
     const inputSlots = []; // dir:1
     const outputSlots = []; // dir:-1
-    d.slots.forEach((ds) => {
+    initNodeData.slots.forEach((ds) => {
       if (ds.dir === 1) inputSlots.push(ds);
       else outputSlots.push(ds);
     });
@@ -3559,12 +3601,12 @@ export default class Graph {
       // 更改到所有相似节点
       this._nodes.forEach((n) => {
         if (n.modelId === Cfg.ModelId.package && n.packageHash === originHash) {
-          this.changeNodePackage(n, d, slotToIdxMap);
+          this.changeNodePackage(n, initNodeData, slotToIdxMap);
         }
       });
     } else {
       // 仅更改一个节点
-      this.changeNodePackage(node, d, slotToIdxMap);
+      this.changeNodePackage(node, initNodeData, slotToIdxMap);
     }
 
     // 重置视图中的元素分层
