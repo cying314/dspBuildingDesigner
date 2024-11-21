@@ -15,8 +15,8 @@
             <el-button type="primary" icon="if-icon-json" title="导出工程为JSON文件(Ctrl+D)" @click="dspGraph.handleSaveAsJson()"></el-button>
             <el-button type="primary" icon="if-icon-blueprint" title="导出蓝图(Ctrl+B)" @click="dspGraph.handleGenerateBlueprint()"></el-button>
             <el-divider direction="vertical"></el-divider>
-            <el-button type="primary" icon="if-icon-undo" title="撤回(Ctrl+Z)" :disabled="!(dspGraph?._undoList?.length>1)" @click="dspGraph.handleUndo()"></el-button>
-            <el-button type="primary" icon="if-icon-redo" title="重做(Ctrl+Shift+Z)" :disabled="!(dspGraph?._redoList?.length>0)" @click="dspGraph.handleRedo()"></el-button>
+            <el-button type="primary" icon="if-icon-undo" title="撤回(Ctrl+Z)" :disabled="!(dspGraph?._undoMng.isCanUndo())" @click="dspGraph.handleUndo()"></el-button>
+            <el-button type="primary" icon="if-icon-redo" title="重做(Ctrl+Shift+Z)" :disabled="!(dspGraph?._undoMng.isCanRedo())" @click="dspGraph.handleRedo()"></el-button>
             <el-divider direction="vertical"></el-divider>
             <el-button type="primary" icon="el-icon-document-copy" title="复制(Ctrl+C)" @click="dspGraph.handleCopy()"></el-button>
             <el-button type="primary" icon="if-icon-paste" title="粘贴(Ctrl+V)" @click="dspGraph.handlePaste()"></el-button>
@@ -484,8 +484,7 @@ export default {
               this.graphName = graphData.header.graphName;
               this.dspGraph.resetGraphData(graphData);
               // 初始化撤回、重做记录
-              this.dspGraph._redoList = [];
-              this.dspGraph._undoList = [graphData];
+              this.dspGraph._undoMng.init(graphData);
               Util._success("载入成功！");
             })
             .catch(() => {});

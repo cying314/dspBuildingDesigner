@@ -1,4 +1,4 @@
-export const version = "1.0.9.3-beta"; // 工具版本
+export const version = "1.0.9.4-beta"; // 工具版本
 export const defaultGraphName = "新蓝图1"; // 默认蓝图名
 export const watermark = {
   width: "300px",
@@ -37,7 +37,7 @@ export const lineWordNum = 20; // 一行文本的字数（非中文算1个字符
 export const selectionMargin = 5; // 节点选中框与元素间距
 export const nodeCornerWidth = 5; // 节点选中角框长度
 export const gridStep = 10; // 网格对齐间距
-export const undoNum = 20; // 记录可撤回的次数
+export const maxUndoNum = 50; // 最大可撤回的次数
 export const undoInterval = 500; // 记录撤回的时间间隔（单位:ms）
 export const undoRebuildInterval = 100; // 撤回、重做重绘画布的事件间隔（单位:ms）
 export const color = {

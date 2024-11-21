@@ -538,7 +538,8 @@ export function _success(mes) {
   Message({
     message: mes,
     type: "success",
-    duration: 1000,
+    duration: 800,
+    offset: 60,
   });
 }
 
@@ -549,6 +550,8 @@ export function _warn(mes) {
   Message({
     message: mes,
     type: "warning",
+    duration: 2000,
+    offset: 60,
   });
 }
 
@@ -561,6 +564,7 @@ export function _err(mes) {
     title: "错误",
     message: mes,
     type: "error",
+    offset: 60,
   });
 }
 

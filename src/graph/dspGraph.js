@@ -6,6 +6,7 @@ import * as Watermark from "@/utils/watermark.js";
 import * as BuildingUtil from "@/utils/buildingUtil.js";
 import * as ItemsUtil from "@/utils/itemsUtil.js";
 import * as Parser from "@/utils/parser";
+import UndoManager from "@/utils/undoManager.js";
 export default class Graph {
   /** 图谱名称 @type {string} */ graphName;
   /** 画布位移、缩放 @type {{x, y, k}} */ transform = { x: 0, y: 0, k: 1 };
@@ -47,8 +48,7 @@ export default class Graph {
   /** 是否按下ctrl */ _ctrlDown = false;
   /** 当前鼠标是否在画布内 */ _mouseIsEnter = false;
   /** 当前鼠标在画布内相对位置 */ _mouseOffset = [0, 0];
-  /** 撤回列表 @type {Mapper.GraphData[]} */ _undoList = [];
-  /** 重做列表 @type {Mapper.GraphData[]} */ _redoList = [];
+  /** 撤回重做记录管理实例 @type {UndoManager} */ _undoMng = new UndoManager();
 
   /** 封装节点映射 hash->PackageModel @type {Map<string, Mapper.PackageModel>} */ packageMap;
 
@@ -119,7 +119,7 @@ export default class Graph {
     this.graphName = graphData.header.graphName;
     // 装载数据更新图谱
     this.resetGraphData(graphData);
-    this._undoList = [graphData];
+    this._undoMng.init(graphData);
   }
 
   // 创建画布
@@ -3073,47 +3073,60 @@ export default class Graph {
     clearTimeout(this._recordUndoTimer);
     this._recordUndoTimer = setTimeout(() => {
       const graphData = this.getGraphData();
-      this._undoList.push(graphData);
-      this._redoList = []; // 重置重做列表
-      // 超过记录的撤回次数
-      if (this._undoList.length - 1 > Cfg.undoNum) this._undoList.shift();
+      this._undoMng.pushUndo(graphData);
+      this._undoMng.clearRedo(); // 重置重做列表
     }, Cfg.undoInterval);
   }
 
   /**
    * 撤回
    */
-  handleUndo() {
-    if (this._undoList.length <= 1) {
-      Util._warn("没有可撤回的记录！");
+  async handleUndo() {
+    try {
+      if (!this._undoMng.isCanUndo()) {
+        Util._warn("没有可撤回的记录！");
+        return false;
+      }
+      this._undoMng.pushRedo(await this._undoMng.popUndo());
+      const undoData = await this._undoMng.getLastOfUndo();
+      // 一段时间内多次撤回只重绘一次
+      clearTimeout(this._undoTimer);
+      this._undoTimer = setTimeout(() => {
+        this.resetGraphData(undoData, false);
+        Util._success("撤回成功！");
+      }, Cfg.undoRebuildInterval);
+      return true;
+    } catch (e) {
+      console.error(e);
+      Util._err("撤回失败：" + (e?.message || e));
       return false;
     }
-    this._redoList.push(this._undoList.pop());
-    const undoData = this._undoList[this._undoList.length - 1];
-    // 一段时间内多次撤回只重绘一次
-    clearTimeout(this._undoTimer);
-    this._undoTimer = setTimeout(() => {
-      this.resetGraphData(undoData, false);
-      Util._success("撤回成功！");
-    }, Cfg.undoRebuildInterval);
   }
 
   /**
    * 重做
    */
-  handleRedo() {
-    if (this._redoList.length == 0) {
-      Util._warn("没有可重做的记录！");
+  async handleRedo() {
+    try {
+      if (!this._undoMng.isCanRedo()) {
+        Util._warn("没有可重做的记录！");
+        return false;
+      }
+      const redoData = await this._undoMng.popRedo();
+      this._undoMng.pushUndo(redoData);
+
+      // 一段时间内多次撤回只重绘一次
+      clearTimeout(this._undoTimer);
+      this._undoTimer = setTimeout(() => {
+        this.resetGraphData(redoData, false);
+        Util._success("重做成功！");
+      }, Cfg.undoRebuildInterval);
+      return true;
+    } catch (e) {
+      console.error(e);
+      Util._err("撤回失败：" + (e?.message || e));
       return false;
     }
-    const redoData = this._redoList.pop();
-    this._undoList.push(redoData);
-    // 一段时间内多次撤回只重绘一次
-    clearTimeout(this._undoTimer);
-    this._undoTimer = setTimeout(() => {
-      this.resetGraphData(redoData, false);
-      Util._success("重做成功！");
-    }, Cfg.undoRebuildInterval);
   }
 
   /**

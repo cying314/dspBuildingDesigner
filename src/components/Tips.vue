@@ -79,7 +79,7 @@
       </li>
       <li>
         <b>Ctrl+Z：</b>
-        <span>撤回（限20次）</span>
+        <span>撤回（限50次）</span>
       </li>
       <li>
         <b>Ctrl+Shift+Z：</b>
