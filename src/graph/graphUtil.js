@@ -298,10 +298,15 @@ export function saveAsTxt(content, fileName = "默认", fileSuffix = "txt") {
 /**
  * 保存图谱数据为json文件
  * @param {GraphData} graphData
+ * @param {string} fileName 文件名
  */
-export function saveGraphDataAsJson(graphData) {
+export function saveGraphDataAsJson(graphData, fileName) {
   try {
-    let fileName = graphData.header.graphName ?? Cfg.defaultGraphName;
+    if (fileName == null) {
+      fileName = graphData.header.graphName ?? Cfg.defaultGraphName;
+    } else if (fileName.toLocaleLowerCase().endsWith(".json")) {
+      fileName = fileName.slice(0, -5);
+    }
     if (Cfg.globalSetting.reducedData) {
       // 简化导出JSON数据
       reducedGraphData(graphData);
@@ -534,11 +539,11 @@ export function getGraphDataHash(graphData) {
 /**
  * 成功信息
  */
-export function _success(mes) {
+export function _success(mes, duration = 800) {
   Message({
     message: mes,
     type: "success",
-    duration: 800,
+    duration,
     offset: 60,
   });
 }
@@ -546,11 +551,11 @@ export function _success(mes) {
 /**
  * 警告信息
  */
-export function _warn(mes) {
+export function _warn(mes, duration = 2000) {
   Message({
     message: mes,
     type: "warning",
-    duration: 2000,
+    duration,
     offset: 60,
   });
 }

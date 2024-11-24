@@ -7,8 +7,11 @@
           <div class="btns">
             <!-- 校验成功才可执行 -->
             <el-button type="primary" icon="el-icon-document-add" title="新建" @click="newProject"></el-button>
-            <el-upload style="margin-left:10px;" action :auto-upload="false" :show-file-list="false" accept=".json" :on-change="openFile_onChange">
+            <el-upload ref="openFileUploadRef" style="margin-left:10px;" action :auto-upload="false" :show-file-list="false" accept=".json" :on-change="openFile_onChange">
               <el-button slot="trigger" type="primary" icon="el-icon-folder-opened" title="载入文件"></el-button>
+            </el-upload>
+            <el-upload ref="batchConvertUploadRef" style="margin-left:10px" action :auto-upload="false" multiple :show-file-list="false" accept=".json" :on-change="batchConvert_onChange">
+              <el-button type="primary" icon="el-icon-sort" :title="'批量转换工程文件\n用于切换简化导出JSON数据，或将旧版本json结构重新导出'" slot="trigger"></el-button>
             </el-upload>
             <el-divider direction="vertical"></el-divider>
             <el-button type="primary" icon="if-icon-save" title="保存到浏览器缓存(Ctrl+S)" @click="dspGraph.handleSave()"></el-button>
@@ -155,7 +158,7 @@
               </li>
             </ul>
           </transition>
-          <el-upload class="uploader" drag action multiple :auto-upload="false" :show-file-list="false" accept=".json" :on-change="uploadModels_onChange">
+          <el-upload ref="modelsUploadRef" class="uploader" drag action multiple :auto-upload="false" :show-file-list="false" accept=".json" :on-change="uploadModels_onChange">
             <i class="el-icon-upload"></i>
             <div class="el-upload__text">
               将文件拖到此处，或
@@ -264,6 +267,7 @@
 
 <script>
 import DspGraph from "@/graph/dspGraph.js";
+import * as Mapper from "@/graph/dataMapper.js";
 import * as Cfg from "@/graph/graphConfig.js";
 import * as Util from "@/graph/graphUtil.js";
 import * as MenusUtil from "@/utils/menusUtil.js";
@@ -492,56 +496,114 @@ export default {
         .catch((e) => {
           Util._warn("导入的JSON数据有误：" + e);
         });
+      this.$refs.openFileUploadRef.clearFiles();
+    },
+    // 批量转换工程文件
+    batchConvert_onChange(file, fileList) {
+      let len = fileList.length;
+      if (len == 1 || this._batchConvertPromise == null) {
+        this._batchConvertPromise = Promise.resolve();
+      }
+      this._batchConvertPromise = this._batchConvertPromise.then(() => {
+        return this.convertGraphData(file, len);
+      });
+      // 批量上传文件最后一个文件回调
+      clearTimeout(this._batchConvertUploadRefTimer);
+      this._batchConvertUploadRefTimer = setTimeout(() => {
+        this.$refs.batchConvertUploadRef.clearFiles();
+        this._batchConvertPromise = this._batchConvertPromise.finally(() => {
+          this._batchConvertPromise = null;
+        });
+      }, 0);
+    },
+    convertGraphData(file, uploadIdx) {
+      uploadIdx = uploadIdx ? `(${uploadIdx})` : "";
+      return Util.readFileToGraphData(file.raw)
+        .then((graphData) => {
+          const graphParse = Mapper.graphDataParse(graphData, 0);
+          const newGraphData = Mapper.toGraphData(
+            graphParse.nodes,
+            graphParse.edges,
+            graphParse.header,
+            graphParse.packages,
+            Cfg.globalSetting.reducedData
+          );
+          Util.saveGraphDataAsJson(newGraphData, file.name);
+          Util._success(`${uploadIdx}转换文件成功！`, 1500);
+          return new Promise((resolve) => setTimeout(resolve, 100)); // 等待100ms再下载下一个文件，避免并发下载文件过多导致失败
+        })
+        .catch((e) => {
+          Util._warn(`${uploadIdx}转换文件[${file.name}]失败：` + e, 3000);
+        });
     },
     // 导入组件
     uploadModels_onChange(file, fileList) {
       let len = fileList.length;
-      Util.readFileToGraphData(file.raw)
+      if (len == 1 || this._modelsUploadPromise == null) {
+        this._modelsUploadPromise = this.refreshUploadModels();
+      }
+      this._modelsUploadPromise = this._modelsUploadPromise.then(() => {
+        return this.addUploadModel(file, len);
+      });
+      // 批量上传文件最后一个文件回调
+      clearTimeout(this._modelsUploadRefTimer);
+      this._modelsUploadRefTimer = setTimeout(() => {
+        this.$refs.modelsUploadRef.clearFiles();
+        this._modelsUploadPromise = this._modelsUploadPromise.finally(() => {
+          this.cacheUploadModels();
+          this._modelsUploadPromise = null;
+        });
+      }, 0);
+    },
+    addUploadModel(file, uploadIdx) {
+      uploadIdx = uploadIdx ? `(${uploadIdx})` : "";
+      return Util.readFileToGraphData(file.raw)
         .then((graphData) => {
-          this.addUploadModel(graphData);
+          if (!graphData) return;
+          graphData.header.graphName ??= Cfg.defaultGraphName;
+          let idx = this.uploadModels.findIndex(
+            (e) => e.header.graphName == graphData.header.graphName
+          );
+          if (idx != -1) {
+            return this.$confirm(`是否覆盖[${idx + 1}. ${graphData.header.graphName}]？`, "提示", {
+              confirmButtonText: "确定",
+              cancelButtonText: "取消",
+              type: "warning",
+            })
+              .then(() => {
+                this.uploadModels[idx] = graphData;
+                Util._success(`${uploadIdx}导入组件成功！`, 1500);
+              })
+              .catch(() => {});
+          } else {
+            this.uploadModels.push(graphData);
+            Util._success(`${uploadIdx}导入组件成功！`, 1500);
+          }
         })
         .catch((e) => {
-          Util._warn(`导入的JSON数据有误${len > 1 ? `[${file.name}](${len})` : ""}：` + e);
+          Util._warn(`${uploadIdx}导入文件[${file.name}]失败：` + e, 3000);
         });
     },
-    async addUploadModel(graphData) {
-      if (!graphData) return;
-      await this.refreshUploadModels();
-      graphData.header.graphName ??= Cfg.defaultGraphName;
-      let idx = this.uploadModels.findIndex(
-        (e) => e.header.graphName == graphData.header.graphName
-      );
-      if (idx != -1) {
-        this.$confirm(`是否覆盖[${idx + 1}. ${graphData.header.graphName}]？`, "提示", {
-          confirmButtonText: "确定",
-          cancelButtonText: "取消",
-          type: "warning",
-        })
-          .then(() => {
-            this.uploadModels[idx] = graphData;
-            this.cacheUploadModels();
-            Util._success("导入组件成功！");
-          })
-          .catch(() => {});
-      } else {
-        this.uploadModels.push(graphData);
-        this.cacheUploadModels();
-        Util._success("导入组件成功！");
-      }
-    },
     deleteUploadModel(i) {
-      let d = this.uploadModels[i];
-      if (!d) return;
-      this.$confirm(`确定要移除组件[${i + 1}. ${d.header?.graphName}]？`, "提示", {
-        confirmButtonText: "确定",
-        cancelButtonText: "取消",
-        type: "warning",
-      })
-        .then(() => {
-          this.uploadModels.splice(i, 1);
-          this.cacheUploadModels();
-        })
-        .catch(() => {});
+      let graphData = this.uploadModels[i];
+      if (!graphData) return;
+      this.refreshUploadModels().then(() => {
+        let idx = this.uploadModels.findIndex(
+          (e) => e.header.graphName == graphData.header.graphName
+        );
+        if (idx != -1) {
+          this.$confirm(`确定要移除组件[${idx + 1}. ${graphData.header.graphName}]？`, "提示", {
+            confirmButtonText: "确定",
+            cancelButtonText: "取消",
+            type: "warning",
+          })
+            .then(() => {
+              this.uploadModels.splice(idx, 1);
+              this.cacheUploadModels();
+            })
+            .catch(() => {});
+        }
+      });
     },
     downloadUploadModel(data) {
       Util.saveGraphDataAsJson(data);
@@ -557,9 +619,10 @@ export default {
           uploadModels = JSON.parse(json);
         }
       }
-      if (uploadModels == null) return;
       try {
-        if (Array.isArray(uploadModels)) {
+        if (uploadModels == null) {
+          this.uploadModels = [];
+        } else if (Array.isArray(uploadModels)) {
           this.uploadModels = uploadModels;
         }
       } catch (e) {
