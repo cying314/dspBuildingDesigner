@@ -601,6 +601,7 @@
         "list": [
           {
             "name": "JK触发_上升沿-v4",
+            "tip": "初始化后，首次置K与CLK上升沿不稳定",
             "path": "./static/data/JK触发-v4_RE.json"
           },
           {
@@ -609,6 +610,7 @@
           },
           {
             "name": "JK触发_异步清零_下降沿-v4",
+            "tip": "初始化后，首次CLK上升沿不稳定",
             "path": "./static/data/JK触发-v4_FE_异步清零.json"
           },
           {
@@ -624,10 +626,12 @@
         "list": [
           {
             "name": "T触发_上升沿-v4",
+            "tip": "初始化置T为1后，首次CLK上升沿有概率不稳定",
             "path": "./static/data/T触发-v4_RE.json"
           },
           {
             "name": "T触发_下降沿-v4",
+            "tip": "初始化置T为1后，首次CLK上升沿有概率不稳定",
             "path": "./static/data/T触发-v4_FE.json"
           },
           {
