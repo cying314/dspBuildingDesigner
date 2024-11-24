@@ -373,12 +373,18 @@ function reducedGraphData(graphData, subPack) {
       }
     });
 
-    graphData.packages?.forEach((p) => {
-      // 剔除冗余的hash
-      p.initNodeData.packageHash = undefined;
-      // 递归处理引用封装模块数据
-      reducedGraphData(p.graphData, p);
-    });
+    if (graphData.packages?.length > 0) {
+      let packages = [];
+      graphData.packages.forEach((p) => {
+        p = JSON.parse(JSON.stringify(p));
+        // 剔除冗余的hash
+        p.initNodeData.packageHash = undefined;
+        // 递归处理引用封装模块数据
+        reducedGraphData(p.graphData, p);
+        packages.push(p);
+      });
+      graphData.packages = packages;
+    }
   }
 }
 
